@@ -9,14 +9,6 @@ inline uint32_t parse_hex_color(const std::string &hex, bool &valid) {
   return strtoul(hex.c_str(), nullptr, 16);
 }
 
-// Reduce green channel to 80% to compensate for display panel color shift
-inline uint32_t correct_color(uint32_t rgb) {
-  uint8_t r = (rgb >> 16) & 0xFF;
-  uint8_t g = (uint8_t)(((rgb >> 8) & 0xFF) * 80 / 100);
-  uint8_t b = rgb & 0xFF;
-  return ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
-}
-
 inline int normalize_width_compensation_percent(int percent) {
   if (percent <= 0) return 100;
   if (percent < 50) return 50;

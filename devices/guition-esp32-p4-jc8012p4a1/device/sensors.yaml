@@ -49,7 +49,6 @@ script:
           cfg.num_slots = 20;
           bool portrait = id(screen_rotation_select).current_option() == "90" || id(screen_rotation_select).current_option() == "270";
           cfg.cols = portrait ? 4 : 5;
-          cfg.color_correction = true;
           cfg.wrap_tall_labels = true;
           cfg.icon_font = id(icon_font_800)->get_lv_font();
           cfg.sp_sensor_font = id(statistics_font_lt)->get_lv_font();
@@ -112,7 +111,6 @@ esphome:
             cfg.num_slots = 20;
             bool portrait = id(screen_rotation_select).current_option() == "90" || id(screen_rotation_select).current_option() == "270";
             cfg.cols = portrait ? 4 : 5;
-            cfg.color_correction = true;
             cfg.wrap_tall_labels = true;
             cfg.icon_font = id(icon_font_800)->get_lv_font();
             cfg.sp_sensor_font = id(statistics_font_lt)->get_lv_font();
@@ -212,7 +210,6 @@ esphome:
             cfg.num_slots = 20;
             bool portrait = id(screen_rotation_select).current_option() == "90" || id(screen_rotation_select).current_option() == "270";
             cfg.cols = portrait ? 4 : 5;
-            cfg.color_correction = true;
             cfg.wrap_tall_labels = true;
             cfg.icon_font = id(icon_font_800)->get_lv_font();
             cfg.sp_sensor_font = id(statistics_font_lt)->get_lv_font();

@@ -40,7 +40,6 @@ def slot_device(slug: str, device: dict, settings: dict) -> dict:
         "media_title_font": fonts["mediaTitle"],
         "volume_number_font": fonts["volumeNumber"],
         "volume_label_font": fonts["volumeLabel"],
-        "color_correction": display["colorCorrection"],
         "wrap_tall_labels": display["wrapTallLabels"],
     }
     if "portraitCols" in layout:
@@ -126,8 +125,6 @@ def cfg_lines(device: dict) -> list[str]:
             lines.append("            cfg.width_compensation_vertical = portrait;")
     else:
         lines.append(f"            cfg.cols = {device['cols']};")
-    if device["color_correction"]:
-        lines.append("            cfg.color_correction = true;")
     if device["wrap_tall_labels"]:
         lines.append("            cfg.wrap_tall_labels = true;")
     if device.get("width_compensation_percent", 100) != 100:

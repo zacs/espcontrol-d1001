@@ -83,7 +83,6 @@
           "volumeLabel": "volume_modal_label_font_600"
         },
         "display": {
-          "colorCorrection": false,
           "wrapTallLabels": true,
           "volumeWidthCompensationPercent": 95
         }
@@ -168,7 +167,6 @@
           "volumeLabel": "label_font_lg"
         },
         "display": {
-          "colorCorrection": true,
           "wrapTallLabels": false
         }
       }
@@ -251,7 +249,6 @@
           "volumeLabel": "volume_modal_label_font_800"
         },
         "display": {
-          "colorCorrection": true,
           "wrapTallLabels": true
         }
       }
@@ -335,7 +332,6 @@
           "volumeLabel": "volume_modal_label_font_md_square"
         },
         "display": {
-          "colorCorrection": true,
           "wrapTallLabels": false
         }
       }
@@ -423,7 +419,6 @@
           "volumeLabel": "label_font_sm"
         },
         "display": {
-          "colorCorrection": false,
           "wrapTallLabels": false
         }
       }

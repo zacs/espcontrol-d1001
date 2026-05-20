@@ -13,7 +13,6 @@ struct GridConfig {
   int num_slots;
   int cols;
   bool width_compensation_vertical = false;
-  bool color_correction;
   bool wrap_tall_labels;
   int width_compensation_percent = 100;
   int volume_width_compensation_percent = 100;
@@ -380,12 +379,6 @@ inline void grid_phase1(
   uint32_t off_val = parse_hex_color(off_hex, has_off);
   uint32_t sensor_val = parse_hex_color(sensor_hex, has_sensor_color);
 
-  if (cfg.color_correction) {
-    if (has_on) on_val = correct_color(on_val);
-    if (has_off) off_val = correct_color(off_val);
-    if (has_sensor_color) sensor_val = correct_color(sensor_val);
-  }
-
   CardPalette palette;
   palette.has_on = has_on;
   palette.has_off = has_off;
@@ -477,12 +470,6 @@ inline void grid_phase2(
   uint32_t on_val = parse_hex_color(on_hex, has_on);
   uint32_t off_val = parse_hex_color(off_hex, has_off);
   uint32_t sensor_val = parse_hex_color(sensor_hex, has_sensor_color);
-
-  if (cfg.color_correction) {
-    if (has_on) on_val = correct_color(on_val);
-    if (has_off) off_val = correct_color(off_val);
-    if (has_sensor_color) sensor_val = correct_color(sensor_val);
-  }
 
   CardPalette palette;
   palette.has_on = has_on;
