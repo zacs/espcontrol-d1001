@@ -899,6 +899,15 @@ inline void media_volume_hide_modal() {
   ui.updating_arc = false;
 }
 
+inline void control_modal_apply_pressed_fill(lv_obj_t *btn) {
+  if (!btn) return;
+  lv_obj_set_style_bg_color(btn, lv_color_hex(DARK_BACKGROUND_SECONDARY),
+    static_cast<lv_style_selector_t>(LV_PART_MAIN) | static_cast<lv_style_selector_t>(LV_STATE_PRESSED));
+  lv_obj_set_style_bg_opa(btn, LV_OPA_COVER,
+    static_cast<lv_style_selector_t>(LV_PART_MAIN) | static_cast<lv_style_selector_t>(LV_STATE_PRESSED));
+  apply_push_button_transition(btn);
+}
+
 inline lv_obj_t *control_modal_create_round_button(lv_obj_t *parent, lv_coord_t size,
                                                   const char *text,
                                                   const lv_font_t *font,
@@ -914,6 +923,7 @@ inline lv_obj_t *control_modal_create_round_button(lv_obj_t *parent, lv_coord_t 
   lv_obj_set_style_border_color(btn, lv_color_hex(border_color), LV_PART_MAIN);
   lv_obj_set_style_border_width(btn, 2, LV_PART_MAIN);
   lv_obj_set_style_shadow_width(btn, 0, LV_PART_MAIN);
+  control_modal_apply_pressed_fill(btn);
   lv_obj_t *label = lv_label_create(btn);
   lv_label_set_text(label, text);
   lv_obj_set_style_text_color(label, lv_color_hex(DARK_TEXT_PRIMARY), LV_PART_MAIN);

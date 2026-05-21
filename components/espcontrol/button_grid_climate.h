@@ -744,6 +744,7 @@ inline lv_obj_t *climate_create_chip(lv_obj_t *parent, const char *title,
   lv_obj_set_style_pad_right(btn, 12, LV_PART_MAIN);
   lv_obj_set_style_pad_top(btn, 6, LV_PART_MAIN);
   lv_obj_set_style_pad_bottom(btn, 6, LV_PART_MAIN);
+  control_modal_apply_pressed_fill(btn);
   lv_obj_t *label = lv_label_create(btn);
   lv_label_set_text(label, title);
   lv_label_set_long_mode(label, LV_LABEL_LONG_CLIP);
@@ -800,6 +801,7 @@ inline lv_obj_t *climate_create_menu_tile(lv_obj_t *parent, const char *icon,
   lv_obj_set_style_flex_flow(btn, LV_FLEX_FLOW_ROW, LV_PART_MAIN);
   lv_obj_set_style_flex_main_place(btn, LV_FLEX_ALIGN_START, LV_PART_MAIN);
   lv_obj_set_style_flex_cross_place(btn, LV_FLEX_ALIGN_CENTER, LV_PART_MAIN);
+  control_modal_apply_pressed_fill(btn);
 
   lv_obj_t *icon_lbl = lv_label_create(btn);
   lv_label_set_text(icon_lbl, icon);
@@ -898,6 +900,7 @@ inline void climate_open_inline_option_list(ClimateControlCtx *ctx, const std::s
       lv_obj_set_style_flex_flow(btn, LV_FLEX_FLOW_ROW, LV_PART_MAIN);
       lv_obj_set_style_flex_main_place(btn, LV_FLEX_ALIGN_CENTER, LV_PART_MAIN);
       lv_obj_set_style_flex_cross_place(btn, LV_FLEX_ALIGN_CENTER, LV_PART_MAIN);
+      control_modal_apply_pressed_fill(btn);
 
       lv_obj_t *label = lv_label_create(btn);
       lv_label_set_text(label, climate_option_label(option).c_str());
