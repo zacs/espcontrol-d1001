@@ -435,6 +435,22 @@ inline void climate_apply_background_arc_width(lv_obj_t *arc, const ControlModal
   lv_obj_set_style_arc_width(arc, layout.arc_stroke + extra, LV_PART_MAIN);
 }
 
+inline ControlModalLayout climate_control_calc_layout(ClimateControlCtx *ctx) {
+  ControlModalLayout layout = control_modal_calc_layout(ctx ? ctx->width_compensation_percent : 100);
+  layout.arc_size = layout.arc_size * 86 / 100;
+  if (layout.arc_size < 74) layout.arc_size = 74;
+
+  int width_percent = normalize_width_compensation_percent(ctx ? ctx->width_compensation_percent : 100);
+  lv_coord_t visible_arc_w = compensated_width(layout.arc_size, width_percent);
+  layout.arc_center_x = (layout.arc_size - visible_arc_w) / 2;
+  layout.arc_center_y = -control_modal_scaled_px(8, layout.short_side);
+  layout.value_center_y = layout.arc_center_y + layout.arc_stroke / 2;
+  layout.controls_center_y = layout.arc_center_y + layout.arc_size / 2 -
+    layout.btn_size / 2 - layout.inset +
+    control_modal_scaled_px(MEDIA_VOLUME_CONTROLS_DOWN_REF_PX, layout.short_side);
+  return layout;
+}
+
 inline void climate_raise_arc_markers() {
   ClimateControlModalUi &ui = climate_control_modal_ui();
   if (ui.current_dot) lv_obj_move_foreground(ui.current_dot);
@@ -572,7 +588,7 @@ inline void climate_update_drag_preview(ClimateControlCtx *ctx) {
   if (ui.target_lbl)
     lv_label_set_text(ui.target_lbl, climate_format_tenths(target, ctx->precision).c_str());
   if (ui.handle_dot && ui.panel) {
-    ControlModalLayout layout = control_modal_calc_layout(ctx->width_compensation_percent);
+    ControlModalLayout layout = climate_control_calc_layout(ctx);
     climate_layout_handle_dot(ctx, layout);
     lv_obj_move_foreground(ui.handle_dot);
   }
@@ -767,7 +783,6 @@ inline void climate_set_dial_controls_visible(bool visible) {
   bool show_current = visible && ui.active && ui.active->available && ui.active->has_current;
   bool show_handle = visible && ui.active && climate_temperature_controls_enabled(ui.active);
   climate_set_obj_visible(ui.back_btn, visible);
-  climate_set_obj_visible(ui.mode_btn, visible);
   climate_set_obj_visible(ui.arc, visible);
   climate_set_obj_visible(ui.current_dot, show_current);
   climate_set_obj_visible(ui.handle_dot, show_handle);
@@ -1049,11 +1064,11 @@ inline void climate_control_set_modal_value(ClimateControlCtx *ctx) {
   if (ui.current_dot) {
     bool show_current = show_dial && ctx->has_current;
     climate_set_obj_visible(ui.current_dot, show_current);
-    if (show_current && ui.panel) climate_layout_current_dot(ctx, control_modal_calc_layout(ctx->width_compensation_percent));
+    if (show_current && ui.panel) climate_layout_current_dot(ctx, climate_control_calc_layout(ctx));
   }
   if (ui.handle_dot) {
     climate_set_obj_visible(ui.handle_dot, temp_enabled);
-    if (temp_enabled && ui.panel) climate_layout_handle_dot(ctx, control_modal_calc_layout(ctx->width_compensation_percent));
+    if (temp_enabled && ui.panel) climate_layout_handle_dot(ctx, climate_control_calc_layout(ctx));
   }
   climate_raise_arc_markers();
   if (ui.target_row) climate_set_obj_visible(ui.target_row, true);
@@ -1121,7 +1136,7 @@ inline void climate_control_set_modal_value(ClimateControlCtx *ctx) {
 inline void climate_control_layout_modal(ClimateControlCtx *ctx) {
   ClimateControlModalUi &ui = climate_control_modal_ui();
   if (!ctx || !ui.overlay || !ui.panel) return;
-  ControlModalLayout layout = control_modal_calc_layout(ctx->width_compensation_percent);
+  ControlModalLayout layout = climate_control_calc_layout(ctx);
   if (ui.status_lbl) lv_obj_update_layout(ui.status_lbl);
   if (ui.target_row) lv_obj_update_layout(ui.target_row);
   lv_coord_t title_h = ui.status_lbl ? lv_obj_get_height(ui.status_lbl) : 0;
@@ -1137,9 +1152,11 @@ inline void climate_control_layout_modal(ClimateControlCtx *ctx) {
   control_modal_apply_panel_layout(ui.overlay, ui.panel, layout,
     control_modal_card_radius(ctx->btn));
   control_modal_apply_back_button_layout(ui.back_btn, layout);
-  lv_obj_set_size(ui.mode_btn, layout.back_size, layout.back_size);
-  lv_obj_set_style_radius(ui.mode_btn, layout.back_size / 2, LV_PART_MAIN);
-  lv_obj_align(ui.mode_btn, LV_ALIGN_TOP_RIGHT, -layout.inset, layout.inset);
+  if (ui.mode_btn) {
+    lv_obj_set_size(ui.mode_btn, layout.back_size, layout.back_size);
+    lv_obj_set_style_radius(ui.mode_btn, layout.back_size / 2, LV_PART_MAIN);
+    lv_obj_align(ui.mode_btn, LV_ALIGN_TOP_RIGHT, -layout.inset, layout.inset);
+  }
   if (ui.menu_close_btn) {
     lv_obj_set_size(ui.menu_close_btn, layout.back_size, layout.back_size);
     lv_obj_set_style_radius(ui.menu_close_btn, layout.back_size / 2, LV_PART_MAIN);
@@ -1156,6 +1173,10 @@ inline void climate_control_layout_modal(ClimateControlCtx *ctx) {
   lv_obj_set_style_translate_y(ui.unit_lbl,
     control_modal_scaled_px(MEDIA_VOLUME_UNIT_Y_REF_PX, layout.short_side), LV_PART_MAIN);
   ControlModalLayout controls_layout = layout;
+  controls_layout.btn_size = control_modal_scaled_px(64, layout.short_side);
+  if (controls_layout.btn_size < 48) controls_layout.btn_size = 48;
+  controls_layout.controls_gap = control_modal_scaled_px(10, layout.short_side);
+  if (controls_layout.controls_gap < 6) controls_layout.controls_gap = 6;
   controls_layout.controls_center_y = controls_center_y;
   control_modal_apply_step_buttons_layout(ui.minus_btn, ui.plus_btn, controls_layout);
   lv_obj_align(ui.low_btn, LV_ALIGN_CENTER, -46, controls_center_y - layout.btn_size / 2 - 24);
@@ -1237,7 +1258,7 @@ inline void climate_control_layout_modal(ClimateControlCtx *ctx) {
     }
   }
   lv_obj_move_foreground(ui.back_btn);
-  lv_obj_move_foreground(ui.mode_btn);
+  if (ui.mode_btn) lv_obj_move_foreground(ui.mode_btn);
   if (ui.menu_view) lv_obj_move_foreground(ui.menu_view);
   if (ui.menu_close_btn) lv_obj_move_foreground(ui.menu_close_btn);
 }
@@ -1284,15 +1305,6 @@ inline void climate_control_open_modal(ClimateControlCtx *ctx) {
   lv_obj_set_style_bg_opa(ui.back_btn, LV_OPA_TRANSP, LV_PART_MAIN);
   lv_obj_set_style_border_width(ui.back_btn, 0, LV_PART_MAIN);
   lv_obj_add_event_cb(ui.back_btn, [](lv_event_t *) { climate_control_hide_modal(); }, LV_EVENT_CLICKED, nullptr);
-
-  ui.mode_btn = control_modal_create_round_button(ui.panel, 32, find_icon("Dots Horizontal"), ctx->icon_font,
-    DARK_BORDER, DARK_BACKGROUND_TERTIARY, ctx->width_compensation_percent);
-  lv_obj_set_style_bg_opa(ui.mode_btn, LV_OPA_TRANSP, LV_PART_MAIN);
-  lv_obj_set_style_border_width(ui.mode_btn, 0, LV_PART_MAIN);
-  lv_obj_add_event_cb(ui.mode_btn, [](lv_event_t *) {
-    ClimateControlModalUi &ui = climate_control_modal_ui();
-    if (ui.active) climate_show_action_menu(ui.active);
-  }, LV_EVENT_CLICKED, nullptr);
 
   ui.menu_view = lv_obj_create(ui.panel);
   lv_obj_set_style_bg_opa(ui.menu_view, LV_OPA_TRANSP, LV_PART_MAIN);
