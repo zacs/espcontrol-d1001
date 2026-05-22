@@ -1283,7 +1283,7 @@ inline void climate_control_layout_modal(ClimateControlCtx *ctx) {
     (value_h / 2 + layout.title_gap + title_h / 2);
   bool tune_4848 = climate_control_uses_4848_modal_tuning(layout);
   bool tune_jc4880p443 = control_modal_is_jc4880p443_size(layout);
-  bool roomy_landscape = layout.panel_w >= 900 && layout.panel_h <= 520;
+  bool roomy_landscape = layout.panel_w >= 900 && layout.panel_h <= 600;
   bool medium_landscape = layout.panel_w >= 760 && layout.panel_h <= 520;
   lv_coord_t chip_h = tune_4848
     ? control_modal_scaled_px(CLIMATE_MODAL_4848_OPTION_CHIP_H_REF_PX, layout.short_side)
