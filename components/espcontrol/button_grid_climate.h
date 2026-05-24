@@ -1498,6 +1498,7 @@ inline void climate_control_hide_modal() {
 
 inline void climate_control_open_modal(ClimateControlCtx *ctx) {
   if (!ctx || !ctx->available) return;
+  fan_preset_close();
   climate_control_hide_modal();
   ClimateControlModalUi &ui = climate_control_modal_ui();
   ui.active = ctx;

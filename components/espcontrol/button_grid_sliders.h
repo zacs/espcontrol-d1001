@@ -1032,9 +1032,12 @@ inline void media_volume_set_modal_value(MediaVolumeCtx *ctx, int pct) {
   if (ui.pct_unit_lbl) lv_label_set_text(ui.pct_unit_lbl, "");
 }
 
+inline void fan_preset_close();
+
 inline void media_volume_open_modal(MediaVolumeCtx *ctx) {
   if (!ctx || !ctx->available) return;
   media_volume_hide_modal();
+  fan_preset_close();
   MediaVolumeModalUi &ui = media_volume_modal_ui();
   ui.active = ctx;
 

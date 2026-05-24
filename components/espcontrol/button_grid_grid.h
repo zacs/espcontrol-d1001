@@ -696,7 +696,9 @@ inline void grid_phase2(
           has_on ? on_val : DEFAULT_SLIDER_COLOR,
           has_off ? off_val : DEFAULT_OFF_COLOR,
           has_sensor_color ? sensor_val : DEFAULT_TERTIARY_COLOR,
-          lv_obj_get_style_text_font(s.text_lbl, LV_PART_MAIN));
+          lv_obj_get_style_text_font(s.text_lbl, LV_PART_MAIN),
+          cfg.icon_font,
+          cfg.width_compensation_percent);
         subscribe_fan_card_state(ctx);
       }
       continue;
@@ -1249,7 +1251,9 @@ inline void grid_phase2(
             has_on ? on_val : DEFAULT_SLIDER_COLOR,
             has_off ? off_val : DEFAULT_OFF_COLOR,
             has_sensor_color ? sensor_val : DEFAULT_TERTIARY_COLOR,
-            lv_obj_get_style_text_font(sub_slot.text_lbl, LV_PART_MAIN));
+            lv_obj_get_style_text_font(sub_slot.text_lbl, LV_PART_MAIN),
+            cfg.icon_font,
+            cfg.width_compensation_percent);
           subscribe_fan_card_state(ctx);
           add_parent_indicator(sb_cfg.entity);
           lv_obj_add_event_cb(sb_btn, [](lv_event_t *e) {

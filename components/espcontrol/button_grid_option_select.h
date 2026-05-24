@@ -267,6 +267,7 @@ inline void option_select_open_modal(OptionSelectCtx *ctx) {
   media_volume_hide_modal();
   climate_control_hide_modal();
   switch_confirmation_hide_modal();
+  fan_preset_close();
   option_select_hide_modal();
 
   OptionSelectModalUi &ui = option_select_modal_ui();

@@ -118,6 +118,7 @@ inline void switch_confirmation_open_modal(const ParsedCfg &p, lv_obj_t *btn_obj
   if (p.entity.empty()) return;
   media_volume_hide_modal();
   climate_control_hide_modal();
+  fan_preset_close();
   switch_confirmation_hide_modal();
 
   SwitchConfirmationModalUi &ui = switch_confirmation_modal_ui();

@@ -4,6 +4,8 @@
 
 // ── Fan card controls ─────────────────────────────────────────────────
 
+constexpr int FAN_PRESET_MAX_OPTIONS = 32;
+
 struct FanCardCtx {
   std::string type;
   std::string entity_id;
@@ -22,6 +24,8 @@ struct FanCardCtx {
   uint32_t off_color = DEFAULT_OFF_COLOR;
   uint32_t tertiary_color = DEFAULT_TERTIARY_COLOR;
   const lv_font_t *label_font = nullptr;
+  const lv_font_t *icon_font = nullptr;
+  int width_compensation_percent = 100;
   bool available = false;
   bool on = false;
   bool oscillating = false;
@@ -30,15 +34,20 @@ struct FanCardCtx {
   bool has_custom_label = false;
 };
 
-struct FanPresetUi {
-  lv_obj_t *overlay = nullptr;
-  lv_obj_t *panel = nullptr;
-  FanCardCtx *active = nullptr;
-};
-
 struct FanPresetClick {
   FanCardCtx *ctx = nullptr;
   std::string mode;
+};
+
+struct FanPresetUi {
+  lv_obj_t *overlay = nullptr;
+  lv_obj_t *panel = nullptr;
+  lv_obj_t *close_btn = nullptr;
+  lv_obj_t *title_lbl = nullptr;
+  lv_obj_t *list = nullptr;
+  lv_obj_t *empty_lbl = nullptr;
+  FanCardCtx *active = nullptr;
+  FanPresetClick option_clicks[FAN_PRESET_MAX_OPTIONS];
 };
 
 inline FanPresetUi &fan_preset_ui() {
@@ -277,81 +286,144 @@ inline void fan_preset_close() {
   ui = FanPresetUi();
 }
 
+inline void climate_control_hide_modal();
+inline void switch_confirmation_hide_modal();
+inline void option_select_hide_modal();
+
+inline void fan_preset_close_if_unsupported(FanCardCtx *ctx) {
+  FanPresetUi &ui = fan_preset_ui();
+  if (ui.active == ctx && !fan_control_supported(ctx)) fan_preset_close();
+}
+
+inline lv_obj_t *fan_preset_create_option_button(lv_obj_t *parent,
+                                                 const std::string &label,
+                                                 bool active,
+                                                 lv_coord_t height,
+                                                 lv_coord_t radius,
+                                                 uint32_t active_color,
+                                                 const lv_font_t *font,
+                                                 int width_compensation_percent) {
+  lv_obj_t *btn = lv_btn_create(parent);
+  lv_obj_set_width(btn, lv_pct(100));
+  lv_obj_set_height(btn, height);
+  lv_obj_set_style_radius(btn, radius, LV_PART_MAIN);
+  lv_obj_set_style_bg_color(btn,
+    lv_color_hex(active ? active_color : DARK_BACKGROUND_SECONDARY), LV_PART_MAIN);
+  lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_PART_MAIN);
+  lv_obj_set_style_border_width(btn, 0, LV_PART_MAIN);
+  lv_obj_set_style_shadow_width(btn, 0, LV_PART_MAIN);
+  lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
+  control_modal_apply_pressed_fill(btn);
+
+  lv_obj_t *value = lv_label_create(btn);
+  lv_label_set_text(value, label.c_str());
+  lv_label_set_long_mode(value, LV_LABEL_LONG_DOT);
+  lv_obj_set_width(value, lv_pct(100));
+  lv_obj_set_style_text_color(value, lv_color_hex(DARK_TEXT_PRIMARY), LV_PART_MAIN);
+  lv_obj_set_style_text_align(value, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+  if (font) lv_obj_set_style_text_font(value, font, LV_PART_MAIN);
+  apply_width_compensation(value, width_compensation_percent);
+  lv_obj_center(value);
+  return btn;
+}
+
 inline void fan_preset_open(FanCardCtx *ctx) {
-  if (!ctx || ctx->preset_modes.empty()) return;
+  if (!fan_control_supported(ctx)) return;
+  media_volume_hide_modal();
+  climate_control_hide_modal();
+  switch_confirmation_hide_modal();
+  option_select_hide_modal();
   fan_preset_close();
+
   FanPresetUi &ui = fan_preset_ui();
   ui.active = ctx;
+
+  ControlModalLayout layout = control_modal_calc_layout(ctx->width_compensation_percent);
+  lv_coord_t radius = control_modal_card_radius(ctx->btn);
+  lv_coord_t content_w = layout.panel_w - layout.inset * 2;
+  if (content_w < 120) content_w = layout.panel_w;
+  lv_coord_t gap = control_modal_scaled_px(12, layout.short_side);
+  if (gap < 8) gap = 8;
+  lv_coord_t row_h = control_modal_scaled_px(48, layout.short_side);
+  if (row_h < 34) row_h = 34;
+  lv_coord_t row_radius = row_h / 3;
+  lv_coord_t title_y = layout.inset + layout.back_size / 2;
+  lv_coord_t list_y = layout.inset + layout.back_size + gap;
+  lv_coord_t list_h = layout.panel_h - list_y - layout.inset;
+  if (list_h < row_h) list_h = row_h;
+
   ui.overlay = lv_obj_create(lv_layer_top());
-  lv_obj_set_size(ui.overlay, lv_pct(100), lv_pct(100));
-  lv_obj_set_style_bg_color(ui.overlay, lv_color_hex(DARK_OVERLAY), LV_PART_MAIN);
-  lv_obj_set_style_bg_opa(ui.overlay, LV_OPA_COVER, LV_PART_MAIN);
-  lv_obj_set_style_border_width(ui.overlay, 0, LV_PART_MAIN);
-  lv_obj_set_style_shadow_width(ui.overlay, 0, LV_PART_MAIN);
-  lv_obj_set_style_pad_all(ui.overlay, 0, LV_PART_MAIN);
-  lv_obj_clear_flag(ui.overlay, LV_OBJ_FLAG_SCROLLABLE);
+  control_modal_style_overlay(ui.overlay);
 
   ui.panel = lv_obj_create(ui.overlay);
-  lv_obj_set_size(ui.panel, lv_pct(100), lv_pct(100));
-  lv_obj_set_style_bg_opa(ui.panel, LV_OPA_TRANSP, LV_PART_MAIN);
-  lv_obj_set_style_border_width(ui.panel, 0, LV_PART_MAIN);
-  lv_obj_set_style_shadow_width(ui.panel, 0, LV_PART_MAIN);
-  lv_obj_set_style_pad_top(ui.panel, 58, LV_PART_MAIN);
-  lv_obj_set_style_pad_left(ui.panel, 12, LV_PART_MAIN);
-  lv_obj_set_style_pad_right(ui.panel, 12, LV_PART_MAIN);
-  lv_obj_set_style_pad_bottom(ui.panel, 12, LV_PART_MAIN);
-  lv_obj_set_style_pad_row(ui.panel, 8, LV_PART_MAIN);
-  lv_obj_set_layout(ui.panel, LV_LAYOUT_FLEX);
-  lv_obj_set_style_flex_flow(ui.panel, LV_FLEX_FLOW_COLUMN, LV_PART_MAIN);
-  lv_obj_clear_flag(ui.panel, LV_OBJ_FLAG_SCROLLABLE);
+  control_modal_style_panel(ui.panel, radius);
+  control_modal_apply_panel_layout(ui.overlay, ui.panel, layout, radius);
 
-  lv_obj_t *back_btn = lv_btn_create(ui.overlay);
-  lv_obj_set_size(back_btn, 48, 48);
-  lv_obj_align(back_btn, LV_ALIGN_TOP_LEFT, 10, 10);
-  lv_obj_set_style_radius(back_btn, 24, LV_PART_MAIN);
-  lv_obj_set_style_bg_color(back_btn, lv_color_hex(DARK_BACKGROUND_TERTIARY), LV_PART_MAIN);
-  lv_obj_set_style_border_width(back_btn, 0, LV_PART_MAIN);
-  lv_obj_set_style_shadow_width(back_btn, 0, LV_PART_MAIN);
-  lv_obj_add_event_cb(back_btn, [](lv_event_t *) { fan_preset_close(); }, LV_EVENT_CLICKED, nullptr);
+  ui.close_btn = control_modal_create_round_button(
+    ui.panel, 32, "\U000F0156", ctx->icon_font,
+    DARK_BORDER, DARK_BACKGROUND_TERTIARY, ctx->width_compensation_percent);
+  lv_obj_set_style_bg_opa(ui.close_btn, LV_OPA_TRANSP, LV_PART_MAIN);
+  lv_obj_set_style_border_width(ui.close_btn, 0, LV_PART_MAIN);
+  lv_obj_set_size(ui.close_btn, layout.back_size, layout.back_size);
+  lv_obj_set_style_radius(ui.close_btn, layout.back_size / 2, LV_PART_MAIN);
+  lv_obj_align(ui.close_btn, LV_ALIGN_TOP_RIGHT, -layout.inset, layout.inset);
 
-  lv_obj_t *back_icon = lv_label_create(back_btn);
-  lv_label_set_text(back_icon, "\U000F0141");
-  lv_obj_center(back_icon);
+  ui.title_lbl = lv_label_create(ui.panel);
+  lv_label_set_text(ui.title_lbl, "Preset");
+  lv_label_set_long_mode(ui.title_lbl, LV_LABEL_LONG_DOT);
+  lv_obj_set_width(ui.title_lbl, content_w - layout.back_size - gap);
+  lv_obj_set_style_text_color(ui.title_lbl, lv_color_hex(DARK_TEXT_PRIMARY), LV_PART_MAIN);
+  lv_obj_set_style_text_align(ui.title_lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+  if (ctx->label_font) lv_obj_set_style_text_font(ui.title_lbl, ctx->label_font, LV_PART_MAIN);
+  apply_width_compensation(ui.title_lbl, ctx->width_compensation_percent);
+  lv_obj_align(ui.title_lbl, LV_ALIGN_TOP_MID, 0, title_y - layout.back_size / 2);
 
-  lv_obj_t *title = lv_label_create(ui.overlay);
-  lv_label_set_text(title, "Preset");
-  lv_obj_set_style_text_color(title, lv_color_hex(DARK_TEXT_PRIMARY), LV_PART_MAIN);
-  lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-  if (ctx->label_font) lv_obj_set_style_text_font(title, ctx->label_font, LV_PART_MAIN);
-  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 24);
+  ui.list = lv_obj_create(ui.panel);
+  lv_obj_set_size(ui.list, content_w, list_h);
+  lv_obj_align(ui.list, LV_ALIGN_TOP_LEFT, layout.inset, list_y);
+  lv_obj_set_style_bg_opa(ui.list, LV_OPA_TRANSP, LV_PART_MAIN);
+  lv_obj_set_style_border_width(ui.list, 0, LV_PART_MAIN);
+  lv_obj_set_style_shadow_width(ui.list, 0, LV_PART_MAIN);
+  lv_obj_set_style_pad_all(ui.list, 0, LV_PART_MAIN);
+  lv_obj_set_style_pad_row(ui.list, gap, LV_PART_MAIN);
+  lv_obj_set_layout(ui.list, LV_LAYOUT_FLEX);
+  lv_obj_set_style_flex_flow(ui.list, LV_FLEX_FLOW_COLUMN, LV_PART_MAIN);
+  lv_obj_set_scroll_dir(ui.list, LV_DIR_VER);
 
-  for (const auto &mode : ctx->preset_modes) {
-    bool selected = fan_lower(mode) == fan_lower(ctx->preset_mode);
-    lv_obj_t *btn = lv_btn_create(ui.panel);
-    lv_obj_set_width(btn, lv_pct(100));
-    lv_obj_set_height(btn, 54);
-    lv_obj_set_style_radius(btn, 8, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(btn, lv_color_hex(selected ? ctx->on_color : DARK_BACKGROUND_TERTIARY), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(btn, 0, LV_PART_MAIN);
-    lv_obj_set_style_shadow_width(btn, 0, LV_PART_MAIN);
-
-    lv_obj_t *label = lv_label_create(btn);
-    lv_label_set_text(label, fan_option_label(mode).c_str());
-    lv_obj_set_style_text_color(label, lv_color_hex(DARK_TEXT_PRIMARY), LV_PART_MAIN);
-    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    if (ctx->label_font) lv_obj_set_style_text_font(label, ctx->label_font, LV_PART_MAIN);
-    lv_obj_center(label);
-
-    FanPresetClick *click = new FanPresetClick();
-    click->ctx = ctx;
-    click->mode = mode;
+  int count = ctx->preset_modes.size() > FAN_PRESET_MAX_OPTIONS
+    ? FAN_PRESET_MAX_OPTIONS
+    : static_cast<int>(ctx->preset_modes.size());
+  std::string current = fan_lower(fan_trim(ctx->preset_mode));
+  for (int i = 0; i < count; i++) {
+    const std::string &mode = ctx->preset_modes[i];
+    bool selected = fan_lower(fan_trim(mode)) == current;
+    lv_obj_t *btn = fan_preset_create_option_button(
+      ui.list, fan_option_label(mode), selected, row_h, row_radius,
+      ctx->on_color, ctx->label_font, ctx->width_compensation_percent);
+    ui.option_clicks[i].ctx = ctx;
+    ui.option_clicks[i].mode = mode;
     lv_obj_add_event_cb(btn, [](lv_event_t *e) {
       FanPresetClick *click = (FanPresetClick *)lv_event_get_user_data(e);
-      if (click) send_fan_preset_action(click->ctx, click->mode);
+      if (click && click->ctx) send_fan_preset_action(click->ctx, click->mode);
       fan_preset_close();
-    }, LV_EVENT_CLICKED, click);
+    }, LV_EVENT_CLICKED, &ui.option_clicks[i]);
   }
+
+  if (count == 0) {
+    ui.empty_lbl = lv_label_create(ui.list);
+    lv_label_set_text(ui.empty_lbl, "No presets");
+    lv_label_set_long_mode(ui.empty_lbl, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(ui.empty_lbl, lv_pct(100));
+    lv_obj_set_style_text_color(ui.empty_lbl, lv_color_hex(DARK_TEXT_PRIMARY), LV_PART_MAIN);
+    lv_obj_set_style_text_align(ui.empty_lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    if (ctx->label_font) lv_obj_set_style_text_font(ui.empty_lbl, ctx->label_font, LV_PART_MAIN);
+  }
+
+  lv_obj_add_event_cb(ui.close_btn, [](lv_event_t *) {
+    fan_preset_close();
+  }, LV_EVENT_CLICKED, nullptr);
+
+  lv_obj_move_foreground(ui.overlay);
 }
 
 inline void fan_card_handle_click(FanCardCtx *ctx) {
@@ -365,7 +437,9 @@ inline void fan_card_handle_click(FanCardCtx *ctx) {
 inline FanCardCtx *create_fan_card_context(
     BtnSlot &slot, const ParsedCfg &p,
     uint32_t on_color, uint32_t off_color, uint32_t tertiary_color,
-    const lv_font_t *label_font) {
+    const lv_font_t *label_font,
+    const lv_font_t *icon_font,
+    int width_compensation_percent) {
   FanCardCtx *ctx = new FanCardCtx();
   ctx->type = p.type;
   ctx->entity_id = p.entity;
@@ -379,6 +453,8 @@ inline FanCardCtx *create_fan_card_context(
   ctx->off_color = off_color;
   ctx->tertiary_color = tertiary_color;
   ctx->label_font = label_font;
+  ctx->icon_font = icon_font;
+  ctx->width_compensation_percent = width_compensation_percent;
   ctx->status_label = create_transient_status_label(slot.text_lbl, ctx->label);
   lv_obj_set_user_data(slot.btn, ctx);
   fan_refresh_card(ctx);
@@ -396,6 +472,7 @@ inline void subscribe_fan_card_state(FanCardCtx *ctx) {
         ctx->available = !ha_state_unavailable_ref(state);
         ctx->on = ctx->available && is_entity_on_ref(state);
         refresh();
+        fan_preset_close_if_unsupported(ctx);
       })
   );
   esphome::api::global_api_server->subscribe_home_assistant_state(
@@ -442,6 +519,7 @@ inline void subscribe_fan_card_state(FanCardCtx *ctx) {
       [ctx, refresh](esphome::StringRef value) {
         ctx->preset_modes = fan_parse_options(value);
         refresh();
+        fan_preset_close_if_unsupported(ctx);
       })
   );
 }

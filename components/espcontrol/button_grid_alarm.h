@@ -876,6 +876,7 @@ inline void alarm_pin_open_modal(AlarmActionCtx *action) {
   climate_control_hide_modal();
   switch_confirmation_hide_modal();
   option_select_hide_modal();
+  fan_preset_close();
   alarm_pin_hide_modal();
 
   AlarmPinModalUi &ui = alarm_pin_modal_ui();
@@ -1130,6 +1131,7 @@ inline void alarm_control_open_modal(AlarmCardCtx *ctx) {
   climate_control_hide_modal();
   switch_confirmation_hide_modal();
   option_select_hide_modal();
+  fan_preset_close();
   alarm_pin_hide_modal();
   alarm_control_hide_modal();
 
