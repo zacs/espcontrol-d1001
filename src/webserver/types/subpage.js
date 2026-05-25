@@ -1,9 +1,70 @@
 // Navigation folder: tap opens a nested grid screen with its own button layout
+var SUBPAGE_CARD_METADATA = {
+  labelField: {
+    label: "Label",
+    placeholder: "e.g. Lighting",
+  },
+  icon: {
+    field: "icon",
+    fallback: "Auto",
+    label: "Icon",
+  },
+  showState: {
+    label: "Show State",
+    idSuffix: "state-toggle",
+    checked: function (b) { return subpageStateDisplayMode(b) !== "off"; },
+  },
+  stateMode: {
+    label: "Type",
+    options: [
+      ["icon", "Icon"],
+      ["numeric", "Numeric"],
+      ["text", "Text"],
+    ],
+  },
+  iconStateEntity: {
+    label: "State Entity",
+    idSuffix: "icon-state-entity",
+    placeholder: "e.g. cover.office_blind",
+    domains: ["light", "switch", "input_boolean", "binary_sensor", "cover", "lock", "media_player", "fan", "person", "device_tracker"],
+    bindName: null,
+    value: function (b) {
+      return subpageStateDisplayMode(b) === "icon" ? (b.entity || "") : "";
+    },
+  },
+  sensorEntity: {
+    label: "Sensor Entity",
+    idSuffix: "sensor",
+    placeholder: "e.g. sensor.open_windows",
+    domains: ["sensor", "binary_sensor", "text_sensor"],
+    bindName: null,
+    value: function (b) {
+      return b.sensor && b.sensor !== "indicator" ? b.sensor : "";
+    },
+  },
+  iconOn: {
+    field: "icon_on",
+    fallback: "Auto",
+    label: "On Icon",
+  },
+  unitField: {
+    label: "Unit",
+    idSuffix: "unit",
+    placeholder: "e.g. %",
+    bindName: "unit",
+    rerender: false,
+  },
+  preview: {
+    badge: "chevron-right",
+  },
+};
+
 registerButtonType("subpage", {
   label: "Subpage",
   allowInSubpage: false,
   hideLabel: true,
   labelPlaceholder: "e.g. Lighting",
+  cardMetadata: SUBPAGE_CARD_METADATA,
   onSelect: function (b) {
     b.entity = ""; b.sensor = ""; b.unit = ""; b.icon = "Auto"; b.icon_on = "Auto";
   },
@@ -13,60 +74,35 @@ registerButtonType("subpage", {
     var sensorEntity = b.sensor && b.sensor !== "indicator" ? b.sensor : "";
     var iconStateEntity = mode === "icon" ? (b.entity || "") : "";
 
-    panel.appendChild(helpers.textField(
-      "Label", helpers.idPrefix + "label", b.label, "e.g. Lighting", "label", true).field);
+    helpers.renderCardTextField(panel, b, helpers, SUBPAGE_CARD_METADATA.labelField);
 
-    var iconSectionMain = helpers.iconPickerField(
-      helpers.idPrefix + "icon-picker", helpers.idPrefix + "icon",
-      b.icon || "Auto", function (opt) {
-        b.icon = opt;
-        helpers.saveField("icon", opt);
-      }, "Icon"
-    );
-    panel.appendChild(iconSectionMain);
+    var iconSectionMain = helpers.renderCardIconPicker(panel, b, helpers, SUBPAGE_CARD_METADATA.icon);
 
-    var showStateToggleSection = helpers.toggleSection("Show State", helpers.idPrefix + "state-toggle", showState);
-    var showStateToggle = showStateToggleSection.toggle;
-    var stateCond = showStateToggleSection.section;
-    panel.appendChild(showStateToggle.row);
+    var showStateToggle = helpers.renderCardOptionToggle(panel, b, helpers, SUBPAGE_CARD_METADATA.showState);
+    var stateCond = condField();
     if (showState) stateCond.classList.add("sp-visible");
 
-    var modeControl = helpers.segmentControl([
-      ["icon", "Icon"],
-      ["numeric", "Numeric"],
-      ["text", "Text"],
-    ], mode, function (value) { setMode(value, true); });
+    var modeControl = helpers.renderCardSegmentControl(stateCond, b, helpers, Object.assign({}, SUBPAGE_CARD_METADATA.stateMode, {
+      value: function () { return mode; },
+      onSelect: function (b, helpers, value) { setMode(value, true); },
+    }));
     var iconBtn = modeControl.buttons.icon;
     var numericBtn = modeControl.buttons.numeric;
     var textBtn = modeControl.buttons.text;
-    stateCond.appendChild(helpers.fieldWithControl("Type", null, modeControl.segment));
 
     var stateIconSection = condField();
-    var iconEntityField = helpers.entityField(
-      "State Entity",
-      helpers.idPrefix + "icon-state-entity",
-      iconStateEntity,
-      "e.g. cover.office_blind",
-      ["light", "switch", "input_boolean", "binary_sensor", "cover", "lock", "media_player", "fan", "person", "device_tracker"]
-    );
+    var iconEntityField = helpers.renderCardEntityField(stateIconSection, b, helpers, {
+      entity: SUBPAGE_CARD_METADATA.iconStateEntity,
+    });
     var iconEntityInp = iconEntityField.input;
-    stateIconSection.appendChild(iconEntityField.field);
-    var onIconSection = helpers.iconPickerField(
-      helpers.idPrefix + "icon-on-picker", helpers.idPrefix + "icon-on",
-      b.icon_on || "Auto", function (opt) {
-        b.icon_on = opt;
-        helpers.saveField("icon_on", opt);
-      }, "On Icon"
-    );
-    stateIconSection.appendChild(onIconSection);
+    helpers.renderCardIconPicker(stateIconSection, b, helpers, SUBPAGE_CARD_METADATA.iconOn);
     stateCond.appendChild(stateIconSection);
 
     var sensorField = condField();
-    var sensorEntityField = helpers.entityField(
-      "Sensor Entity", helpers.idPrefix + "sensor", sensorEntity, "e.g. sensor.open_windows",
-      ["sensor", "binary_sensor", "text_sensor"]);
+    var sensorEntityField = helpers.renderCardEntityField(sensorField, b, helpers, {
+      entity: SUBPAGE_CARD_METADATA.sensorEntity,
+    });
     var sensorInp = sensorEntityField.input;
-    sensorField.appendChild(sensorEntityField.field);
     helpers.requireField(sensorInp, "Add a sensor entity before saving.", function () {
       return showState && (mode === "numeric" || mode === "text");
     });
@@ -107,10 +143,8 @@ registerButtonType("subpage", {
 
     var numericSection = condField();
 
-    var unitField = helpers.textField("Unit", helpers.idPrefix + "unit", b.unit, "e.g. %", "unit", false);
+    var unitField = helpers.renderCardTextField(numericSection, b, helpers, SUBPAGE_CARD_METADATA.unitField);
     var unitInp = unitField.input;
-    unitInp.className = "sp-input";
-    numericSection.appendChild(unitField.field);
 
     var precisionField = helpers.precisionField(helpers.idPrefix + "precision",
       mode === "numeric" ? (b.precision || "0") : "0", function () {
@@ -204,20 +238,21 @@ registerButtonType("subpage", {
     var label = b.label || b.entity || "Configure";
     var mode = subpageStateDisplayMode(b);
 
+    if (mode === "icon") {
+      var stateIconName = b.icon && b.icon !== "Auto" ? iconSlug(b.icon) : "cog";
+      return {
+        iconHtml: '<span class="sp-btn-icon mdi mdi-' + stateIconName + '"></span>',
+        labelHtml: subpageBadgeLabelHtml(helpers, label),
+      };
+    }
+
     if (mode === "numeric") {
-      var unit = b.unit ? helpers.escHtml(b.unit) : "";
+      var unit = b.unit || "";
       var prec = parseInt(b.precision || "0", 10) || 0;
       var sampleVal = (0).toFixed(prec);
       return {
-        iconHtml:
-          '<span class="sp-sensor-preview">' +
-            '<span class="sp-sensor-value">' + sampleVal + '</span>' +
-            '<span class="sp-sensor-unit">' + unit + '</span>' +
-          '</span>',
-        labelHtml:
-          '<span class="sp-btn-label-row"><span class="sp-btn-label">' +
-            helpers.escHtml(b.label || b.sensor || "Subpage") +
-          '</span><span class="sp-subpage-badge mdi mdi-chevron-right"></span></span>',
+        iconHtml: cardSensorPreviewHtml(b, helpers, sampleVal, unit),
+        labelHtml: subpageBadgeLabelHtml(helpers, b.label || b.sensor || "Subpage"),
       };
     }
 
@@ -225,22 +260,24 @@ registerButtonType("subpage", {
       var iconName = b.icon && b.icon !== "Auto" ? iconSlug(b.icon) : "cog";
       return {
         iconHtml: '<span class="sp-btn-icon mdi mdi-' + iconName + '"></span>',
-        labelHtml:
-          '<span class="sp-btn-label-row"><span class="sp-btn-label">State</span>' +
-          '<span class="sp-subpage-badge mdi mdi-chevron-right"></span></span>',
+        labelHtml: subpageBadgeLabelHtml(helpers, "State"),
       };
     }
 
     return {
-      labelHtml:
-        '<span class="sp-btn-label-row"><span class="sp-btn-label">' + helpers.escHtml(label) + '</span>' +
-        '<span class="sp-subpage-badge mdi mdi-chevron-right"></span></span>',
+      labelHtml: subpageBadgeLabelHtml(helpers, label),
     };
   },
   contextMenuItems: function (slot, b, helpers) {
     helpers.addCtxItem("cog", "Edit Subpage", function () { enterSubpage(slot); });
   },
 });
+
+function subpageBadgeLabelHtml(helpers, label) {
+  return '<span class="sp-btn-label-row"><span class="sp-btn-label">' +
+    helpers.escHtml(label) +
+  '</span><span class="sp-subpage-badge mdi mdi-' + SUBPAGE_CARD_METADATA.preview.badge + '"></span></span>';
+}
 
 function appendEditSubpageButton(panel, slot) {
   var configBtn = document.createElement("button");

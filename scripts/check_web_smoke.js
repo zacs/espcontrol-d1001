@@ -582,6 +582,45 @@ const internalPushPreview = hooks.buttonTypePreviewFor("internal", {
 assert(internalPushPreview.iconHtml.includes("mdi-gesture-tap"), "internal push preview uses the push icon");
 assert(internalPushPreview.labelHtml.includes("mdi-gesture-tap"), "internal push preview uses the push badge");
 
+const subpagePlainPreview = hooks.buttonTypePreviewFor("subpage", {
+  label: "Lighting",
+  icon: "Lightbulb",
+  type: "subpage",
+});
+assert(subpagePlainPreview.labelHtml.includes("mdi-chevron-right"), "plain subpage preview uses the chevron badge");
+
+const subpageIconPreview = hooks.buttonTypePreviewFor("subpage", {
+  entity: "cover.office_blind",
+  label: "Office Blind",
+  icon: "Blinds",
+  icon_on: "Blinds Open",
+  sensor: "indicator",
+  type: "subpage",
+});
+assert(subpageIconPreview.iconHtml.includes("mdi-blinds"), "subpage icon-state preview uses the configured icon");
+assert(subpageIconPreview.labelHtml.includes("mdi-chevron-right"), "subpage icon-state preview uses the chevron badge");
+
+const subpageNumericPreview = hooks.buttonTypePreviewFor("subpage", {
+  label: "Open Windows",
+  icon: "Window Closed",
+  sensor: "sensor.open_windows",
+  unit: "%",
+  type: "subpage",
+});
+assert(subpageNumericPreview.iconHtml.includes("sp-sensor-preview"), "subpage numeric preview uses the shared number preview");
+assert(subpageNumericPreview.labelHtml.includes("mdi-chevron-right"), "subpage numeric preview uses the chevron badge");
+
+const subpageTextPreview = hooks.buttonTypePreviewFor("subpage", {
+  label: "Washer",
+  icon: "Thermometer",
+  sensor: "sensor.washer_state",
+  type: "subpage",
+  precision: "text",
+});
+assert(subpageTextPreview.iconHtml.includes("mdi-thermometer"), "subpage text preview uses the configured icon");
+assert(subpageTextPreview.labelHtml.includes("State"), "subpage text preview keeps the State label");
+assert(subpageTextPreview.labelHtml.includes("mdi-chevron-right"), "subpage text preview uses the chevron badge");
+
 const mediaVolumePreview = hooks.buttonTypePreviewFor("media", {
   entity: "media_player.kitchen",
   label: "Kitchen",
