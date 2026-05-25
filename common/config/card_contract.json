@@ -449,6 +449,38 @@
       "label": "Media",
       "allowInSubpage": true,
       "domains": ["media_player"],
+      "options": [
+        {
+          "name": "media_mode",
+          "label": "Type",
+          "kind": "choice",
+          "values": ["play_pause", "previous", "next", "volume", "position", "now_playing"],
+          "defaultValue": "play_pause"
+        },
+        {
+          "name": "media_display",
+          "label": "Type",
+          "kind": "choice",
+          "values": ["", "state"],
+          "defaultValue": ""
+        },
+        {
+          "name": "media_now_playing_controls",
+          "label": "Controls",
+          "kind": "choice",
+          "values": ["", "progress", "play_pause"],
+          "defaultValue": ""
+        }
+      ],
+      "behavior": {
+        "media": {
+          "defaultMode": "play_pause",
+          "legacyModes": {
+            "controls": "play_pause"
+          },
+          "stateDisplayModes": ["play_pause", "position"]
+        }
+      },
       "default": {
         "entity": "",
         "label": "",

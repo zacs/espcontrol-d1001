@@ -323,6 +323,30 @@ assert.strictEqual(hooks.normalizeInternalRelayMode("bad"), "switch", "internal 
 assert.strictEqual(hooks.internalRelayDefaultIcon("switch"), "Lightbulb Outline", "internal relay switch icon is spec-backed");
 assert.strictEqual(hooks.internalRelayDefaultIcon("push"), "Gesture Tap", "internal relay push icon is spec-backed");
 assert.strictEqual(hooks.internalRelayDefaultOnIcon(), "Lightbulb", "internal relay on icon is spec-backed");
+assert.deepStrictEqual(
+  Array.from(hooks.mediaModeOptionValues()),
+  ["play_pause", "previous", "next", "volume", "position", "now_playing"],
+  "media mode options are spec-backed"
+);
+assert.strictEqual(hooks.mediaEditorMode("controls"), "play_pause", "legacy media controls mode maps through spec");
+assert.strictEqual(hooks.mediaEditorMode("bad"), "play_pause", "invalid media mode falls back through spec");
+assert.deepStrictEqual(
+  Array.from(hooks.mediaNowPlayingControlValues()),
+  ["", "progress", "play_pause"],
+  "media now-playing control options are spec-backed"
+);
+assert.strictEqual(
+  hooks.mediaNowPlayingControls({ sensor: "now_playing", precision: "progress" }),
+  "progress",
+  "media now-playing progress mode is spec-backed"
+);
+assert.strictEqual(
+  hooks.mediaNowPlayingControls({ sensor: "now_playing", precision: "state" }),
+  "",
+  "media now-playing invalid precision is cleared"
+);
+assert.strictEqual(hooks.mediaStateDisplayModeSupported("position"), true, "media state display supports position mode");
+assert.strictEqual(hooks.mediaStateDisplayModeSupported("volume"), false, "media state display rejects volume mode");
 const coverOptionSpecs = hooks.cardContractOptions("cover");
 const coverOptionByName = Object.fromEntries(coverOptionSpecs.map((option) => [option.name, option]));
 assert.deepStrictEqual(

@@ -34,15 +34,11 @@ function normalizeButtonConfig(b) {
     if (!b.icon) b.icon = "Auto";
   }
   if (b && b.type === "media") {
-    if (b.sensor === "controls") {
+    var rawMediaMode = b.sensor;
+    if (rawMediaMode === "controls") {
       if (!b.icon || b.icon === "Speaker") b.icon = "Auto";
-      b.sensor = "play_pause";
-    } else if (!b.sensor) {
-      b.sensor = "play_pause";
     }
-    if (["play_pause", "previous", "next", "volume", "position", "now_playing"].indexOf(b.sensor) < 0) {
-      b.sensor = "play_pause";
-    }
+    b.sensor = mediaEditorMode(b.sensor);
     if (b.sensor === "previous" && b.label === "Skip Previous") b.label = "Previous";
     if (b.sensor === "next" && b.label === "Skip Next") b.label = "Next";
     if (b.sensor === "volume") {
@@ -51,8 +47,8 @@ function normalizeButtonConfig(b) {
     }
     if (b.sensor === "position" && (!b.label || b.label === "Track")) b.label = "Position";
     if (b.sensor === "now_playing") {
-      b.precision = b.precision === "progress" || b.precision === "play_pause" ? b.precision : "";
-    } else if ((b.sensor === "play_pause" || b.sensor === "position") && b.precision === "state") {
+      b.precision = mediaNowPlayingControls(b);
+    } else if (mediaStateDisplayModeSupported(b.sensor) && b.precision === "state") {
       b.precision = "state";
     } else {
       b.precision = "";
@@ -716,6 +712,12 @@ function buttonConfigFields(b) {
   var iconOn = (isActionOptionSelect || type === "alarm" || type === "alarm_action" || (isFanCardType(type) && type !== "fan_switch")) ? "Auto" : (b && b.icon_on || "Auto");
   if (type === "fan_switch" && (!iconOn || iconOn === "Auto")) iconOn = "Fan";
   var precision = (isActionOptionSelect || type === "light_switch" || type === "alarm" || type === "alarm_action" || isFanCardType(type)) ? "" : (b && b.precision || "");
+  if (type === "media") {
+    sensor = mediaEditorMode(sensor);
+    precision = sensor === "now_playing"
+      ? mediaNowPlayingControls({ sensor: sensor, precision: precision })
+      : (mediaStateDisplayModeSupported(sensor) && precision === "state" ? "state" : "");
+  }
   if (type === "climate") precision = normalizeClimatePrecisionConfig(precision);
   if (type === "door_window") precision = normalizeDoorWindowSubtype(precision);
   var options = b && b.options || "";

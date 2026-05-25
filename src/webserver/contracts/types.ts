@@ -58,6 +58,11 @@ export interface CardTypeSpec {
       defaultIcons: Readonly<Record<string, string>>;
       defaultIconOn: string;
     };
+    media?: {
+      defaultMode: string;
+      legacyModes?: Readonly<Record<string, string>>;
+      stateDisplayModes?: readonly string[];
+    };
   };
 }
 

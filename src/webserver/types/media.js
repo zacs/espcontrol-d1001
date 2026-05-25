@@ -1,11 +1,24 @@
 // Media player card: playback buttons, volume, track position, or now-playing details.
+function mediaBehaviorSpec() {
+  var card = cardContractCard("media");
+  return card && card.behavior && card.behavior.media || {};
+}
+
+function mediaModeOptionValues() {
+  var spec = cardContractOptionSpec("media", "media_mode");
+  return spec && spec.values ? spec.values.slice() :
+    ["play_pause", "previous", "next", "volume", "position", "now_playing"];
+}
+
+function mediaDefaultMode() {
+  return mediaBehaviorSpec().defaultMode || "play_pause";
+}
+
 function mediaEditorMode(value) {
-  if (value === "controls") return "play_pause";
-  if (value === "previous" || value === "next" || value === "volume" ||
-      value === "position" || value === "now_playing" || value === "play_pause") {
-    return value;
-  }
-  return "play_pause";
+  value = String(value || "");
+  var legacy = mediaBehaviorSpec().legacyModes || {};
+  value = legacy[value] || value;
+  return mediaModeOptionValues().indexOf(value) >= 0 ? value : mediaDefaultMode();
 }
 
 function mediaEditorValidMode(value) {
@@ -14,7 +27,17 @@ function mediaEditorValidMode(value) {
 
 function mediaNowPlayingControls(b) {
   if (!b || b.sensor !== "now_playing") return "";
-  return b.precision === "progress" || b.precision === "play_pause" ? b.precision : "";
+  return mediaNowPlayingControlValues().indexOf(b.precision || "") >= 0 ? b.precision : "";
+}
+
+function mediaNowPlayingControlValues() {
+  var spec = cardContractOptionSpec("media", "media_now_playing_controls");
+  return spec && spec.values ? spec.values.slice() : ["", "progress", "play_pause"];
+}
+
+function mediaStateDisplayModeSupported(mode) {
+  var modes = mediaBehaviorSpec().stateDisplayModes || ["play_pause", "position"];
+  return modes.indexOf(mediaEditorMode(mode)) >= 0;
 }
 
 function mediaNowPlayingProgressEnabled(b) {
