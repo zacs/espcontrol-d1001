@@ -37,9 +37,10 @@ esp32:
       # task stack can trip the stack protector during mbedTLS setup.
       CONFIG_ESP_MAIN_TASK_STACK_SIZE: "8192"
       CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC: "y"
-      # Keep the ESP32 task watchdog long enough for display startup while
-      # remaining compatible with ESPHome 2026.4 and newer.
-      CONFIG_ESP_TASK_WDT_TIMEOUT_S: "30"
+      # Native OTA can block loopTask while ESP-IDF erases the alternate app
+      # partition on this panel. Use the ESP-IDF maximum so the flash
+      # erase/prep step can finish before data upload continues.
+      CONFIG_ESP_TASK_WDT_TIMEOUT_S: "60"
       # ESPHome 2026.5 / ESP-IDF 5.5.2 can make ESP-Hosted preallocate a
       # large internal DMA buffer pool before ESPHome starts. On P4 display
       # builds this can fail with "HS_MP: mempool create failed: no mem" and
@@ -79,9 +80,32 @@ esphome:
       # Separate marker for the JC1060P470 boot-loop fix so ESPHome cannot
       # silently reuse the earlier 10:42 build that still crashes.
       - "-DESPCONTROL_JC1060P470_BOOTFIX_20260522=1"
+      # Rebuild marker for the JC1060P470 OTA flash erase watchdog increase.
+      - "-DESPCONTROL_JC1060P470_OTA_WDT_20260526=1"
     build_src_flags:
       - "-Wno-literal-suffix"
   on_boot:
+    - priority: 260
+      then:
+        - if:
+            condition:
+              lambda: |-
+                #ifdef USE_ESP32_CRASH_HANDLER
+                return esphome::esp32::crash_handler_has_data();
+                #else
+                return false;
+                #endif
+            then:
+              - lambda: |-
+                  #ifdef USE_ESP32_CRASH_HANDLER
+                  esphome::esp32::crash_handler_clear();
+                  #endif
+                  id(jc1060p470_safe_mode).mark_successful();
+                  global_preferences->sync();
+                  ESP_LOGW("jc1060p470", "Cleared saved crash report before API logging; rebooting once");
+              - delay: 500ms
+              - lambda: |-
+                  App.safe_reboot();
     - priority: 250
       then:
         - lambda: |-
@@ -104,6 +128,9 @@ psram:
 ota:
   - platform: esphome
   - platform: http_request
+
+safe_mode:
+  id: jc1060p470_safe_mode
 
 # ---------------------------------------------------------------------------
 # Shared infrastructure (API, logging, web server, restart button)

@@ -100,7 +100,7 @@
           "volumeWidthCompensationPercent": 95
         },
         "package": {
-          "firmwareVersion": "dev-jc1060p470-20260522",
+          "firmwareVersion": "dev-jc1060p470-20260526-otawdt",
           "substitutions": {
             "screen_width": "\"1024\"",
             "screen_height": "\"600\"",
