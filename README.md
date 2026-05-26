@@ -94,9 +94,14 @@ See the [screen guides](https://jtenniswood.github.io/espcontrol/getting-started
 
 After changing card configuration, the web setup page, or generated device files, run:
 
+- `npm run check:product`
 - `npm run check:fast`
 - `npm run check:web-browser-smoke`
 - `npm run docs:build`
+
+Use `npm run check:product` as the focused product preflight when changing shared schema,
+card behavior, web setup behavior, device metadata, generated outputs, backup compatibility,
+or release-facing metadata.
 
 ## License
 
