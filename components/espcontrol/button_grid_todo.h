@@ -28,6 +28,7 @@ struct TodoCardCtx {
   lv_obj_t *unit_lbl = nullptr;
   lv_obj_t *label_lbl = nullptr;
   const lv_font_t *label_font = nullptr;
+  const lv_font_t *list_font = nullptr;
   const lv_font_t *icon_font = nullptr;
   uint32_t accent_color = DEFAULT_SLIDER_COLOR;
   uint32_t secondary_color = DEFAULT_OFF_COLOR;
@@ -379,8 +380,8 @@ inline void todo_modal_render_items(TodoCardCtx *ctx, const std::vector<TodoItem
   }
 
   ControlModalLayout layout = control_modal_calc_layout(ctx->width_compensation_percent);
-  lv_coord_t row_h = control_modal_scaled_px(48, layout.short_side);
-  if (row_h < 34) row_h = 34;
+  lv_coord_t row_h = control_modal_scaled_px(40, layout.short_side);
+  if (row_h < 30) row_h = 30;
   lv_coord_t checkbox_size = control_modal_scaled_px(15, layout.short_side);
   if (checkbox_size < 11) checkbox_size = 11;
   lv_coord_t item_gap = control_modal_scaled_px(12, layout.short_side);
@@ -394,7 +395,7 @@ inline void todo_modal_render_items(TodoCardCtx *ctx, const std::vector<TodoItem
       std::string label = item.summary.empty() ? "More items" : item.summary + " more";
       todo_modal_create_list_item_row(
         ui.list, label, false, false, false, false, row_h, content_w,
-        checkbox_size, item_gap, ctx->accent_color, ctx->label_font,
+        checkbox_size, item_gap, ctx->accent_color, ctx->list_font,
         ctx->icon_font, ctx->width_compensation_percent);
       continue;
     }
@@ -402,7 +403,7 @@ inline void todo_modal_render_items(TodoCardCtx *ctx, const std::vector<TodoItem
     lv_obj_t *row = todo_modal_create_list_item_row(
       ui.list, item.summary.empty() ? "(untitled)" : item.summary, true, true, false, false,
       row_h, content_w, checkbox_size, item_gap, ctx->accent_color,
-      ctx->label_font, ctx->icon_font, ctx->width_compensation_percent);
+      ctx->list_font, ctx->icon_font, ctx->width_compensation_percent);
     ui.item_clicks[click_index].ctx = ctx;
     ui.item_clicks[click_index].item = item;
     lv_obj_add_event_cb(row, [](lv_event_t *e) {
@@ -423,7 +424,7 @@ inline void todo_modal_render_items(TodoCardCtx *ctx, const std::vector<TodoItem
       lv_obj_t *row = todo_modal_create_list_item_row(
         ui.list, completed.summary.empty() ? "(untitled)" : completed.summary,
         true, true, true, true, row_h, content_w, checkbox_size, item_gap,
-        ctx->accent_color, ctx->label_font, ctx->icon_font,
+        ctx->accent_color, ctx->list_font, ctx->icon_font,
         ctx->width_compensation_percent);
       ui.item_clicks[click_index].ctx = ctx;
       ui.item_clicks[click_index].item = completed;
@@ -548,6 +549,7 @@ inline TodoCardCtx *create_todo_card_context(
     BtnSlot &s, const ParsedCfg &p,
     uint32_t accent_color, uint32_t secondary_color,
     const lv_font_t *label_font,
+    const lv_font_t *list_font,
     const lv_font_t *icon_font,
     int width_compensation_percent) {
   TodoCardCtx *ctx = new TodoCardCtx();
@@ -561,6 +563,7 @@ inline TodoCardCtx *create_todo_card_context(
   ctx->accent_color = accent_color;
   ctx->secondary_color = secondary_color;
   ctx->label_font = label_font;
+  ctx->list_font = list_font ? list_font : label_font;
   ctx->icon_font = icon_font;
   ctx->width_compensation_percent = width_compensation_percent;
   ctx->show_count = todo_card_show_count(p);
