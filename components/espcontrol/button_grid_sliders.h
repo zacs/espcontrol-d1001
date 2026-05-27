@@ -395,6 +395,12 @@ inline bool slider_parse_light_brightness_pct(esphome::StringRef val, int &pct) 
   return light_brightness_to_percent(bri, pct);
 }
 
+inline bool slider_attribute_missing_ref(esphome::StringRef val) {
+  std::string value = normalized_state_text(val);
+  return value.empty() || value == "none" || value == "null" ||
+         value == "unknown" || value == "unavailable";
+}
+
 inline bool slider_entity_is_light(const std::string &entity_id) {
   return entity_id.size() > 6 && entity_id.compare(0, 6, "light.") == 0;
 }
@@ -488,7 +494,7 @@ inline void subscribe_slider_state(lv_obj_t *btn_ptr, lv_obj_t *icon_lbl,
           if (slider_parse_light_brightness_pct(val, pct)) {
             slider_set_value_safe(slider, pct);
             slider_update_fill(fill, btn_ptr, inv ? 100 - pct : pct, horiz, inv, rad);
-          } else {
+          } else if (!slider_attribute_missing_ref(val)) {
             ESP_LOGW("slider", "Ignoring invalid brightness for %s: %s",
               sctx ? sctx->entity_id.c_str() : "",
               string_ref_limited(val, HA_SHORT_STATE_MAX_LEN).c_str());
