@@ -14,6 +14,10 @@ inline bool ha_api_available() {
   return esphome::api::global_api_server != nullptr;
 }
 
+inline bool ha_api_connected() {
+  return ha_api_available() && esphome::api::global_api_server->is_connected();
+}
+
 inline bool ha_action_begin(esphome::api::HomeassistantActionRequest &req,
                             const char *service,
                             bool is_event,
@@ -41,7 +45,7 @@ inline void ha_action_add_entity(esphome::api::HomeassistantActionRequest &req,
 }
 
 inline bool ha_action_send(esphome::api::HomeassistantActionRequest &req) {
-  if (!ha_api_available()) return false;
+  if (!ha_api_connected()) return false;
   esphome::api::global_api_server->send_homeassistant_action(req);
   return true;
 }

@@ -228,16 +228,27 @@ inline void todo_modal_render_items(TodoCardCtx *ctx, const std::vector<TodoItem
 
 inline void send_todo_complete_action(TodoCardCtx *ctx, const std::string &key) {
   if (!todo_card_context_valid(ctx) || key.empty()) return;
+  if (!ha_api_connected()) {
+    todo_modal_set_status("Could not complete");
+    return;
+  }
 
   esphome::api::HomeassistantActionRequest req;
   static uint32_t call_id = 350000;
   uint32_t next_id = call_id++;
-  if (!ha_action_begin(req, "todo.update_item", false, 3, next_id)) return;
+  if (!ha_action_begin(req, "todo.update_item", false, 3, next_id)) {
+    todo_modal_set_status("Could not complete");
+    return;
+  }
   ha_action_add_entity(req, ctx->entity_id);
   ha_action_add_data(req, "item", key.c_str());
   ha_action_add_data(req, "status", "completed");
 
-  ha_register_action_response_callback(
+  if (!ha_action_send(req)) {
+    todo_modal_set_status("Could not complete");
+    return;
+  }
+  if (!ha_register_action_response_callback(
     req.call_id,
     [ctx](const esphome::api::ActionResponse &response) {
       if (!response.is_success()) {
@@ -247,8 +258,9 @@ inline void send_todo_complete_action(TodoCardCtx *ctx, const std::string &key) 
         todo_modal_set_status("Could not complete");
         return;
       }
-    });
-  ha_action_send(req);
+    })) {
+    todo_modal_set_status("Could not complete");
+  }
 }
 
 inline lv_obj_t *todo_modal_create_list_item_row(
@@ -436,6 +448,10 @@ inline void request_todo_items(TodoCardCtx *ctx) {
   if (!todo_card_context_valid(ctx) || !todo_entity_id_safe(ctx->entity_id)) return;
   todo_modal_clear_items();
   todo_modal_set_status("Loading");
+  if (!ha_api_connected()) {
+    todo_modal_set_status("Could not load");
+    return;
+  }
 
   esphome::api::HomeassistantActionRequest req;
   uint32_t call_id = next_todo_items_call_id();
@@ -445,7 +461,11 @@ inline void request_todo_items(TodoCardCtx *ctx) {
     return;
   }
 
-  ha_register_action_response_callback(
+  if (!ha_action_send(req)) {
+    todo_modal_set_status("Could not load");
+    return;
+  }
+  if (!ha_register_action_response_callback(
     req.call_id,
     [ctx](const esphome::api::ActionResponse &response) {
       if (todo_modal_ui().active != ctx) return;
@@ -463,8 +483,9 @@ inline void request_todo_items(TodoCardCtx *ctx) {
         return;
       }
       todo_modal_render_items(ctx, items);
-    });
-  ha_action_send(req);
+    })) {
+    todo_modal_set_status("Could not load");
+  }
 }
 
 inline void todo_card_open_modal(TodoCardCtx *ctx) {
