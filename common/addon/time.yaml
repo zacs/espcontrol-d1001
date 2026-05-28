@@ -19,12 +19,14 @@ esphome:
           set_calendar_month_names(id(calendar_month_names).state);
       - script.execute: ntp_servers_apply
 
-# Ask Home Assistant for time as soon as the native API connects. This makes
-# the HA time source a practical fallback when public NTP is unavailable.
+# Ask Home Assistant for time once the native API has finished state setup. This
+# keeps the HA time source as a fallback without adding traffic during the
+# fragile reconnect window.
 api:
   on_client_connected:
+    - delay: 2s
     - lambda: |-
-        id(homeassistant_time).update();
+        if (ha_api_state_connected()) id(homeassistant_time).update();
     - delay: 1s
     - script.execute: time_update
 
@@ -406,13 +408,13 @@ script:
             update_timezone_cards(true, now.timestamp,
                                   id(timezone_select).current_option(), use_12h);
           } else if (!calendar_date_valid()) {
-            id(homeassistant_time).update();
+            if (ha_api_state_connected()) id(homeassistant_time).update();
             id(screen_date_sensor).publish_state("");
             update_calendar_cards(false, 0, 0);
             update_calendar_cards_time(false, 0, 0, 0, 0, false);
             update_timezone_cards(false, 0, id(timezone_select).current_option(), use_12h);
           } else {
-            id(homeassistant_time).update();
+            if (ha_api_state_connected()) id(homeassistant_time).update();
             update_calendar_cards_time(false, 0, 0, 0, 0, false);
             update_timezone_cards(false, 0, id(timezone_select).current_option(), use_12h);
           }

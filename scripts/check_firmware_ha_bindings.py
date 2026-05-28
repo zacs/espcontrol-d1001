@@ -12,6 +12,7 @@ from tempfile import TemporaryDirectory
 ROOT = Path(__file__).resolve().parents[1]
 FIRMWARE_DIR = ROOT / "components" / "espcontrol"
 CORE_INFRA_PATH = ROOT / "common" / "device" / "core_infra.yaml"
+TIME_ADDON_PATH = ROOT / "common" / "addon" / "time.yaml"
 S3_DEVICE_PATH = ROOT / "devices" / "guition-esp32-s3-4848s040" / "device" / "device.yaml"
 HA_BOUNDARY_ALLOWLIST = {
     "button_grid_ha.h",
@@ -163,6 +164,24 @@ def firmware_todo_disconnect_errors(firmware_dir: Path, core_infra_path: Path, r
     return errors
 
 
+def firmware_time_reconnect_errors(time_path: Path, root: Path) -> list[str]:
+    if not time_path.exists():
+        return []
+    rel = time_path.relative_to(root)
+    text = time_path.read_text(encoding="utf-8")
+    errors: list[str] = []
+
+    if "id(homeassistant_time).update();" in text.replace(
+        "if (ha_api_state_connected()) id(homeassistant_time).update();", ""
+    ):
+        errors.append(f"{rel}: guard Home Assistant time updates until state subscription is ready")
+    if "on_client_connected:" in text and "ha_api_state_connected()" not in text:
+        errors.append(f"{rel}: wait for Home Assistant state readiness before reconnect time sync")
+    if "on_client_connected:" in text and "delay: 2s" not in text:
+        errors.append(f"{rel}: defer Home Assistant time sync after API reconnect")
+    return errors
+
+
 def firmware_weather_request_errors(firmware_dir: Path, root: Path) -> list[str]:
     path = firmware_dir / "button_grid_config.h"
     if not path.exists():
@@ -251,6 +270,7 @@ def run_scan() -> int:
     errors.extend(firmware_ha_boundary_errors(FIRMWARE_DIR, ROOT))
     errors.extend(firmware_todo_request_errors(FIRMWARE_DIR, ROOT))
     errors.extend(firmware_todo_disconnect_errors(FIRMWARE_DIR, CORE_INFRA_PATH, ROOT))
+    errors.extend(firmware_time_reconnect_errors(TIME_ADDON_PATH, ROOT))
     errors.extend(firmware_weather_request_errors(FIRMWARE_DIR, ROOT))
     errors.extend(firmware_weather_disconnect_errors(FIRMWARE_DIR, CORE_INFRA_PATH, ROOT))
     errors.extend(firmware_cover_request_errors(FIRMWARE_DIR, CORE_INFRA_PATH, ROOT))
@@ -324,6 +344,20 @@ def expect_todo_disconnect_errors(
         core_path.write_text(core_text, encoding="utf-8")
 
         errors = firmware_todo_disconnect_errors(firmware_dir, core_path, root)
+        for item in expected:
+            assert any(item in error for error in errors), f"{name}: missing {item!r} in {errors!r}"
+        if not expected:
+            assert not errors, f"{name}: expected no errors, got {errors!r}"
+
+
+def expect_time_reconnect_errors(name: str, text: str, expected: tuple[str, ...]) -> None:
+    with TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        time_path = root / "common" / "addon" / "time.yaml"
+        time_path.parent.mkdir(parents=True)
+        time_path.write_text(text, encoding="utf-8")
+
+        errors = firmware_time_reconnect_errors(time_path, root)
         for item in expected:
             assert any(item in error for error in errors), f"{name}: missing {item!r} in {errors!r}"
         if not expected:
@@ -696,6 +730,28 @@ def run_self_test() -> int:
         "    then:\n"
         "      - lambda: todo_retry_waiting_modal();\n",
         ("keep todo cards tappable",),
+    )
+    expect_time_reconnect_errors(
+        "home assistant time sync runs on raw api connect",
+        "api:\n"
+        "  on_client_connected:\n"
+        "    - lambda: |-\n"
+        "        id(homeassistant_time).update();\n",
+        ("guard Home Assistant time updates", "wait for Home Assistant state readiness", "defer Home Assistant time sync"),
+    )
+    expect_time_reconnect_errors(
+        "home assistant time sync waits for state readiness",
+        "api:\n"
+        "  on_client_connected:\n"
+        "    - delay: 2s\n"
+        "    - lambda: |-\n"
+        "        if (ha_api_state_connected()) id(homeassistant_time).update();\n"
+        "script:\n"
+        "  - id: time_update\n"
+        "    then:\n"
+        "      - lambda: |-\n"
+        "          if (ha_api_state_connected()) id(homeassistant_time).update();\n",
+        (),
     )
     expect_weather_request_errors(
         "weather request during reconnect",
