@@ -135,7 +135,7 @@ registerButtonType("sensor", {
     var advancedToggle = advancedToggleSection.toggle;
     var advanced = advancedToggleSection.section;
     panel.appendChild(advancedToggle.row);
-    if (hasStateLabels) advanced.classList.add("sp-visible");
+    if (hasStateLabels && isTextMode) advanced.classList.add("sp-visible");
 
     var stateTextGrid = document.createElement("div");
     stateTextGrid.className = "sp-state-translation-grid";
@@ -215,6 +215,11 @@ registerButtonType("sensor", {
       if (iconInput) iconInput.value = value;
     }
 
+    function syncAdvancedVisibility() {
+      advancedToggle.row.style.display = isTextMode ? "" : "none";
+      if (!isTextMode) advanced.classList.remove("sp-visible");
+    }
+
     function setMode(mode, persist) {
       displayMode = mode === "icon" || mode === "text" ? mode : "numeric";
       isTextMode = displayMode === "text";
@@ -224,6 +229,7 @@ registerButtonType("sensor", {
       numericSection.classList.toggle("sp-visible", displayMode === "numeric");
       textSection.classList.toggle("sp-visible", isTextMode);
       iconSection.classList.toggle("sp-visible", displayMode === "icon");
+      syncAdvancedVisibility();
       if (!persist) return;
       if (isTextMode) {
         b.precision = "text";
