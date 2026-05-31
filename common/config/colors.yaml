@@ -5,6 +5,45 @@
 # across all devices. Values are 6-digit hex strings without the # prefix.
 # =============================================================================
 
+substitutions:
+  screen_theme_initial_option: "Light"
+  screen_theme_dark_button_on_color: "FF8C00"
+  screen_theme_dark_button_off_color: "313131"
+  screen_theme_dark_sensor_card_color: "212121"
+  screen_theme_light_button_on_color: "0073FF"
+  screen_theme_light_button_off_color: "CECECE"
+  screen_theme_light_sensor_card_color: "DEDEDE"
+  button_on_color_initial: "${screen_theme_light_button_on_color}"
+  button_off_color_initial: "${screen_theme_light_button_off_color}"
+  sensor_card_color_initial: "${screen_theme_light_sensor_card_color}"
+
+select:
+  - platform: template
+    name: "${entity_screen_theme}"
+    internal: true
+    id: screen_theme
+    entity_category: config
+    icon: "mdi:theme-light-dark"
+    optimistic: true
+    restore_value: true
+    initial_option: "${screen_theme_initial_option}"
+    options:
+      - "Light"
+      - "Dark"
+    web_server:
+      sorting_group_id: sg_display
+    set_action:
+      - lambda: |-
+          if (x == "Dark") {
+            id(button_on_color).publish_state("${screen_theme_dark_button_on_color}");
+            id(button_off_color).publish_state("${screen_theme_dark_button_off_color}");
+            id(sensor_card_color).publish_state("${screen_theme_dark_sensor_card_color}");
+          } else {
+            id(button_on_color).publish_state("${screen_theme_light_button_on_color}");
+            id(button_off_color).publish_state("${screen_theme_light_button_off_color}");
+            id(sensor_card_color).publish_state("${screen_theme_light_sensor_card_color}");
+          }
+
 text:
   - platform: template
     name: "${entity_button_on_color}"
@@ -12,7 +51,7 @@ text:
     id: button_on_color
     optimistic: true
     restore_value: true
-    initial_value: "0073FF"
+    initial_value: "${button_on_color_initial}"
     min_length: 6
     max_length: 6
     mode: text
@@ -28,7 +67,7 @@ text:
     id: button_off_color
     optimistic: true
     restore_value: true
-    initial_value: "CECECE"
+    initial_value: "${button_off_color_initial}"
     min_length: 6
     max_length: 6
     mode: text
@@ -44,7 +83,7 @@ text:
     id: sensor_card_color
     optimistic: true
     restore_value: true
-    initial_value: "DEDEDE"
+    initial_value: "${sensor_card_color_initial}"
     min_length: 6
     max_length: 6
     mode: text

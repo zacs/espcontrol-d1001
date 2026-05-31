@@ -8,11 +8,16 @@ substitutions:
   firmware_version: "dev-trmnl-75-og-20260530"
   screen_width: "800"
   screen_height: "480"
+  screen_theme_initial_option: "Light"
+  button_on_color_initial: "0073FF"
+  button_off_color_initial: "CECECE"
+  sensor_card_color_initial: "DEDEDE"
 
 packages:
   entity_names:    !include ../../common/config/entity_names.yaml
   device:          !include device/device.yaml
   fonts_device:    !include device/fonts.yaml
+  colors:          !include ../../common/config/colors.yaml
   button_order:    !include ../../common/config/button_order.yaml
   btn_1:           !include { file: ../../common/config/button_config_template.yaml, vars: { num: "1" } }
   btn_2:           !include { file: ../../common/config/button_config_template.yaml, vars: { num: "2" } }

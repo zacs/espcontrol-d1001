@@ -5,6 +5,10 @@ var MONTH_NAME_DEFAULTS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
 ];
+var THEME_PRESETS = {
+  Light: { on: "0073FF", off: "CECECE", sensor: "DEDEDE" },
+  Dark: { on: "FF8C00", off: "313131", sensor: "212121" },
+};
 
 function defaultTimezoneOptions() {
   return (CFG && Array.isArray(CFG.timezoneOptions)) ? CFG.timezoneOptions.slice() : [];
@@ -20,6 +24,8 @@ var state = {
   grid: [],
   sizes: {},
   buttons: [],
+  theme: "Light",
+  themeOptions: ["Light", "Dark"],
   onColor: "0073FF",
   offColor: "CECECE",
   sensorColor: "DEDEDE",
@@ -507,6 +513,37 @@ function syncMonthNameUi() {
     for (var i = 0; i < els.setMonthNameInputs.length; i++) {
       syncInput(els.setMonthNameInputs[i], state.monthNames[i]);
     }
+  }
+}
+
+function normalizeTheme(value) {
+  return THEME_PRESETS[value] ? value : "Light";
+}
+
+function syncThemeUi() {
+  if (els.setTheme) els.setTheme.value = normalizeTheme(state.theme);
+}
+
+function syncColorUi() {
+  if (els.setOnColor && els.setOnColor._syncColor) els.setOnColor._syncColor(state.onColor);
+  if (els.setOffColor && els.setOffColor._syncColor) els.setOffColor._syncColor(state.offColor);
+  if (els.setSensorColor && els.setSensorColor._syncColor) els.setSensorColor._syncColor(state.sensorColor);
+}
+
+function applyThemePreset(theme, postChanges) {
+  state.theme = normalizeTheme(theme);
+  var preset = THEME_PRESETS[state.theme];
+  state.onColor = preset.on;
+  state.offColor = preset.off;
+  state.sensorColor = preset.sensor;
+  syncThemeUi();
+  syncColorUi();
+  renderPreview();
+  if (postChanges) {
+    postSelect(entityName("screen_theme"), state.theme);
+    postText(entityName("button_on_color"), state.onColor);
+    postText(entityName("button_off_color"), state.offColor);
+    postText(entityName("sensor_card_color"), state.sensorColor);
   }
 }
 

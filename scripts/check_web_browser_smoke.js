@@ -155,6 +155,7 @@ function seededEvents() {
     { id: "text-button_on_color", state: "0073FF" },
     { id: "text-button_off_color", state: "CECECE" },
     { id: "text-sensor_card_color", state: "DEDEDE" },
+    { id: "select-screen__theme", state: "Light", value: "Light", option: ["Light", "Dark"] },
     { id: "switch-screen__clock_bar", state: "ON", value: true },
     { id: "switch-screen__network_status_icon", state: "ON", value: true },
     { id: "select-screen__timezone", state: "Europe/London (GMT+0)", value: "Europe/London (GMT+0)", option: ["Europe/London (GMT+0)", "America/New_York (GMT-5)"] },
@@ -258,9 +259,11 @@ async function assertSettingsPage(page, label, options = {}) {
   if (!(await page.locator("#sp-set-on-color").isVisible())) {
     await page.getByText("Appearance", { exact: true }).click();
   }
+  const themeVisible = await page.locator("#sp-set-theme").isVisible();
   const onColorVisible = await page.locator("#sp-set-on-color").isVisible();
   assert(settingsVisible, `${label}: settings page should be visible`);
   assert(appearanceVisible, `${label}: settings content should render`);
+  assert(themeVisible, `${label}: theme selector should render`);
   assert(onColorVisible, `${label}: appearance controls should render`);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
   assert(!overflow, `${label}: settings page has horizontal overflow`);

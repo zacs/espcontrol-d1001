@@ -125,6 +125,8 @@ for (const [slug, device] of Object.entries(manifest.devices || {})) {
   assert(!generated.includes("dashboardPages"), "TRMNL web UI must use the normal single dashboard editor");
   assert(generated.includes('disabledCardTypes:["subpage"]'), "TRMNL web UI must hide subpage cards");
   assert(generated.includes("slots:12,cols:4,rows:3"), "TRMNL web UI must use a 4x3 dashboard layout");
+  assert(generated.includes("sp-set-theme"), "TRMNL web UI must expose the normal theme selector");
+  assert(generated.includes("screen_theme"), "TRMNL web UI must know the device theme entity");
   assert(generated.includes("sp-set-on-color"), "TRMNL web UI must keep the normal appearance colour controls");
   assert(!generated.includes("E-paper theme: black and white"), "TRMNL web UI must not replace colour controls with an e-paper note");
   assert(generated.includes("sp-clock"), "TRMNL web preview must keep the normal clock bar");

@@ -16,6 +16,7 @@ function exportConfig() {
     settings: {
       indoor_temp_enable: state._indoorOn,
       outdoor_temp_enable: state._outdoorOn,
+      theme: normalizeTheme(state.theme),
       indoor_temp_entity: state.indoorEntity,
       outdoor_temp_entity: state.outdoorEntity,
       temperature_unit: normalizeTemperatureUnit(state.temperatureUnit),
@@ -170,6 +171,7 @@ function importConfig() {
         postTemperatureDegreeSymbol(importedSettings.temperatureDegreeSymbol);
         postSubpageChevron(importedSettings.subpageChevron);
         var importedTimezone = importedSettings.timezone;
+        var importedTheme = normalizeTheme(s.theme || state.theme);
         var importedTemperatureUnit = importedSettings.temperatureUnit;
         var importedClockFormat = importedSettings.clockFormat;
         var hasNtpServer1 = importedSettings.hasNtpServer1;
@@ -183,6 +185,7 @@ function importConfig() {
         var importedNtpServer3 = importedSettings.ntpServer3;
         var importedMonthNames = importedSettings.monthNames;
         if (s.timezone) postSelect(entityName("screen_timezone"), importedTimezone);
+        if (s.theme) postSelect(entityName("screen_theme"), importedTheme);
         postSelect(entityName("screen_temperature_unit"), importedTemperatureUnit);
         if (s.clock_format) postSelect(entityName("screen_clock_format"), importedClockFormat);
         if (hasNtpServer1) {
@@ -228,6 +231,7 @@ function importConfig() {
         state.temperatureDegreeSymbolOn = importedSettings.temperatureDegreeSymbol;
         state.subpageChevronsOn = importedSettings.subpageChevron;
         state.timezone = importedTimezone;
+        state.theme = importedTheme;
         state.clockFormat = importedClockFormat;
         state.ntpServer1 = importedNtpServer1;
         state.ntpServer2 = importedNtpServer2;
@@ -261,6 +265,7 @@ function importConfig() {
         syncInput(els.setPresence, state.presenceEntity);
         syncInput(els.setMediaPlayerSleepPrevention, state.mediaPlayerSleepPreventionEntity);
         syncMediaPlayerSleepPreventionUi();
+        syncThemeUi();
         if (els.setTimezone) els.setTimezone.value = state.timezone;
         if (els.setClockFormat) els.setClockFormat.value = state.clockFormat;
         syncNtpServerUi();
