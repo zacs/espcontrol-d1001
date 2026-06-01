@@ -1093,8 +1093,11 @@ inline std::string normalize_weather_state(std::string state) {
     }
   }
   while (!normalized.empty() && normalized.back() == '-') normalized.pop_back();
+  if (normalized.compare(0, 8, "weather-") == 0) normalized = normalized.substr(8);
+  if (normalized == "night") return "clear-night";
   if (normalized == "partly-cloudy") return "partlycloudy";
-  if (normalized == "night-cloudy" || normalized == "weather-night-cloudy") return "night-partly-cloudy";
+  if (normalized == "night-cloudy") return "night-partly-cloudy";
+  if (normalized == "sunny-off") return "unavailable";
   return normalized;
 }
 

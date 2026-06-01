@@ -262,8 +262,17 @@ def test_weather_card_visual_matches_preview() -> None:
     assert 'if (normalized == "partly-cloudy") return "partlycloudy";' in config, (
         "current weather device cards should accept the dashed partly-cloudy spelling"
     )
-    assert 'if (normalized == "night-cloudy" || normalized == "weather-night-cloudy") return "night-partly-cloudy";' in config, (
+    assert 'if (normalized.compare(0, 8, "weather-") == 0) normalized = normalized.substr(8);' in config, (
+        "current weather device cards should accept web weather icon names as state aliases"
+    )
+    assert 'if (normalized == "night") return "clear-night";' in config, (
+        "current weather device cards should map the web Weather Night icon name to clear night"
+    )
+    assert 'if (normalized == "night-cloudy") return "night-partly-cloudy";' in config, (
         "current weather device cards should accept night cloudy aliases for the web weather icon"
+    )
+    assert 'if (normalized == "sunny-off") return "unavailable";' in config, (
+        "current weather device cards should map the web unavailable weather icon name"
     )
     for state, icon_name, label in (
         ("dust", "Weather Dust", "Dust"),
