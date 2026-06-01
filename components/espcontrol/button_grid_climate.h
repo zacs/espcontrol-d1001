@@ -463,7 +463,7 @@ inline bool climate_control_uses_4848_modal_tuning(const ControlModalLayout &lay
 }
 
 inline bool climate_control_uses_large_landscape_modal_tuning(const ControlModalLayout &layout) {
-  return layout.sw >= 1000 && layout.sh >= 700;
+  return (layout.sw == 1280 && layout.sh == 800) || (layout.sw == 800 && layout.sh == 1280);
 }
 
 inline lv_coord_t climate_control_step_buttons_up_ref(const ControlModalLayout &layout) {
