@@ -172,6 +172,7 @@ def test_generated_yaml(profiles: dict[str, dict]) -> None:
                     f"{slug}: TRMNL card labels must clamp to the generated web preview line counts"
                 )
                 grid_header = (ROOT / "components" / "espcontrol" / "button_grid_grid.h").read_text(encoding="utf-8")
+                config = (ROOT / "components" / "espcontrol" / "button_grid_config.h").read_text(encoding="utf-8")
                 assert "lv_obj_set_style_bg_color(sub_scr, lv_obj_get_style_bg_color(main_page_obj, LV_PART_MAIN), LV_PART_MAIN);" in grid_header, (
                     f"{slug}: subpage weather screens must inherit the main page theme background"
                 )
@@ -201,6 +202,16 @@ def test_generated_yaml(profiles: dict[str, dict]) -> None:
                     and phase1_match.group(0).find("bump_ha_subscription_generation();")
                     < phase1_match.group(0).find("reset_weather_forecast_cards();")
                 ), f"{slug}: stale current weather callbacks must be invalidated before rebuilding visible card refs"
+                reset_match = re.search(
+                    r"inline void reset_weather_forecast_cards\(\)[\s\S]*?\n\}",
+                    config,
+                )
+                assert (
+                    reset_match
+                    and "WeatherForecastCardRef *refs = weather_forecast_card_refs();" in reset_match.group(0)
+                    and "refs[i] = WeatherForecastCardRef();" in reset_match.group(0)
+                    and "weather_forecast_card_count() = 0;" in reset_match.group(0)
+                ), f"{slug}: weather forecast card rebuilds must clear stale object refs and values"
                 assert "id(font_trmnl_value_32)->get_lv_font()" in sensors, (
                     f"{slug}: normal weather cards must use the TRMNL web preview value font"
                 )
@@ -243,7 +254,6 @@ def test_generated_yaml(profiles: dict[str, dict]) -> None:
                 assert "apply_registered_ha_control_availability(false);" in device, (
                     f"{slug}: Home Assistant-backed weather cards must show unavailable on disconnect"
                 )
-                config = (ROOT / "components" / "espcontrol" / "button_grid_config.h").read_text(encoding="utf-8")
                 availability_match = re.search(
                     r"inline void apply_registered_ha_control_availability\([\s\S]*?\n\}",
                     config,

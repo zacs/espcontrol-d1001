@@ -1213,6 +1213,10 @@ inline int &weather_forecast_card_count() {
 }
 
 inline void reset_weather_forecast_cards() {
+  WeatherForecastCardRef *refs = weather_forecast_card_refs();
+  for (int i = 0; i < MAX_GRID_SLOTS + MAX_SUBPAGE_ITEMS; i++) {
+    refs[i] = WeatherForecastCardRef();
+  }
   weather_forecast_card_count() = 0;
 }
 
