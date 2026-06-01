@@ -1110,6 +1110,7 @@ inline const char* weather_icon_for_state(const std::string &state) {
   if (normalized == "clear-night") return find_icon("Weather Night");
   if (normalized == "partlycloudy") return find_icon("Weather Partly Cloudy");
   if (normalized == "cloudy") return find_icon("Weather Cloudy");
+  if (normalized == "cloudy-alert") return find_icon("Weather Cloudy Alert");
   if (normalized == "dust") return find_icon("Weather Dust");
   if (normalized == "fog") return find_icon("Weather Fog");
   if (normalized == "hail") return find_icon("Weather Hail");
@@ -1144,6 +1145,7 @@ inline std::string weather_label_for_state(const std::string &state) {
   if (normalized == "clear-night") return "Clear Night";
   if (normalized == "partlycloudy") return "Partly Cloudy";
   if (normalized == "cloudy") return "Cloudy";
+  if (normalized == "cloudy-alert") return "Cloudy Alert";
   if (normalized == "dust") return "Dust";
   if (normalized == "fog") return "Fog";
   if (normalized == "hail") return "Hail";

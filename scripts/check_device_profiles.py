@@ -333,6 +333,7 @@ def test_weather_card_visual_matches_preview() -> None:
         "current weather device cards should map the web unavailable weather icon name"
     )
     for state, icon_name, label in (
+        ("cloudy-alert", "Weather Cloudy Alert", "Cloudy Alert"),
         ("dust", "Weather Dust", "Dust"),
         ("hazy", "Weather Hazy", "Hazy"),
         ("hurricane", "Weather Hurricane", "Hurricane"),
