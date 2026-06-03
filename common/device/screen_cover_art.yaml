@@ -864,6 +864,9 @@ script:
                 id(cover_art_last_position_timestamp) = now.is_valid() ? now.timestamp : 0;
                 id(cover_art_last_progress_percent) = -1;
                 if (id(cover_art_screensaver_active)) id(cover_art_refresh_progress).execute();
+                id(cover_art_delay_timer).stop();
+                id(cover_art_show_track_overlay).stop();
+                id(hide_cover_art_view).execute();
                 return;
               }
 
