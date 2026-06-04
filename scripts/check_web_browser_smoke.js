@@ -498,7 +498,7 @@ async function assertBackupImportSmoke(page, posts, slug) {
 }
 
 async function entitySuggestionValues(page, inputSelector) {
-  await page.locator(inputSelector).fill("");
+  await page.locator(inputSelector).fill("light");
   await page.waitForSelector(".sp-entity-dropdown.sp-open .sp-entity-option");
   return page.locator(".sp-entity-dropdown.sp-open .sp-entity-option").evaluateAll((options) => {
     return options.map((option) => option.textContent || "");
@@ -600,11 +600,26 @@ async function assertClockBarEditorSmoke(page, posts, label) {
   await page.getByRole("button", { name: "Delete" }).click();
   await waitForPost(posts, { domain: "switch", name: "screen__network_status_icon", action: "turn_off" }, `${label}: delete network`, before);
   await page.locator('[data-clockbar-item="network"]').waitFor({ state: "detached" });
+  const topbarBox = await page.locator(".sp-topbar").boundingBox();
+  const rightAddBox = await page.locator('[data-clockbar-section="right"] [data-clockbar-add]').boundingBox();
+  assert(topbarBox && rightAddBox, `${label}: right add control has a visible bounded area`);
+  assert(rightAddBox.y > topbarBox.y, `${label}: right add control does not touch the top of the clock bar`);
+  assert(
+    rightAddBox.y + rightAddBox.height < topbarBox.y + topbarBox.height,
+    `${label}: right add control does not touch the bottom of the clock bar`
+  );
   before = posts.length;
   await page.locator('[data-clockbar-section="right"] [data-clockbar-add]').click();
   await page.getByText("Network Status", { exact: true }).click();
   await waitForPost(posts, { domain: "switch", name: "screen__network_status_icon", action: "turn_on" }, `${label}: add network`, before);
   await page.locator('[data-clockbar-item="network"][data-clockbar-section="right"]').waitFor({ state: "visible" });
+  const rightAddAfterBox = await page.locator('[data-clockbar-section="right"] [data-clockbar-add]').boundingBox();
+  const networkBox = await page.locator('[data-clockbar-item="network"][data-clockbar-section="right"]').boundingBox();
+  assert(rightAddAfterBox && networkBox, `${label}: right add and network controls are visible`);
+  assert(
+    rightAddAfterBox.x < networkBox.x,
+    `${label}: right add control appears to the left of right-side controls`
+  );
   await page.locator(".sp-settings-close").click();
 
   before = posts.length;

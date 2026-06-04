@@ -53,7 +53,7 @@ var CSS =
   ".sp-clockbar-item:hover{background:rgba(255,255,255,.13);border-color:rgba(255,255,255,.2)}" +
   ".sp-clockbar-item.sp-selected{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}" +
   ".sp-clockbar-network{padding:0;width:max(44px,calc(var(--topbar-fs)*2.8))}" +
-  ".sp-clockbar-section-add{height:max(100%,44px);width:44px;border:1px dashed rgba(255,255,255,.22);border-radius:calc(var(--topbar-fs)*.36);" +
+  ".sp-clockbar-section-add{height:min(36px,calc(100% - .45cqw));min-height:0;width:min(36px,calc(var(--topbar-fs)*2.2));min-width:28px;border:1px dashed rgba(255,255,255,.22);border-radius:calc(var(--topbar-fs)*.3);" +
   "background:rgba(255,255,255,.06);color:#fff;display:flex;align-items:center;justify-content:center;box-sizing:border-box;" +
   "cursor:pointer;opacity:0;transition:opacity .16s,background .16s,border-color .16s;line-height:1;font:inherit}" +
   ".sp-clockbar-section:hover .sp-clockbar-section-add,.sp-clockbar-section:focus-within .sp-clockbar-section-add,.sp-clockbar-section-empty .sp-clockbar-section-add{opacity:1}" +

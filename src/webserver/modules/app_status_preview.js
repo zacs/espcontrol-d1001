@@ -269,6 +269,7 @@ function renderClockBarLayout() {
     if (!container) return;
     container.innerHTML = "";
     var rendered = 0;
+    if (section === "right") container.appendChild(createClockBarAddElement(section));
     layout[section].forEach(function (item) {
       if (!clockBarItemActive(item)) return;
       var itemEl = createClockBarItemElement(item, section);
@@ -277,7 +278,7 @@ function renderClockBarLayout() {
       rendered++;
     });
     container.className = "sp-clockbar-section sp-clockbar-" + section + (rendered ? "" : " sp-clockbar-section-empty");
-    container.appendChild(createClockBarAddElement(section));
+    if (section !== "right") container.appendChild(createClockBarAddElement(section));
   });
   updateTempPreview();
   updateClockText();
