@@ -1090,8 +1090,8 @@ inline void grid_phase2(
           display_climate_option_value_font(display)
             ? display_climate_option_value_font(display)
             : lv_obj_get_style_text_font(s.text_lbl, LV_PART_MAIN),
-          display_climate_option_value_font(display)
-            ? display_climate_option_value_font(display)
+          display_climate_option_title_font(display)
+            ? display_climate_option_title_font(display)
             : lv_obj_get_style_text_font(s.text_lbl, LV_PART_MAIN),
           display_climate_card_icon_font(display),
           display_icon_font(display),
@@ -1671,8 +1671,8 @@ inline void grid_phase2(
             display_climate_option_value_font(display)
               ? display_climate_option_value_font(display)
               : lv_obj_get_style_text_font(sub_slot.text_lbl, LV_PART_MAIN),
-            display_climate_option_value_font(display)
-              ? display_climate_option_value_font(display)
+            display_climate_option_title_font(display)
+              ? display_climate_option_title_font(display)
               : lv_obj_get_style_text_font(sub_slot.text_lbl, LV_PART_MAIN),
             display_climate_card_icon_font(display),
             display_icon_font(display),
