@@ -129,21 +129,6 @@ function fieldWithControl(labelText, inputId, control) {
   return field;
 }
 
-function clockBarSelectField(labelText, inputId, options, value, onChange) {
-  var select = document.createElement("select");
-  select.className = "sp-select";
-  if (inputId) select.id = inputId;
-  options.forEach(function (entry) {
-    var option = document.createElement("option");
-    option.value = entry[0];
-    option.textContent = entry[1];
-    select.appendChild(option);
-  });
-  select.value = value;
-  if (onChange) select.addEventListener("change", onChange);
-  return fieldWithControl(labelText, inputId, select);
-}
-
 function renderClockBarTemperatureEntityControl(panel, item) {
   var index = clockBarTemperatureItemIndex(item);
   if (index < 0) return;
@@ -200,34 +185,6 @@ function renderClockBarSettings(forceOpen) {
       syncClockBarUi();
       postTemperatureDegreeSymbol(state.temperatureDegreeSymbolOn);
     });
-  } else if (item === "time") {
-    var timezoneSelect = document.createElement("select");
-    timezoneSelect.className = "sp-select";
-    timezoneSelect.id = "sp-clockbar-timezone";
-    timezoneOptionsWithFallback(state.timezoneOptions, state.timezone).forEach(function (opt) {
-      appendTimezoneOption(timezoneSelect, opt);
-    });
-    timezoneSelect.value = state.timezone;
-    timezoneSelect.addEventListener("change", function () {
-      state.timezone = this.value;
-      postSelect(entityName("screen_timezone"), state.timezone);
-      if (els.setTimezone) els.setTimezone.value = state.timezone;
-      if (normalizeTemperatureUnit(state.temperatureUnit) === "Auto") updateTempPreview();
-      updateClock();
-      renderPreview();
-    });
-    panel.appendChild(fieldWithControl("Timezone", "sp-clockbar-timezone", timezoneSelect));
-
-    panel.appendChild(clockBarSelectField("Clock Format", "sp-clockbar-clock-format", [
-      ["24h", "24-hour"],
-      ["12h", "12-hour"],
-    ], state.clockFormat, function () {
-      state.clockFormat = this.value;
-      postSelect(entityName("screen_clock_format"), state.clockFormat);
-      if (els.setClockFormat) els.setClockFormat.value = state.clockFormat;
-      updateClock();
-      renderPreview();
-    }));
   }
 
   var row = document.createElement("div");

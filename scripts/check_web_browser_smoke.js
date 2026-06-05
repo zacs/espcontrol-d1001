@@ -670,9 +670,14 @@ async function assertClockBarEditorSmoke(page, posts, label) {
   );
 
   let before = posts.length;
-  await selectAndOpenClockBarEditor('[data-clockbar-item="time"]', "Time");
-  await page.locator("#sp-clockbar-clock-format").waitFor({ state: "visible" });
-  await page.getByRole("button", { name: "Delete" }).click();
+  await expectClockBarSelection();
+  assert.strictEqual(
+    await page.locator(".sp-selection-bar.sp-visible").getByRole("button", { name: "Edit", exact: true }).count(),
+    0,
+    `${label}: time selection has no local editor`
+  );
+  await page.getByRole("button", { name: "Clock bar item actions" }).click();
+  await page.getByText("Delete", { exact: true }).click();
   await waitForPost(posts, { domain: "switch", name: "screen__clock_bar_time", action: "turn_off" }, `${label}: delete time`, before);
   await page.locator('[data-clockbar-item="time"]').waitFor({ state: "detached" });
   before = posts.length;
@@ -694,9 +699,12 @@ async function assertClockBarEditorSmoke(page, posts, label) {
     middleAddBox.x >= timeBox.x + timeBox.width,
     `${label}: middle add control sits beside the centered time`
   );
-  await openSelectedClockBarEditor("Time");
-  await page.locator("#sp-clockbar-clock-format").waitFor({ state: "visible" });
-  await page.locator(".sp-settings-close").click();
+  await expectClockBarSelection();
+  assert.strictEqual(
+    await page.locator(".sp-selection-bar.sp-visible").getByRole("button", { name: "Edit", exact: true }).count(),
+    0,
+    `${label}: re-added time keeps settings global`
+  );
 
   before = posts.length;
   await page.locator('[data-clockbar-item="network"]').click();
@@ -762,6 +770,10 @@ async function assertClockBarEditorSmoke(page, posts, label) {
 
   await page.getByRole("tab", { name: "Settings" }).click();
   await page.waitForSelector("#sp-settings.sp-page.active");
+  const timeSettingsCard = page.locator("#sp-settings .card").filter({ hasText: "Time Settings" }).first();
+  const timeSettingsText = await timeSettingsCard.textContent();
+  assert(timeSettingsText.includes("Timezone"), `${label}: timezone remains in global time settings`);
+  assert(timeSettingsText.includes("Clock Format"), `${label}: clock format remains in global time settings`);
   const clockBarCard = page.locator("#sp-settings .card").filter({ hasText: "Clock Bar" }).first();
   const clockBarText = await clockBarCard.textContent();
   assert(clockBarText.includes("Show Clock Bar"), `${label}: clock bar settings keep the master toggle`);

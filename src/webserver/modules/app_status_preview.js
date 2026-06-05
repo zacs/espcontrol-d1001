@@ -157,7 +157,7 @@ function clockBarItemLabel(item) {
 }
 
 function clockBarItemHasSettings(item) {
-  return isClockBarTemperatureItem(item) || item === "time";
+  return isClockBarTemperatureItem(item);
 }
 
 function clockBarItemIcon(item) {
