@@ -27,7 +27,7 @@ The screensaver turns on after the panel hasn't been touched for a set amount of
 
 If the 10 or 30 second choices are not shown, update the panel firmware first. The web page checks what range the installed firmware supports before showing the shorter timer values.
 
-You can also enable **Always show cover art**. It uses the **Media Player** selected in [Media Cover Art](/features/media-cover-art), and when that media player is in the `playing` state, the timer keeps waiting instead of putting the screen to sleep.
+You can also enable **Override for Media Cover Art**. It uses the **Media Player** selected in [Media Cover Art](/features/media-cover-art), and when that media player is in the `playing` state, the timer keeps waiting instead of putting the screen to sleep.
 
 ### What Happens
 
