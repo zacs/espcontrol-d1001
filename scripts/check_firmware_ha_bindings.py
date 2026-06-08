@@ -649,6 +649,24 @@ def firmware_image_card_base_url_errors(firmware_dir: Path, root: Path) -> list[
     return errors
 
 
+def firmware_image_card_quality_errors(firmware_dir: Path, root: Path) -> list[str]:
+    path = firmware_dir / "button_grid_image.h"
+    if not path.exists():
+        return []
+    rel = path.relative_to(root)
+    text = path.read_text(encoding="utf-8")
+    errors: list[str] = []
+    if "IMAGE_CARD_MODAL_MAX_TARGET_SIDE_PX" not in text:
+        errors.append(f"{rel}: cap high-resolution image card modal downloads")
+    if "image_card_limit_target_size" not in text:
+        errors.append(f"{rel}: scale image card modal downloads to a display-appropriate size")
+    if "if (!ctx->source_url.empty()) image_card_request_source_url(ctx);" not in text:
+        errors.append(f"{rel}: request a modal-sized image when opening image cards")
+    if "ctx->image->set_target_size(width, height)" not in text:
+        errors.append(f"{rel}: set image card download target size before requesting images")
+    return errors
+
+
 def firmware_screensaver_wake_guard_errors(backlight_path: Path, cover_art_path: Path, root: Path) -> list[str]:
     errors: list[str] = []
     if backlight_path.exists():
@@ -834,6 +852,7 @@ def run_scan() -> int:
     errors.extend(firmware_cover_art_stale_image_errors(COVER_ART_PATH, ROOT))
     errors.extend(firmware_image_card_entity_errors(FIRMWARE_DIR, ROOT))
     errors.extend(firmware_image_card_base_url_errors(FIRMWARE_DIR, ROOT))
+    errors.extend(firmware_image_card_quality_errors(FIRMWARE_DIR, ROOT))
     errors.extend(firmware_screensaver_wake_guard_errors(BACKLIGHT_PATH, COVER_ART_PATH, ROOT))
     errors.extend(firmware_climate_step_errors(FIRMWARE_DIR, ROOT))
     errors.extend(
@@ -1139,6 +1158,20 @@ def expect_image_card_base_url_errors(name: str, text: str, expected: tuple[str,
         (firmware_dir / "button_grid_image.h").write_text(text, encoding="utf-8")
 
         errors = firmware_image_card_base_url_errors(firmware_dir, root)
+        for item in expected:
+            assert any(item in error for error in errors), f"{name}: missing {item!r} in {errors!r}"
+        if not expected:
+            assert not errors, f"{name}: expected no errors, got {errors!r}"
+
+
+def expect_image_card_quality_errors(name: str, text: str, expected: tuple[str, ...]) -> None:
+    with TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        firmware_dir = root / "components" / "espcontrol"
+        firmware_dir.mkdir(parents=True)
+        (firmware_dir / "button_grid_image.h").write_text(text, encoding="utf-8")
+
+        errors = firmware_image_card_quality_errors(firmware_dir, root)
         for item in expected:
             assert any(item in error for error in errors), f"{name}: missing {item!r} in {errors!r}"
         if not expected:
@@ -2065,6 +2098,32 @@ def run_self_test() -> int:
         "}\n"
         "ctx->base_url = cfg.home_assistant_base_url ? cfg.home_assistant_base_url() : \"\";\n"
         "ctx->base_url_provider = cfg.home_assistant_base_url;\n",
+        (),
+    )
+    expect_image_card_quality_errors(
+        "image card modal only scales tile image",
+        "inline void image_card_open_modal(ImageCardCtx *ctx) {\n"
+        "  image_card_set_widget_source(ui.image_widget, ctx->image);\n"
+        "  image_card_apply_modal_geometry(ctx);\n"
+        "}\n",
+        (
+            "cap high-resolution image card modal downloads",
+            "scale image card modal downloads to a display-appropriate size",
+            "request a modal-sized image when opening image cards",
+            "set image card download target size before requesting images",
+        ),
+    )
+    expect_image_card_quality_errors(
+        "image card modal requests capped image",
+        "constexpr int IMAGE_CARD_MODAL_MAX_TARGET_SIDE_PX = 800;\n"
+        "inline void image_card_limit_target_size(lv_coord_t source_width, lv_coord_t source_height,\n"
+        "                                         int *target_width, int *target_height) {}\n"
+        "inline void image_card_request_source_url(ImageCardCtx *ctx) {\n"
+        "  ctx->image->set_target_size(width, height);\n"
+        "}\n"
+        "inline void image_card_open_modal(ImageCardCtx *ctx) {\n"
+        "  if (!ctx->source_url.empty()) image_card_request_source_url(ctx);\n"
+        "}\n",
         (),
     )
     valid_cover_art_wake_guard = (

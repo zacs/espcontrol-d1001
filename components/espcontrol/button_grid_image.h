@@ -8,6 +8,7 @@
 constexpr uint32_t IMAGE_CARD_STARTUP_RETRY_MS = 45000;
 constexpr uint32_t IMAGE_CARD_RETRY_INTERVAL_MS = 2000;
 constexpr uint8_t IMAGE_CARD_STARTUP_DOWNLOAD_RETRIES = 10;
+constexpr int IMAGE_CARD_MODAL_MAX_TARGET_SIDE_PX = 800;
 constexpr const char *IMAGE_CARD_LOADING_ICON = "\U000F02E9";
 
 struct ImageCardCtx {
@@ -299,6 +300,19 @@ inline bool image_card_apply_modal_geometry(ImageCardCtx *ctx,
   return true;
 }
 
+inline void image_card_limit_target_size(lv_coord_t source_width, lv_coord_t source_height,
+                                         int *target_width, int *target_height) {
+  int width = source_width > 0 ? static_cast<int>(source_width) : 1;
+  int height = source_height > 0 ? static_cast<int>(source_height) : 1;
+  int long_side = width > height ? width : height;
+  if (long_side > IMAGE_CARD_MODAL_MAX_TARGET_SIDE_PX) {
+    width = std::max(1, width * IMAGE_CARD_MODAL_MAX_TARGET_SIDE_PX / long_side);
+    height = std::max(1, height * IMAGE_CARD_MODAL_MAX_TARGET_SIDE_PX / long_side);
+  }
+  if (target_width) *target_width = width;
+  if (target_height) *target_height = height;
+}
+
 inline void image_card_apply_active_geometry(ImageCardCtx *ctx) {
   if (!ctx || !ctx->image) return;
   if (image_card_modal_active_for(ctx) && image_card_apply_modal_geometry(ctx)) return;
@@ -459,11 +473,30 @@ inline void image_card_schedule_next_refresh(ImageCardCtx *ctx, uint32_t now = e
 inline void image_card_request_source_url(ImageCardCtx *ctx) {
   if (!ctx || !ctx->active || !ctx->image || ctx->source_url.empty()) return;
   uint32_t now = esphome::millis();
+  lv_coord_t width = 0;
+  lv_coord_t height = 0;
+  esphome::artwork_image::ImageResizeMode resize_mode =
+    esphome::artwork_image::ImageResizeMode::COVER;
+  if (image_card_modal_active_for(ctx)) {
+    if (!image_card_apply_modal_geometry(ctx, &width, &height)) return;
+    int target_width = 0;
+    int target_height = 0;
+    image_card_limit_target_size(width, height, &target_width, &target_height);
+    width = target_width;
+    height = target_height;
+    resize_mode = ctx->modal_fit
+      ? esphome::artwork_image::ImageResizeMode::FIT
+      : esphome::artwork_image::ImageResizeMode::COVER;
+  } else {
+    if (!image_card_position_widget(ctx->btn, ctx->widget, &width, &height)) return;
+    image_card_position_widget(ctx->btn, image_card_loading_widget(ctx->widget));
+  }
   ctx->url = image_card_cache_bust_url(ctx->source_url);
   ctx->requested_once = true;
   ctx->next_download_retry_ms = 0;
   image_card_schedule_next_refresh(ctx, now);
-  image_card_apply_active_geometry(ctx);
+  ctx->image->set_target_size(width, height);
+  ctx->image->set_resize_mode(resize_mode);
   ESP_LOGI("image_card", "Downloading camera image for %s", ctx->entity_id.c_str());
   ctx->image->request_update_url(ctx->url);
 }
@@ -475,6 +508,7 @@ inline void image_card_hide_modal() {
   ui = ImageCardModalUi();
   if (ctx && ctx->active && ctx->image) {
     image_card_apply_widget_geometry(ctx->btn, ctx->widget, ctx->image);
+    if (!ctx->source_url.empty()) image_card_request_source_url(ctx);
   }
 }
 
@@ -513,6 +547,7 @@ inline void image_card_open_modal(ImageCardCtx *ctx) {
   lv_obj_move_background(ui.image_widget);
   lv_obj_move_foreground(ui.back_btn);
   lv_obj_move_foreground(ui.overlay);
+  if (!ctx->source_url.empty()) image_card_request_source_url(ctx);
 }
 
 inline void image_card_handle_picture(ImageCardCtx *ctx, esphome::StringRef picture) {
