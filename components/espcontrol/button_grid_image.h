@@ -7,6 +7,8 @@
 struct ImageCardCtx {
   lv_obj_t *widget = nullptr;
   lv_obj_t *btn = nullptr;
+  lv_obj_t *loading_widget = nullptr;
+  lv_obj_t *loading_label = nullptr;
   const lv_font_t *icon_font = nullptr;
   esphome::artwork_image::ArtworkImage *image = nullptr;
   std::string entity_id;
@@ -57,6 +59,37 @@ inline void image_card_set_widget_source(lv_obj_t *widget,
   lv_obj_invalidate(widget);
 }
 
+inline lv_obj_t *image_card_loading_widget(lv_obj_t *widget) {
+  return widget ? static_cast<lv_obj_t *>(lv_obj_get_user_data(widget)) : nullptr;
+}
+
+inline lv_obj_t *image_card_loading_label(lv_obj_t *loading_widget) {
+  if (!loading_widget || lv_obj_get_child_cnt(loading_widget) < 2) return nullptr;
+  return lv_obj_get_child(loading_widget, 1);
+}
+
+inline void image_card_set_loading_state(lv_obj_t *loading_widget, const char *text) {
+  if (!loading_widget) return;
+  lv_obj_t *label = image_card_loading_label(loading_widget);
+  if (label) lv_label_set_text(label, espcontrol_i18n(text));
+  lv_obj_clear_flag(loading_widget, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_move_foreground(loading_widget);
+  lv_obj_invalidate(loading_widget);
+}
+
+inline void image_card_set_loading_state(ImageCardCtx *ctx, const char *text,
+                                         bool force = false) {
+  if (!ctx || !ctx->loading_widget) return;
+  bool image_visible = ctx->widget && !lv_obj_has_flag(ctx->widget, LV_OBJ_FLAG_HIDDEN);
+  if (image_visible && !force) return;
+  image_card_set_loading_state(ctx->loading_widget, text);
+}
+
+inline void image_card_hide_loading(ImageCardCtx *ctx) {
+  if (!ctx || !ctx->loading_widget) return;
+  lv_obj_add_flag(ctx->loading_widget, LV_OBJ_FLAG_HIDDEN);
+}
+
 inline void image_card_hide(ImageCardCtx *ctx) {
   if (!ctx) return;
   if (ctx->widget) lv_obj_add_flag(ctx->widget, LV_OBJ_FLAG_HIDDEN);
@@ -65,6 +98,7 @@ inline void image_card_hide(ImageCardCtx *ctx) {
 inline void image_card_apply_downloaded(ImageCardCtx *ctx) {
   if (!ctx || !ctx->active || !ctx->widget || !ctx->image) return;
   if (ctx->image->get_url() != ctx->url) return;
+  image_card_hide_loading(ctx);
   if (image_card_modal_active_for(ctx)) {
     ImageCardModalUi &ui = image_card_modal_ui();
     image_card_set_widget_source(ui.image_widget, ctx->image);
@@ -87,6 +121,7 @@ inline void image_card_handle_download_error(ImageCardCtx *ctx) {
     return;
   } else {
     image_card_hide(ctx);
+    image_card_set_loading_state(ctx, "Unavailable", true);
   }
 }
 
@@ -114,6 +149,8 @@ inline void reset_image_card_pool(const GridConfig &cfg) {
     contexts[i].active = false;
     contexts[i].widget = nullptr;
     contexts[i].btn = nullptr;
+    contexts[i].loading_widget = nullptr;
+    contexts[i].loading_label = nullptr;
     contexts[i].icon_font = nullptr;
     contexts[i].entity_id.clear();
     contexts[i].source_url.clear();
@@ -166,6 +203,7 @@ inline void image_card_apply_widget_geometry(lv_obj_t *btn, lv_obj_t *widget,
   lv_coord_t width = 0;
   lv_coord_t height = 0;
   if (!image_card_position_widget(btn, widget, &width, &height)) return;
+  image_card_position_widget(btn, image_card_loading_widget(widget));
   image->set_target_size(width, height);
   image->set_resize_mode(esphome::artwork_image::ImageResizeMode::COVER);
 }
@@ -220,6 +258,41 @@ inline void setup_image_card(BtnSlot &s) {
   lv_obj_set_style_bg_opa(img, LV_OPA_TRANSP, LV_PART_MAIN);
   lv_obj_set_style_radius(img, lv_obj_get_style_radius(s.btn, LV_PART_MAIN), LV_PART_MAIN);
   lv_obj_set_style_clip_corner(img, true, LV_PART_MAIN);
+
+  lv_obj_t *loading = lv_obj_create(s.btn);
+  lv_obj_set_size(loading, lv_pct(100), lv_pct(100));
+  lv_obj_set_style_bg_color(loading, lv_color_hex(DARK_BACKGROUND_TERTIARY), LV_PART_MAIN);
+  lv_obj_set_style_bg_opa(loading, LV_OPA_COVER, LV_PART_MAIN);
+  lv_obj_set_style_border_width(loading, 0, LV_PART_MAIN);
+  lv_obj_set_style_shadow_width(loading, 0, LV_PART_MAIN);
+  lv_obj_set_style_pad_all(loading, 0, LV_PART_MAIN);
+  lv_obj_set_style_radius(loading, lv_obj_get_style_radius(s.btn, LV_PART_MAIN), LV_PART_MAIN);
+  lv_obj_set_style_clip_corner(loading, true, LV_PART_MAIN);
+  lv_obj_clear_flag(loading, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_clear_flag(loading, LV_OBJ_FLAG_SCROLLABLE);
+
+  lv_obj_t *loading_icon = lv_label_create(loading);
+  if (s.icon_lbl) {
+    const lv_font_t *font = lv_obj_get_style_text_font(s.icon_lbl, LV_PART_MAIN);
+    if (font) lv_obj_set_style_text_font(loading_icon, font, LV_PART_MAIN);
+  }
+  lv_obj_set_style_text_color(loading_icon, lv_color_hex(DARK_TEXT_PRIMARY), LV_PART_MAIN);
+  lv_obj_set_style_text_opa(loading_icon, LV_OPA_70, LV_PART_MAIN);
+  lv_label_set_text(loading_icon, "\U000F02E9");
+  lv_obj_align(loading_icon, LV_ALIGN_CENTER, 0, -16);
+
+  lv_obj_t *loading_label = lv_label_create(loading);
+  if (s.text_lbl) {
+    const lv_font_t *font = lv_obj_get_style_text_font(s.text_lbl, LV_PART_MAIN);
+    if (font) lv_obj_set_style_text_font(loading_label, font, LV_PART_MAIN);
+  }
+  lv_obj_set_style_text_color(loading_label, lv_color_hex(DARK_TEXT_SOFT), LV_PART_MAIN);
+  lv_obj_set_style_text_opa(loading_label, LV_OPA_80, LV_PART_MAIN);
+  lv_obj_set_style_text_align(loading_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+  lv_label_set_text(loading_label, espcontrol_i18n("Loading"));
+  lv_obj_align(loading_label, LV_ALIGN_CENTER, 0, 20);
+
+  lv_obj_set_user_data(img, loading);
   lv_obj_set_user_data(s.sensor_container, img);
 }
 
@@ -356,6 +429,7 @@ inline void image_card_handle_picture(ImageCardCtx *ctx, const GridConfig &cfg,
   if (url.empty()) {
     ESP_LOGW("image_card", "No usable entity_picture URL for %s", ctx->entity_id.c_str());
     image_card_hide(ctx);
+    image_card_set_loading_state(ctx, "Unavailable", true);
     return;
   }
   ctx->source_url = url;
@@ -387,9 +461,14 @@ inline bool bind_image_card(BtnSlot &s, const ParsedCfg &p, const GridConfig &cf
   lv_obj_t *widget = s.sensor_container
     ? static_cast<lv_obj_t *>(lv_obj_get_user_data(s.sensor_container))
     : nullptr;
-  if (p.entity.empty()) return true;
+  lv_obj_t *loading = image_card_loading_widget(widget);
+  if (p.entity.empty()) {
+    image_card_set_loading_state(loading, "Configure");
+    return true;
+  }
   if (p.entity.rfind("camera.", 0) != 0) {
     ESP_LOGW("image_card", "Image card only supports camera entities: %s", p.entity.c_str());
+    image_card_set_loading_state(loading, "Unavailable");
     return true;
   }
   image_card_configure_label(s, p);
@@ -400,6 +479,8 @@ inline bool bind_image_card(BtnSlot &s, const ParsedCfg &p, const GridConfig &cf
   }
   ctx->widget = widget;
   ctx->btn = s.btn;
+  ctx->loading_widget = loading;
+  ctx->loading_label = image_card_loading_label(loading);
   ctx->icon_font = s.icon_lbl ? lv_obj_get_style_text_font(s.icon_lbl, LV_PART_MAIN) : nullptr;
   ctx->entity_id = p.entity;
   ctx->refresh_interval_ms = image_card_refresh_interval_ms(p);
@@ -407,6 +488,7 @@ inline bool bind_image_card(BtnSlot &s, const ParsedCfg &p, const GridConfig &cf
   ctx->modal_fit = image_card_modal_fit_enabled(p);
   ctx->width_compensation_percent = cfg.width_compensation_percent;
   image_card_apply_widget_geometry(ctx->btn, ctx->widget, ctx->image);
+  image_card_set_loading_state(ctx, "Loading", true);
   lv_obj_set_user_data(s.btn, ctx);
   lv_obj_add_flag(s.btn, LV_OBJ_FLAG_CLICKABLE);
   apply_push_button_transition(s.btn);

@@ -602,6 +602,7 @@ inline void refresh_card_layout(BtnSlot &s, const ParsedCfg &p,
       : nullptr;
     if (widget) {
       image_card_position_widget(s.btn, widget);
+      image_card_position_widget(s.btn, image_card_loading_widget(widget));
     }
   } else if (p.type == "media") {
     refresh_media_card_layout(s, p, cfg, row_span);
