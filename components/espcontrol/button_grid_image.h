@@ -849,6 +849,17 @@ inline std::string image_card_base_url(ImageCardCtx *ctx) {
   return ctx->base_url_provider ? ctx->base_url_provider() : ctx->base_url;
 }
 
+inline std::string image_card_entity_proxy_path(const std::string &entity_id) {
+  if (entity_id.rfind("camera.", 0) == 0) return "/api/camera_proxy/" + entity_id;
+  if (entity_id.rfind("image.", 0) == 0) return "/api/image_proxy/" + entity_id;
+  return "";
+}
+
+inline std::string image_card_entity_proxy_url(ImageCardCtx *ctx) {
+  if (!ctx) return "";
+  return image_card_join_url(image_card_base_url(ctx), image_card_entity_proxy_path(ctx->entity_id));
+}
+
 inline std::string image_card_cache_bust_url(const std::string &url) {
   if (url.empty()) return "";
   std::string next = url;
@@ -1221,7 +1232,13 @@ inline void image_card_handle_picture(ImageCardCtx *ctx, esphome::StringRef pict
   std::string raw = string_ref_limited(picture, 4096);
   std::string url = image_card_join_url(image_card_base_url(ctx), raw);
   if (url.empty()) {
-    ESP_LOGW("image_card", "No usable entity_picture URL for %s", ctx->entity_id.c_str());
+    url = image_card_entity_proxy_url(ctx);
+    if (!url.empty()) {
+      ESP_LOGI("image_card", "Using Home Assistant proxy fallback for %s", ctx->entity_id.c_str());
+    }
+  }
+  if (url.empty()) {
+    ESP_LOGW("image_card", "No usable image URL for %s", ctx->entity_id.c_str());
     if (ctx->image_ready) return;
     image_card_hide(ctx);
     if (image_card_startup_retry_active(ctx)) {

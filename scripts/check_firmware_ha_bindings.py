@@ -149,6 +149,8 @@ def firmware_ha_boundary_errors(firmware_dir: Path, root: Path) -> list[str]:
         errors.append(f"{rel}: missing ha_action_send helper")
     elif "ha_api_state_connected()" not in action_send_match.group("body"):
         errors.append(f"{rel}: send Home Assistant actions only after state subscription is ready")
+    elif "HA_ACTION_INTERNAL_FREE_MIN_BYTES" not in action_send_match.group("body"):
+        errors.append(f"{rel}: defer Home Assistant actions when S3 internal heap is critically low")
 
     return errors
 
@@ -393,6 +395,8 @@ def firmware_weather_request_errors(firmware_dir: Path, root: Path) -> list[str]
     body = request.group("body")
     if "ha_api_state_connected()" not in body:
         errors.append(f"{rel}: wait for Home Assistant state subscription before automatic forecast requests")
+    if "low internal heap" not in body:
+        errors.append(f"{rel}: retry automatic forecast requests instead of sending during critically low internal heap")
     if "ha_cancel_action_response_callback(req.call_id" not in text:
         errors.append(f"{rel}: cancel forecast response callbacks when sends fail")
     if (
@@ -729,6 +733,8 @@ def firmware_image_card_startup_errors(
         errors.append(f"{rel}: arm image-card refresh from the Home Assistant API connection")
     if "if (!ha_api_connected())" not in text or "ha_get_attribute(" not in text:
         errors.append(f"{rel}: request image-card attributes once the Home Assistant API is connected")
+    if '"/api/image_proxy/" + entity_id' not in text or '"/api/camera_proxy/" + entity_id' not in text:
+        errors.append(f"{rel}: fall back to Home Assistant proxy URLs when image-card entity_picture is unavailable")
     if "subscribe_image_card_entity_state" not in text or "ha_subscribe_state(" not in text:
         errors.append(f"{rel}: refresh image cards when the camera/image entity state changes")
     if "image_card_context_current" not in text or "generation == ha_subscription_generation()" not in text:
@@ -1413,7 +1419,7 @@ def run_self_test() -> int:
             "button_grid_ha.h": (
                 "inline bool ha_subscribe_state() {\n  return true;\n}\n"
                 "inline bool ha_subscribe_attribute() {\n  return true;\n}\n"
-                "inline bool ha_action_send() {\n  return ha_api_state_connected();\n}\n"
+                "inline bool ha_action_send() {\n  return ha_api_state_connected() && HA_ACTION_INTERNAL_FREE_MIN_BYTES;\n}\n"
             )
         },
         ("expose a helper to cancel stale HA action response callbacks",),
@@ -1910,6 +1916,7 @@ def run_self_test() -> int:
         "  weather_forecast_cancel_pending_requests();\n"
         "  weather_forecast_schedule_retry(entity_id, day, \"failed\");\n"
         "  if (!ha_api_available()) return;\n"
+        "  weather_forecast_schedule_retry(entity_id, day, \"low internal heap\");\n"
         "  ha_register_action_response_callback(req.call_id, cb);\n"
         "  ha_action_send(req);\n"
         "}\n",
@@ -1947,6 +1954,7 @@ def run_self_test() -> int:
         "  weather_forecast_cancel_pending_requests();\n"
         "  weather_forecast_schedule_retry(entity_id, day, \"failed\");\n"
         "  if (!ha_api_state_connected()) return;\n"
+        "  weather_forecast_schedule_retry(entity_id, day, \"low internal heap\");\n"
         "  ha_register_action_response_callback(req.call_id, cb);\n"
         "  if (!ha_action_send(req)) return;\n"
         "}\n",
@@ -1961,6 +1969,7 @@ def run_self_test() -> int:
         "  weather_forecast_cancel_pending_requests();\n"
         "  weather_forecast_schedule_retry(entity_id, day, \"setup failed\");\n"
         "  if (!ha_api_state_connected()) return;\n"
+        "  weather_forecast_schedule_retry(entity_id, day, \"low internal heap\");\n"
         "  ha_register_action_response_callback(req.call_id, cb);\n"
         "  if (!ha_action_send(req)) {\n"
         "    weather_forecast_clear_pending(req.call_id);\n"
@@ -1979,6 +1988,7 @@ def run_self_test() -> int:
         "  weather_forecast_cancel_pending_requests();\n"
         "  weather_forecast_schedule_retry(entity_id, day, \"setup failed\");\n"
         "  if (!ha_api_state_connected()) return;\n"
+        "  weather_forecast_schedule_retry(entity_id, day, \"low internal heap\");\n"
         "  ha_register_action_response_callback(req.call_id, cb);\n"
         "  bool valid = false;\n"
         "  if (!valid) {\n"
@@ -1993,6 +2003,7 @@ def run_self_test() -> int:
         "  constexpr uint32_t WEATHER_FORECAST_RETRY_DELAY_MS = 300000;\n"
         "  weather_forecast_schedule_retry(entity_id, day, \"failed\");\n"
         "  if (!ha_api_state_connected()) return;\n"
+        "  weather_forecast_schedule_retry(entity_id, day, \"low internal heap\");\n"
         "  ha_register_action_response_callback(req.call_id, cb);\n"
         "  ha_cancel_action_response_callback(req.call_id, \"send failed\");\n"
         "}\n",
@@ -2005,6 +2016,7 @@ def run_self_test() -> int:
         "  weather_forecast_track_pending(req.call_id);\n"
         "  weather_forecast_cancel_pending_requests();\n"
         "  if (!ha_api_state_connected()) return;\n"
+        "  weather_forecast_schedule_retry(entity_id, day, \"low internal heap\");\n"
         "  ha_register_action_response_callback(req.call_id, cb);\n"
         "  ha_cancel_action_response_callback(req.call_id, \"send failed\");\n"
         "  ha_action_send(req);\n"
@@ -2017,6 +2029,7 @@ def run_self_test() -> int:
         "  if (!weather_forecast_actions_ready()) return;\n"
         "  weather_forecast_track_pending(req.call_id);\n"
         "  weather_forecast_cancel_pending_requests();\n"
+        "  weather_forecast_schedule_retry(entity_id, day, \"low internal heap\");\n"
         "  weather_forecast_schedule_retry(entity_id, day, \"failed\");\n"
         "}\n",
         ("detect Home Assistant forecast timeout errors robustly",),
@@ -2323,6 +2336,11 @@ def run_self_test() -> int:
         "inline bool image_card_home_assistant_proxy_url(const std::string &url) {\n"
         "  return url.find(\"/api/camera_proxy/\") != std::string::npos ||\n"
         "         url.find(\"/api/image_proxy/\") != std::string::npos;\n"
+        "}\n"
+        "inline std::string image_card_entity_proxy_path(const std::string &entity_id) {\n"
+        "  if (entity_id.rfind(\"camera.\", 0) == 0) return \"/api/camera_proxy/\" + entity_id;\n"
+        "  if (entity_id.rfind(\"image.\", 0) == 0) return \"/api/image_proxy/\" + entity_id;\n"
+        "  return \"\";\n"
         "}\n"
         "inline void image_card_request_picture(ImageCardCtx *ctx) {\n"
         "  if (!ha_api_connected()) return;\n"

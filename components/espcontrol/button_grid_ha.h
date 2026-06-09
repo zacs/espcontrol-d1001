@@ -5,6 +5,10 @@
 #include <utility>
 #include <vector>
 
+#ifdef ESP_PLATFORM
+#include "esp_heap_caps.h"
+#endif
+
 // Internal implementation detail for button_grid.h. Include button_grid.h from device YAML.
 
 // ── Home Assistant API boundary ──────────────────────────────────────
@@ -31,6 +35,8 @@ inline bool ha_api_state_connected() {
 
 constexpr uint32_t HA_UNAVAILABLE_STATE_RETRY_INTERVAL_MS = 5000;
 constexpr uint32_t HA_UNAVAILABLE_STATE_RETRY_RESPONSE_TIMEOUT_MS = 10000;
+constexpr size_t HA_ACTION_INTERNAL_FREE_MIN_BYTES = 12 * 1024;
+constexpr size_t HA_ACTION_INTERNAL_LARGEST_MIN_BYTES = 4 * 1024;
 
 struct HaUnavailableStateRetryRef {
   std::string entity_id;
@@ -126,6 +132,16 @@ inline void ha_action_add_entity(esphome::api::HomeassistantActionRequest &req,
 
 inline bool ha_action_send(esphome::api::HomeassistantActionRequest &req) {
   if (!ha_api_state_connected()) return false;
+#ifdef ESP_PLATFORM
+  size_t internal_free = heap_caps_get_free_size(MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+  size_t internal_largest = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+  if (internal_free < HA_ACTION_INTERNAL_FREE_MIN_BYTES ||
+      internal_largest < HA_ACTION_INTERNAL_LARGEST_MIN_BYTES) {
+    ESP_LOGW("ha", "Deferring Home Assistant action: internal heap free=%u largest=%u",
+             (unsigned) internal_free, (unsigned) internal_largest);
+    return false;
+  }
+#endif
   esphome::api::global_api_server->send_homeassistant_action(req);
   return true;
 }
