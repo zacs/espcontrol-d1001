@@ -37,9 +37,9 @@ substitutions:
   # Keep S3 artwork updates below full-screen size. The RGB panel, WiFi,
   # JPEG/PNG decode, and LVGL refresh all share tight S3 bandwidth; repainting
   # the full 480x480 image can visibly flicker during artwork changes.
-  cover_art_size: "384"
-  cover_art_x: "48"
-  cover_art_y: "48"
+  cover_art_size: "320"
+  cover_art_x: "80"
+  cover_art_y: "80"
   cover_art_accent_x: "0"
   cover_art_accent_y: "0"
   cover_art_accent_width: "480"
