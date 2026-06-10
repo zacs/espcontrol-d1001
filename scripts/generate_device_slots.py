@@ -59,9 +59,9 @@ def package_substitution_lines(device: dict) -> list[str]:
 def cover_art_substitution_lines(device: dict) -> list[str]:
     layouts = {
         "guition-esp32-s3-4848s040": {
-            "cover_art_size": "320",
-            "cover_art_x": "80",
-            "cover_art_y": "80",
+            "cover_art_size": "480",
+            "cover_art_x": "0",
+            "cover_art_y": "0",
             "cover_art_accent_x": "0",
             "cover_art_accent_y": "0",
             "cover_art_accent_width": "480",
@@ -326,6 +326,11 @@ def package_file_text(device: dict) -> str:
                 "fw_update",
                 f"!include ../../common/addon/firmware_update{firmware_update_suffix}.yaml",
             ),
+            *(
+                [include_line("web_activity", "!include device/web_activity.yaml")]
+                if device["slug"] == "guition-esp32-s3-4848s040"
+                else []
+            ),
             "",
             "  # ---------------------------------------------------------------------------",
             "  # Screens (loading must be first page for LVGL startup)",
@@ -340,11 +345,17 @@ def package_file_text(device: dict) -> str:
             include_line("screen_setup", "!include ../../common/device/screen_button_setup.yaml"),
             include_line("screen_clock", "!include ../../common/device/screen_clock.yaml"),
             include_line("screen_art", "!include ../../common/device/screen_cover_art.yaml"),
-            include_line(
-                "image_cards",
-                "!include ../../common/device/image_cards.yaml"
-                if int(device.get("image_card_downloaders", 4)) == 4
-                else f"!include ../../common/device/image_cards_{int(device.get('image_card_downloaders', 4))}.yaml",
+            *(
+                [
+                    include_line(
+                        "image_cards",
+                        "!include ../../common/device/image_cards.yaml"
+                        if int(device.get("image_card_downloaders", 4)) == 4
+                        else f"!include ../../common/device/image_cards_{int(device.get('image_card_downloaders', 4))}.yaml",
+                    )
+                ]
+                if int(device.get("image_card_downloaders", 4)) > 0
+                else []
             ),
             "  # ---------------------------------------------------------------------------",
             "  # Main page and dynamic sensor subscriptions (after setup screens)",
@@ -481,17 +492,18 @@ def cfg_lines(device: dict) -> list[str]:
     lines.append("              id(home_screen_idle_suspended) = false;")
     lines.append("              id(home_screen_idle_check).execute();")
     lines.append("            };")
-    lines.append("            static esphome::artwork_image::ArtworkImage *image_card_downloaders[] = {")
-    for num in range(1, image_card_count + 1):
-        lines.append(f"              id(image_card_download_{num}),")
-    lines.append("            };")
-    lines.append("            static esphome::artwork_image::ArtworkImage *image_card_modal_downloaders[] = {")
-    for num in range(1, image_card_count + 1):
-        lines.append(f"              id(image_card_modal_download_{num}),")
-    lines.append("            };")
-    lines.append("            cfg.image_card_images = image_card_downloaders;")
-    lines.append("            cfg.image_card_modal_images = image_card_modal_downloaders;")
-    lines.append(f"            cfg.image_card_image_count = {image_card_count};")
+    if image_card_count > 0:
+        lines.append("            static esphome::artwork_image::ArtworkImage *image_card_downloaders[] = {")
+        for num in range(1, image_card_count + 1):
+            lines.append(f"              id(image_card_download_{num}),")
+        lines.append("            };")
+        lines.append("            static esphome::artwork_image::ArtworkImage *image_card_modal_downloaders[] = {")
+        for num in range(1, image_card_count + 1):
+            lines.append(f"              id(image_card_modal_download_{num}),")
+        lines.append("            };")
+        lines.append("            cfg.image_card_images = image_card_downloaders;")
+        lines.append("            cfg.image_card_modal_images = image_card_modal_downloaders;")
+        lines.append(f"            cfg.image_card_image_count = {image_card_count};")
     lines.append("            cfg.home_assistant_base_url = []() {")
     lines.append("              std::string base = id(cover_art_home_assistant_base_url);")
     lines.append("              while (!base.empty() && base.back() == '/') base.pop_back();")

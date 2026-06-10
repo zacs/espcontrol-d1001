@@ -86,14 +86,6 @@ script:
           id: gpio_backlight_pwm
           level: 15%
       - artwork_image.release: cover_art_downloaded_image
-      - artwork_image.release: image_card_download_1
-      - artwork_image.release: image_card_download_2
-      - artwork_image.release: image_card_download_3
-      - artwork_image.release: image_card_download_4
-      - artwork_image.release: image_card_modal_download_1
-      - artwork_image.release: image_card_modal_download_2
-      - artwork_image.release: image_card_modal_download_3
-      - artwork_image.release: image_card_modal_download_4
       - output.set_level:
           id: gpio_backlight_pwm
           level: 15%

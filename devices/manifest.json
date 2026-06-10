@@ -647,6 +647,7 @@
         },
         "display": {
           "wrapTallLabels": false,
+          "imageCardDownloaders": 0,
           "subpageChevronX": 3,
           "subpageChevronY": -2,
           "subpageChevronTextWidthPercent": 96

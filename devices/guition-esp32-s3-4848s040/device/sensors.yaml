@@ -61,21 +61,6 @@ script:
             id(home_screen_idle_suspended) = false;
             id(home_screen_idle_check).execute();
           };
-          static esphome::artwork_image::ArtworkImage *image_card_downloaders[] = {
-            id(image_card_download_1),
-            id(image_card_download_2),
-            id(image_card_download_3),
-            id(image_card_download_4),
-          };
-          static esphome::artwork_image::ArtworkImage *image_card_modal_downloaders[] = {
-            id(image_card_modal_download_1),
-            id(image_card_modal_download_2),
-            id(image_card_modal_download_3),
-            id(image_card_modal_download_4),
-          };
-          cfg.image_card_images = image_card_downloaders;
-          cfg.image_card_modal_images = image_card_modal_downloaders;
-          cfg.image_card_image_count = 4;
           cfg.home_assistant_base_url = []() {
             std::string base = id(cover_art_home_assistant_base_url);
             while (!base.empty() && base.back() == '/') base.pop_back();
@@ -154,21 +139,6 @@ esphome:
               id(home_screen_idle_suspended) = false;
               id(home_screen_idle_check).execute();
             };
-            static esphome::artwork_image::ArtworkImage *image_card_downloaders[] = {
-              id(image_card_download_1),
-              id(image_card_download_2),
-              id(image_card_download_3),
-              id(image_card_download_4),
-            };
-            static esphome::artwork_image::ArtworkImage *image_card_modal_downloaders[] = {
-              id(image_card_modal_download_1),
-              id(image_card_modal_download_2),
-              id(image_card_modal_download_3),
-              id(image_card_modal_download_4),
-            };
-            cfg.image_card_images = image_card_downloaders;
-            cfg.image_card_modal_images = image_card_modal_downloaders;
-            cfg.image_card_image_count = 4;
             cfg.home_assistant_base_url = []() {
               std::string base = id(cover_art_home_assistant_base_url);
               while (!base.empty() && base.back() == '/') base.pop_back();
@@ -275,21 +245,6 @@ esphome:
               id(home_screen_idle_suspended) = false;
               id(home_screen_idle_check).execute();
             };
-            static esphome::artwork_image::ArtworkImage *image_card_downloaders[] = {
-              id(image_card_download_1),
-              id(image_card_download_2),
-              id(image_card_download_3),
-              id(image_card_download_4),
-            };
-            static esphome::artwork_image::ArtworkImage *image_card_modal_downloaders[] = {
-              id(image_card_modal_download_1),
-              id(image_card_modal_download_2),
-              id(image_card_modal_download_3),
-              id(image_card_modal_download_4),
-            };
-            cfg.image_card_images = image_card_downloaders;
-            cfg.image_card_modal_images = image_card_modal_downloaders;
-            cfg.image_card_image_count = 4;
             cfg.home_assistant_base_url = []() {
               std::string base = id(cover_art_home_assistant_base_url);
               while (!base.empty() && base.back() == '/') base.pop_back();
