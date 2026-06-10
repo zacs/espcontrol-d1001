@@ -427,3 +427,7 @@ esphome:
               []() {
                 id(screensaver_presence_sleep).execute();
               });
+        - delay: 500ms
+        - script.execute: refresh_button_grid
+        - delay: 1500ms
+        - script.execute: refresh_button_grid

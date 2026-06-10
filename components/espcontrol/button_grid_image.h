@@ -270,6 +270,15 @@ inline void image_card_refresh_loading_layout(lv_obj_t *loading_widget) {
   lv_coord_t pad_top = btn ? lv_obj_get_style_pad_top(btn, LV_PART_MAIN) : 0;
   lv_coord_t pad_bottom = btn ? lv_obj_get_style_pad_bottom(btn, LV_PART_MAIN) : 0;
   lv_coord_t width = btn ? lv_obj_get_width(btn) : lv_obj_get_width(loading_widget);
+  lv_coord_t height = btn ? lv_obj_get_height(btn) : lv_obj_get_height(loading_widget);
+  lv_obj_t *card_label = static_cast<lv_obj_t *>(lv_obj_get_user_data(loading_widget));
+  if (card_label && !lv_obj_has_flag(card_label, LV_OBJ_FLAG_HIDDEN)) {
+    const lv_font_t *font = lv_obj_get_style_text_font(card_label, LV_PART_MAIN);
+    lv_coord_t reserve = font && font->line_height > 0 ? font->line_height * 2 : 40;
+    reserve += pad_bottom;
+    if (reserve > height / 2) reserve = height / 2;
+    if (height > reserve) lv_obj_set_height(loading_widget, height - reserve);
+  }
   lv_obj_t *icon = image_card_loading_icon(loading_widget);
   lv_obj_t *label = image_card_loading_label(loading_widget);
   if (icon) {
