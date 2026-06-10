@@ -21,6 +21,21 @@ api:
         ESP_LOGI("api", "API client connected: %s", client_info.c_str());
         bool is_home_assistant = client_info.find("Home Assistant") != std::string::npos;
         if (is_home_assistant && ha_api_connected()) {
+          if (!client_address.empty()) {
+            std::string host = client_address;
+            if (host.rfind("::ffff:", 0) == 0) host = host.substr(7);
+            if (host.find('.') != std::string::npos) {
+              size_t port_separator = host.find(':');
+              if (port_separator != std::string::npos) host = host.substr(0, port_separator);
+            } else if (host.find(':') != std::string::npos && host.front() != '[') {
+              host = "[" + host + "]";
+            }
+            id(cover_art_home_assistant_base_url) = "http://" + host + ":8123";
+            ESP_LOGI("api", "Using Home Assistant base URL: %s",
+                     id(cover_art_home_assistant_base_url).c_str());
+          } else {
+            ESP_LOGW("api", "Home Assistant API client address is empty; image proxy base URL not updated");
+          }
           refresh_image_cards();
           if (ha_api_state_connected()) {
             apply_registered_ha_control_availability(true);
