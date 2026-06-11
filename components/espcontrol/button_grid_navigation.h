@@ -4,6 +4,8 @@
 
 // ── Home Assistant-driven page navigation ────────────────────────────
 
+inline void image_card_hide_modal();
+
 struct NavigationSubpageEntry {
   int slot = 0;
   int display_order = 0;
@@ -42,6 +44,7 @@ inline std::string navigation_lower(const std::string &value) {
 inline void navigation_hide_modals() {
   control_modal_close_nested_menu();
   control_modal_close_active();
+  image_card_hide_modal();
   media_volume_hide_modal();
   climate_control_hide_modal();
   option_select_hide_modal();

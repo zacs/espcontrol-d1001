@@ -733,6 +733,7 @@ script:
   - id: show_clock_view
     mode: single
     then:
+      - lambda: 'navigation_return_home(id(main_page)->obj);'
       - globals.set:
           id: screensaver_dimmed_active
           value: 'false'
