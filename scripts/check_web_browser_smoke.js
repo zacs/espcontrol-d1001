@@ -838,6 +838,29 @@ async function assertClockBarEditorSmoke(page, posts, label) {
   assert((await page.locator(".sp-selection-bar").textContent()).includes("Clock selected"), `${label}: clock selection is labelled`);
   assert.strictEqual(await page.getByRole("button", { name: "Edit", exact: true }).isDisabled(), true, `${label}: clock edit button is disabled`);
   assert.strictEqual(await page.getByRole("button", { name: "Clock bar actions", exact: true }).count(), 1, `${label}: clock selection exposes actions menu button`);
+  const selectedClockItem = page.locator('[data-clockbar-item="time"]');
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(250);
+  const selectedClockStyle = await selectedClockItem.evaluate((el) => {
+    var style = getComputedStyle(el);
+    return { borderColor: style.borderTopColor, backgroundColor: style.backgroundColor };
+  });
+  await selectedClockItem.hover();
+  await page.waitForTimeout(250);
+  const hoveredSelectedClockStyle = await selectedClockItem.evaluate((el) => {
+    var style = getComputedStyle(el);
+    return { borderColor: style.borderTopColor, backgroundColor: style.backgroundColor };
+  });
+  assert.notStrictEqual(
+    selectedClockStyle.borderColor,
+    "rgba(0, 0, 0, 0)",
+    `${label}: selected clock bar item has a visible border`
+  );
+  assert.deepStrictEqual(
+    hoveredSelectedClockStyle,
+    selectedClockStyle,
+    `${label}: selected clock bar item keeps its selected styling while hovered`
+  );
   await openClockBarContextMenu("time", "Hide Clock");
   await page.locator(".sp-ctx-menu").getByText("Hide Clock", { exact: true }).click();
   await waitForPost(posts, { domain: "switch", name: "screen__clock_bar_time", action: "turn_off" }, `${label}: hiding clock posts clock switch`, before);
