@@ -710,13 +710,16 @@ async function assertBackupImportSmoke(page, posts, testCase) {
   );
 }
 
-async function entitySuggestionValues(page, inputSelector) {
-  await page.locator(inputSelector).fill("light");
-  await page.waitForFunction((selector) => {
+async function entitySuggestionValues(page, inputSelector, query = "light") {
+  await page.locator(inputSelector).fill(query);
+  await page.waitForFunction(({ selector, query }) => {
     const input = document.querySelector(selector);
-    return !!input && !!input.parentElement &&
-      !!input.parentElement.querySelector(".sp-entity-dropdown.sp-open .sp-entity-option");
-  }, inputSelector);
+    const normalizedQuery = String(query || "").toLowerCase();
+    if (!input || String(input.value || "").toLowerCase() !== normalizedQuery) return false;
+    const options = Array.from(input.parentElement.querySelectorAll(".sp-entity-dropdown.sp-open .sp-entity-option"));
+    if (!options.length) return false;
+    return options.every((option) => String(option.textContent || "").toLowerCase().includes(normalizedQuery));
+  }, { selector: inputSelector, query });
   return page.locator(inputSelector).evaluate((input) => {
     return Array.from(input.parentElement.querySelectorAll(".sp-entity-dropdown.sp-open .sp-entity-option"))
       .map((option) => option.textContent || "");
