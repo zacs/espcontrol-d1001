@@ -379,7 +379,7 @@ function networkPreviewIconSlug(transport, strengthPercent) {
 
 function updateNetworkPreview() {
   if (!els.networkPreview) return;
-  var show = clockBarVisibleInPreview() && state.networkStatusOn;
+  var show = clockBarVisibleInPreview();
   els.networkPreview.className = "sp-network-preview mdi mdi-" +
     networkPreviewIconSlug(state.networkTransport, state.wifiStrengthPercent) +
     (show ? " sp-visible" : "");

@@ -998,6 +998,19 @@ async function assertClockBarEditorSmoke(page, posts, label) {
   await page.locator(".sp-ctx-menu").getByText("Hide Connectivity", { exact: true }).click();
   await waitForPost(posts, { domain: "switch", name: "screen__network_status_icon", action: "turn_off" }, `${label}: hiding connectivity posts network switch`, before);
   assert((await page.locator('[data-clockbar-item="network"]').getAttribute("class")).includes("sp-clockbar-hidden"), `${label}: hidden connectivity is greyed in preview`);
+  const hiddenNetworkPreview = await page.locator('[data-clockbar-item="network"] .sp-network-preview').evaluate((el) => {
+    const style = getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
+    return {
+      className: el.className,
+      opacity: style.opacity,
+      width: rect.width,
+      height: rect.height,
+    };
+  });
+  assert(hiddenNetworkPreview.className.includes("sp-visible"), `${label}: hidden connectivity keeps the preview icon visible`);
+  assert.strictEqual(hiddenNetworkPreview.opacity, "1", `${label}: hidden connectivity icon is not faded out by its own style`);
+  assert(hiddenNetworkPreview.width > 0 && hiddenNetworkPreview.height > 0, `${label}: hidden connectivity icon remains measurable`);
   await openClockBarContextMenu("network", "Show Connectivity");
   await page.locator(".sp-ctx-menu").getByText("Show Connectivity", { exact: true }).click();
   await waitForPost(posts, { domain: "switch", name: "screen__network_status_icon", action: "turn_on" }, `${label}: showing connectivity posts network switch`, before);
