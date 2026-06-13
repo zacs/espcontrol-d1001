@@ -379,6 +379,7 @@
         "display": {
           "wrapTallLabels": true,
           "imageCardDownloaders": 6,
+          "imageCardDiagnostics": true,
           "subpageChevronX": 4,
           "subpageChevronY": -2
         },

@@ -516,6 +516,8 @@ def cfg_lines(device: dict) -> list[str]:
         lines.append("            cfg.image_card_images = image_card_downloaders;")
         lines.append("            cfg.image_card_modal_images = image_card_modal_downloaders;")
         lines.append(f"            cfg.image_card_image_count = {image_card_count};")
+    if device.get("image_card_diagnostics"):
+        lines.append("            cfg.image_card_diagnostics = true;")
     lines.append("            cfg.home_assistant_base_url = []() {")
     lines.append("              std::string base = id(cover_art_home_assistant_base_url);")
     lines.append("              while (!base.empty() && base.back() == '/') base.pop_back();")

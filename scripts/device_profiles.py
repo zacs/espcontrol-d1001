@@ -200,6 +200,8 @@ def validate_display(slug: str, device: dict[str, Any], errors: list[str]) -> No
         value = display["imageCardDownloaders"]
         if not isinstance(value, int) or isinstance(value, bool) or value < 0 or value > 6:
             errors.append(device_error(slug, "firmware.display.imageCardDownloaders must be an integer from 0 to 6 when set"))
+    if "imageCardDiagnostics" in display and not isinstance(display["imageCardDiagnostics"], bool):
+        errors.append(device_error(slug, "firmware.display.imageCardDiagnostics must be true or false when set"))
 
     correction = display.get("colorCorrection")
     if correction is not None:
@@ -589,6 +591,8 @@ def slot_device(profile: dict[str, Any]) -> dict[str, Any]:
         }
     if display.get("imageCardDownloaders", 4) != 4:
         slot["image_card_downloaders"] = display["imageCardDownloaders"]
+    if display.get("imageCardDiagnostics"):
+        slot["image_card_diagnostics"] = True
     if rotation.get("rotateWidthCompensation"):
         slot["rotate_width_compensation"] = True
     return slot

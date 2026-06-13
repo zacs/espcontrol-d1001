@@ -50,6 +50,7 @@ struct GridConfig {
   esphome::artwork_image::ArtworkImage **image_card_images = nullptr;
   esphome::artwork_image::ArtworkImage **image_card_modal_images = nullptr;
   int image_card_image_count = 0;
+  bool image_card_diagnostics = false;
   std::function<std::string()> home_assistant_base_url;
 };
 
