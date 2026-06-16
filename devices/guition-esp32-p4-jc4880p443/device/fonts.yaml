@@ -101,12 +101,3 @@ font:
     glyphs:
       - "0123456789.-°/%"
       - ":"
-
-  # Large modal numbers
-  - file: "gfonts://Roboto@Thin"
-    id: font_number_modal
-    size: 135
-    bpp: 4
-    glyphs:
-      - "0123456789.-°/%"
-      - ":"
