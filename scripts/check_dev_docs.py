@@ -335,7 +335,7 @@ def generated_card_map() -> str:
 
         domains = ", ".join(f"`{domain}`" for domain in card.get("domains", [])) or "None"
         subpages = "Yes" if card.get("allowInSubpage") else "No"
-        status = "Hidden" if card.get("hidden") else ("Experimental" if card.get("experimental") else "Visible")
+        status = "Hidden" if card.get("hidden") else "Visible"
         firmware = ", ".join(f"`{path}`" for path in firmware_files.get(card_type, [])) or "No direct match"
         web = f"`{web_files[card_type]}`" if card_type in web_files else "No current web type"
         checks = ["Contract", "Codec", "Parser"]

@@ -19,14 +19,9 @@ function normalizeCoverMode(mode, allowCommands) {
   return coverModeOptionValues(allowCommands).indexOf(mode) >= 0 ? mode : "";
 }
 
-function coverModalModeEnabled() {
-  return true;
-}
-
 function coverModeOptionsForSettings(currentMode) {
-  var showModal = coverModalModeEnabled() || currentMode === "modal";
   return [
-    ["modal", showModal && !coverModalModeEnabled() ? "Modal (experimental)" : "Modal"],
+    ["modal", "Modal"],
     ["", "Slider: Position"],
     ["tilt", "Slider: Tilt"],
     ["toggle", "Toggle"],
@@ -34,9 +29,7 @@ function coverModeOptionsForSettings(currentMode) {
     ["close", "Close"],
     ["stop", "Stop"],
     ["set_position", "Set Position"],
-  ].filter(function (option) {
-    return option[0] !== "modal" || showModal;
-  });
+  ];
 }
 
 function normalizeCoverPosition(value) {
@@ -103,14 +96,13 @@ function sliderTypeFactory(opts) {
     label: function () { return cardContractCardLabel(opts.type); },
     allowInSubpage: function () { return cardContractAllowInSubpage(opts.type); },
     pickerKey: function () { return cardContractPickerKey(opts.type); },
-    experimental: function () { return cardContractExperimental(opts.type); },
     hidden: function () { return cardContractHidden(opts.type); },
     hideLabel: !!opts.hideLabel,
     labelPlaceholder: opts.placeholder,
     defaultConfig: function () { return cardContractDefaultConfig(opts.type); },
     cardMetadata: metadata,
     onSelect: function (b) {
-      b.sensor = opts.type === "cover" && coverModalModeEnabled() ? "modal" : "";
+      b.sensor = opts.type === "cover" ? "modal" : "";
       b.unit = "";
       b.icon = opts.defaultIcon;
       b.icon_on = opts.defaultIconOn;

@@ -177,7 +177,6 @@ function seededEvents() {
     { id: "select-screen__clock_format", state: "24h", value: "24h", option: ["12h", "24h"] },
     { id: "select-screen__rotation", state: "0", value: "0", option: ["0", "90", "180", "270"] },
     { id: "number-screensaver_timeout", state: "300", value: 300, min: 10, max: 3600 },
-    { id: "switch-developer__experimental_features", state: "ON", value: true },
     { id: "text-subpage_6_config", state: "1,B|media_player.living:Living:Speaker:Auto:play_pause::media" },
   ];
   BUTTON_FIXTURES.forEach((state, index) => {

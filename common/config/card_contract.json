@@ -447,7 +447,6 @@
       "label": "Fans",
       "allowInSubpage": true,
       "pickerKey": "fan_speed",
-      "experimental": "developer",
       "domains": ["fan"],
       "default": {
         "entity": "",
@@ -465,7 +464,6 @@
       "label": "Fans",
       "allowInSubpage": true,
       "pickerKey": "fan_speed",
-      "experimental": "developer",
       "domains": ["fan"],
       "default": {
         "entity": "",
@@ -483,7 +481,6 @@
       "label": "Fans",
       "allowInSubpage": true,
       "pickerKey": "fan_speed",
-      "experimental": "developer",
       "domains": ["fan"],
       "default": {
         "entity": "",
@@ -500,7 +497,6 @@
     "fan_speed": {
       "label": "Fans",
       "allowInSubpage": true,
-      "experimental": "developer",
       "domains": ["fan"],
       "default": {
         "entity": "",
@@ -518,7 +514,6 @@
       "label": "Fans",
       "allowInSubpage": true,
       "pickerKey": "fan_speed",
-      "experimental": "developer",
       "domains": ["fan"],
       "default": {
         "entity": "",

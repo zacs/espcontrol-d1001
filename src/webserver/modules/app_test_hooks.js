@@ -10,7 +10,6 @@ if (typeof globalThis !== "undefined" && globalThis.__ESPCONTROL_TEST_HOOKS__) {
     cardContractCardLabel: cardContractCardLabel,
     cardContractAllowInSubpage: cardContractAllowInSubpage,
     cardContractPickerKey: cardContractPickerKey,
-    cardContractExperimental: cardContractExperimental,
     cardContractHidden: cardContractHidden,
     cardContractOptions: cardContractOptions,
     cardContractDefaultConfig: cardContractDefaultConfig,
@@ -149,26 +148,17 @@ if (typeof globalThis !== "undefined" && globalThis.__ESPCONTROL_TEST_HOOKS__) {
         return option.value;
       });
     },
-    coverModeOptionLabelsForExperimental: function (enabled, currentMode) {
-      var oldExperimental = state.developerExperimentalFeatures;
-      state.developerExperimentalFeatures = !!enabled;
+    coverModeOptionLabels: function (currentMode) {
       var options = coverModeOptionsForSettings(currentMode || "");
-      state.developerExperimentalFeatures = oldExperimental;
       return options.map(function (option) { return option[0] + ":" + option[1]; });
     },
     normalizeAlarmOptions: normalizeAlarmOptions,
-    buttonTypePickerKeysForExperimental: function (enabled, isSub, selectedTypeKey) {
-      var oldExperimental = state.developerExperimentalFeatures;
-      state.developerExperimentalFeatures = !!enabled;
+    buttonTypePickerKeysFor: function (isSub, selectedTypeKey) {
       var keys = buttonTypePickerKeys(!!isSub, selectedTypeKey || "");
-      state.developerExperimentalFeatures = oldExperimental;
       return keys;
     },
-    buttonTypeVisibleInPickerForExperimental: function (key, enabled, isSub) {
-      var oldExperimental = state.developerExperimentalFeatures;
-      state.developerExperimentalFeatures = !!enabled;
+    buttonTypeVisibleInPickerFor: function (key, isSub) {
       var visible = buttonTypeVisibleInPicker(key, !!isSub);
-      state.developerExperimentalFeatures = oldExperimental;
       return visible;
     },
     buttonTypePickerKeysForInfoOnly: function (enabled, selectedTypeKey) {
@@ -203,7 +193,6 @@ if (typeof globalThis !== "undefined" && globalThis.__ESPCONTROL_TEST_HOOKS__) {
         label: buttonTypeRegistryValue(typeDef, "label", typeDef.key || "Toggle"),
         allowInSubpage: !!buttonTypeRegistryValue(typeDef, "allowInSubpage", false),
         pickerKey: buttonTypeRegistryValue(typeDef, "pickerKey", "") || "",
-        experimental: buttonTypeRegistryValue(typeDef, "experimental", "") || "",
         hidden: !!buttonTypeRegistryValue(typeDef, "hidden", false),
         domains: entity && entity.domains
           ? cardMetadataValue(entity.domains, {}, {}) || []

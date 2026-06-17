@@ -127,10 +127,6 @@ web_server:
     - id: sg_firmware
       name: "Firmware"
       sorting_weight: 40
-    - id: sg_developer
-      name: "Developer"
-      sorting_weight: 90
-
 button:
   - platform: template
     name: "Apply Configuration"
@@ -145,18 +141,6 @@ button:
         - lambda: |-
             global_preferences->sync();
             App.safe_reboot();
-
-switch:
-  - platform: template
-    name: "${entity_developer_experimental_features}"
-    internal: true
-    id: developer_experimental_features
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
-    entity_category: config
-    icon: "mdi:flask-outline"
-    web_server:
-      sorting_group_id: sg_developer
 
 select:
   - platform: template

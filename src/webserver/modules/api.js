@@ -592,10 +592,6 @@ function postCoverArtTrackOverlayDuration(value) {
   return post(coverArtTrackOverlayDurationPostUrls(value));
 }
 
-function postDeveloperExperimentalFeatures(on) {
-  postSwitchWithObjectIds(entityName("developer_experimental_features"), entityObjectIds("developer_experimental_features"), on);
-}
-
 function postNumber(name, value) {
   return post(entityPostUrls("number", name, [], "set?value=" + encodeURIComponent(value)));
 }

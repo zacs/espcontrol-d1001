@@ -297,11 +297,10 @@ const sceneWithStaleConfirmation = hooks.parseButtonConfig(hooks.serializeButton
   options: "confirm_on,confirm_message=Run bedtime?",
 }));
 assert.strictEqual(sceneWithStaleConfirmation.options, "", "non-script action cards drop script confirmation options");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("alarm", false, false), true);
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("alarm", true, false), true);
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("alarm", true, true), true);
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("alarm_action", false, false), false);
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("alarm_action", false, true), false);
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("alarm", false), true);
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("alarm", true), true);
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("alarm_action", false), false);
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("alarm_action", true), false);
 const infoOnlyPickerKeys = Array.from(hooks.buttonTypePickerKeysForInfoOnly(true));
 assert(infoOnlyPickerKeys.includes("sensor"), "info-only displays can still add sensor cards");
 assert(infoOnlyPickerKeys.includes("weather"), "info-only displays can still add weather cards");
@@ -339,19 +338,17 @@ assert.deepStrictEqual(Array.from(hooks.alarmVisibleActions(hooks.parseButtonCon
 assert.deepStrictEqual(Array.from(hooks.alarmVisibleActions(hooks.parseButtonConfig(
   "alarm_control_panel.house;House;Security;Auto;;;alarm;;actions=away%7Chome%7Cnight%7Cvacation%7Cdisarm"
 ))), ["away", "home", "night"]);
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("fan_speed", false, false), false);
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("fan_speed", true, false), true);
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("fan_speed", true, true), true);
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("fan_switch", true, false), false);
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("fan_oscillate", true, true), false);
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("option_select", false, false), false);
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("option_select", false, true), false);
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("todo", false, false), false);
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("todo", true, false), false);
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("todo", true, true), false);
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("fan_speed", false), true);
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("fan_speed", true), true);
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("fan_switch", false), false);
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("fan_oscillate", true), false);
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("option_select", false), false);
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("option_select", true), false);
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("todo", false), false);
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("todo", true), false);
 assert(
-  hooks.buttonTypePickerKeysForExperimental(false, false, "fan_speed").includes("fan_speed"),
-  "saved fan cards remain represented while hidden"
+  hooks.buttonTypePickerKeysFor(false, "fan_speed").includes("fan_speed"),
+  "fan cards are available"
 );
 assert(!hooks.buttonTypeRuntimeSpec("todo"), "todo card type is not registered");
 

@@ -158,7 +158,6 @@ var state = {
   autoUpdate: true,
   updateFrequency: "Daily",
   updateFreqOptions: ["Hourly", "Daily", "Weekly", "Monthly"],
-  developerExperimentalFeatures: false,
   configLocked: false,
   configLockReason: "",
   clockBarLayout: null,

@@ -94,7 +94,6 @@ registerButtonType("vacuum", {
   label: function () { return cardContractCardLabel("vacuum"); },
   allowInSubpage: function () { return cardContractAllowInSubpage("vacuum"); },
   pickerKey: function () { return cardContractPickerKey("vacuum"); },
-  experimental: function () { return cardContractExperimental("vacuum"); },
   hidden: function () { return cardContractHidden("vacuum"); },
   hideLabel: true,
   defaultConfig: function () { return cardContractDefaultConfig("vacuum"); },

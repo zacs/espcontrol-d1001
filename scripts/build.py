@@ -424,11 +424,6 @@ def gen_card_contract_js(data):
         "  return card && card.pickerKey ? card.pickerKey : \"\";\n"
         "}\n"
         "\n"
-        "function cardContractExperimental(type) {\n"
-        "  var card = cardContractCard(type);\n"
-        "  return card && card.experimental ? card.experimental : \"\";\n"
-        "}\n"
-        "\n"
         "function cardContractHidden(type) {\n"
         "  var card = cardContractCard(type);\n"
         "  return !!(card && card.hidden);\n"
@@ -839,12 +834,9 @@ def summarize_card_options(card):
 
 
 def summarize_card_status(card):
-    status = []
     if card.get("hidden"):
-        status.append("Hidden")
-    if card.get("experimental"):
-        status.append("Experimental")
-    return ", ".join(status) if status else "Visible"
+        return "Hidden"
+    return "Visible"
 
 
 def summarize_picker_group(card_type, card, cards):

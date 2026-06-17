@@ -20,11 +20,11 @@ This generated reference lists stable setup facts from the shared card contract.
 | Cover | cover | cover | Yes | Own picker item | Type: modal, default, tilt, toggle, open, close, stop, set_position; Position: 0-100 | Visible |
 | Doors & Windows | door_window | binary_sensor, sensor | Yes | Own picker item | None | Visible |
 | Presence | presence | binary_sensor, sensor, text_sensor | Yes | Own picker item | None | Visible |
-| Fans | fan_direction | fan | Yes | Fans (fan_speed) | None | Experimental |
-| Fans | fan_oscillate | fan | Yes | Fans (fan_speed) | None | Experimental |
-| Fans | fan_preset | fan | Yes | Fans (fan_speed) | None | Experimental |
-| Fans | fan_speed | fan | Yes | Own picker item | None | Experimental |
-| Fans | fan_switch | fan | Yes | Fans (fan_speed) | None | Experimental |
+| Fans | fan_direction | fan | Yes | Fans (fan_speed) | None | Visible |
+| Fans | fan_oscillate | fan | Yes | Fans (fan_speed) | None | Visible |
+| Fans | fan_preset | fan | Yes | Fans (fan_speed) | None | Visible |
+| Fans | fan_speed | fan | Yes | Own picker item | None | Visible |
+| Fans | fan_switch | fan | Yes | Fans (fan_speed) | None | Visible |
 | Garage Door | garage | cover | Yes | Own picker item | Interaction: default, open, close; Display: label, status | Visible |
 | Internal Switches | internal | None | Yes | Own picker item | Mode: switch, push | Visible |
 | Lights | light_brightness | light | Yes | Own picker item | None | Visible |

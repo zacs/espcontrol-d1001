@@ -80,12 +80,10 @@ function buttonTypePickerOptionList(isSub, selectedTypeKey) {
   var typeOpts = [];
   var selectedUnsupported = null;
   var hasSelectedType = selectedTypeKey !== null && selectedTypeKey !== undefined;
-  var selectedHiddenExperimental = null;
   for (var k in BUTTON_TYPES) {
     var td = BUTTON_TYPES[k];
     var pickerKey = buttonTypeRegistryValue(td, "pickerKey", "");
     var allowInSubpage = !!buttonTypeRegistryValue(td, "allowInSubpage", false);
-    var experimental = buttonTypeRegistryValue(td, "experimental", "");
     var label = buttonTypeRegistryValue(td, "label", td.key || "Toggle");
     if (buttonTypeDisabledForDevice(td.key) || buttonTypeDisabledForDevice(pickerKey)) continue;
     if (!buttonTypeInfoOnlyVisible(td.key) || (pickerKey && !buttonTypeInfoOnlyVisible(pickerKey))) {
@@ -97,26 +95,11 @@ function buttonTypePickerOptionList(isSub, selectedTypeKey) {
     if (pickerKey && pickerKey !== td.key) continue;
     if (isSub && !allowInSubpage) continue;
     if (td.isAvailable && !td.isAvailable({ isSub: isSub }) && selectedTypeKey !== td.key) continue;
-    var experimentalHidden = experimental && !isExperimentalEnabled(experimental);
-    if (experimentalHidden) {
-      var showSelectedExperimental = buttonTypeRegistryValue(td, "showSelectedWhenExperimentalHidden", true);
-      if (selectedTypeKey === td.key && showSelectedExperimental !== false) selectedHiddenExperimental = td;
-      continue;
-    }
     typeOpts.push(Object.assign({
       key: td.key,
       label: label,
       disabled: false,
     }, buttonTypePickerDetails(td.key, label)));
-  }
-  if (selectedHiddenExperimental) {
-    var selectedExperimentalLabel = buttonTypeRegistryValue(selectedHiddenExperimental, "label", selectedHiddenExperimental.key || "Toggle") +
-      " (experimental)";
-    typeOpts.push(Object.assign({
-      key: selectedHiddenExperimental.key,
-      label: selectedExperimentalLabel,
-      disabled: true,
-    }, buttonTypePickerDetails(selectedHiddenExperimental.key, selectedExperimentalLabel)));
   }
   if (selectedUnsupported) {
     var unsupportedLabel = selectedUnsupported.label + " (not available)";
@@ -140,21 +123,6 @@ function buttonTypePickerKeys(isSub, selectedTypeKey) {
 
 function buttonTypeVisibleInPicker(key, isSub) {
   return buttonTypePickerKeys(!!isSub, null).indexOf(key) >= 0;
-}
-
-function hiddenExperimentalButtonTypeDef(typeDef) {
-  if (!typeDef) return null;
-  return Object.assign({}, typeDef, {
-    hideLabel: true,
-    renderSettingsBeforeLabel: null,
-    renderSettings: function (panel) {
-      var note = document.createElement("div");
-      note.className = "sp-field-hint";
-      note.textContent = "Enable Developer/Experimental Features from ?developer=experimental to edit this card.";
-      panel.appendChild(note);
-    },
-    contextMenuItems: null,
-  });
 }
 
 function renderPreview() {

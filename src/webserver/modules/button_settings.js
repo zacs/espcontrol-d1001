@@ -698,10 +698,6 @@ function renderButtonSettings(forceOpen) {
   var isNewDraftWithoutType = isNewDraft && !state.settingsDraft.typeSelected;
   var rawTypeDef = isNewDraftWithoutType ? null : (BUTTON_TYPES[b.type || ""] || BUTTON_TYPES[""]);
   var typeDef = rawTypeDef;
-  var rawExperimental = buttonTypeRegistryValue(rawTypeDef, "experimental", "");
-  if (rawExperimental && !isExperimentalEnabled(rawExperimental)) {
-    typeDef = hiddenExperimentalButtonTypeDef(rawTypeDef);
-  }
   {
     var chooseTypeValue = "__choose-card-type__";
     var selectedTypeKey = isNewDraftWithoutType

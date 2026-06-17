@@ -551,7 +551,6 @@ var CARD_CONTRACT_CARDS = {
     "label": "Fans",
     "allowInSubpage": true,
     "pickerKey": "fan_speed",
-    "experimental": "developer",
     "domains": [
       "fan"
     ],
@@ -571,7 +570,6 @@ var CARD_CONTRACT_CARDS = {
     "label": "Fans",
     "allowInSubpage": true,
     "pickerKey": "fan_speed",
-    "experimental": "developer",
     "domains": [
       "fan"
     ],
@@ -591,7 +589,6 @@ var CARD_CONTRACT_CARDS = {
     "label": "Fans",
     "allowInSubpage": true,
     "pickerKey": "fan_speed",
-    "experimental": "developer",
     "domains": [
       "fan"
     ],
@@ -610,7 +607,6 @@ var CARD_CONTRACT_CARDS = {
   "fan_speed": {
     "label": "Fans",
     "allowInSubpage": true,
-    "experimental": "developer",
     "domains": [
       "fan"
     ],
@@ -630,7 +626,6 @@ var CARD_CONTRACT_CARDS = {
     "label": "Fans",
     "allowInSubpage": true,
     "pickerKey": "fan_speed",
-    "experimental": "developer",
     "domains": [
       "fan"
     ],
@@ -1464,11 +1459,6 @@ function cardContractAllowInSubpage(type) {
 function cardContractPickerKey(type) {
   var card = cardContractCard(type);
   return card && card.pickerKey ? card.pickerKey : "";
-}
-
-function cardContractExperimental(type) {
-  var card = cardContractCard(type);
-  return card && card.experimental ? card.experimental : "";
 }
 
 function cardContractHidden(type) {

@@ -273,7 +273,6 @@ function assertButtonTypeSpecBacked(type, description) {
   assert.strictEqual(spec.label, hooks.cardContractCardLabel(type), `${description} picker label is spec-backed`);
   assert.strictEqual(spec.allowInSubpage, hooks.cardContractAllowInSubpage(type), `${description} subpage visibility is spec-backed`);
   assert.strictEqual(spec.pickerKey, hooks.cardContractPickerKey(type), `${description} picker key is spec-backed`);
-  assert.strictEqual(spec.experimental, hooks.cardContractExperimental(type), `${description} experimental flag is spec-backed`);
   assert.strictEqual(spec.hidden, hooks.cardContractHidden(type), `${description} hidden flag is spec-backed`);
   assert.deepStrictEqual(Array.from(spec.domains), Array.from(hooks.cardContractDomains(type)), `${description} entity domains are spec-backed`);
   assert.deepStrictEqual(
@@ -433,19 +432,14 @@ assert.deepStrictEqual(
 assert.strictEqual(hooks.normalizeCoverMode("modal", true), "modal", "cover modal mode normalizes from spec");
 assert.strictEqual(hooks.normalizeCoverMode("set_position", true), "set_position", "cover command mode normalizes from spec");
 assert.deepStrictEqual(
-  Array.from(hooks.coverModeOptionLabelsForExperimental(false, "")),
+  Array.from(hooks.coverModeOptionLabels("")),
   ["modal:Modal", ":Slider: Position", "tilt:Slider: Tilt", "toggle:Toggle", "open:Open", "close:Close", "stop:Stop", "set_position:Set Position"],
-  "cover modal option is visible when developer features are off"
+  "cover modal option is visible"
 );
 assert.deepStrictEqual(
-  Array.from(hooks.coverModeOptionLabelsForExperimental(true, "")),
+  Array.from(hooks.coverModeOptionLabels("modal")),
   ["modal:Modal", ":Slider: Position", "tilt:Slider: Tilt", "toggle:Toggle", "open:Open", "close:Close", "stop:Stop", "set_position:Set Position"],
-  "cover modal option is visible when developer features are on"
-);
-assert.deepStrictEqual(
-  Array.from(hooks.coverModeOptionLabelsForExperimental(false, "modal")),
-  ["modal:Modal", ":Slider: Position", "tilt:Slider: Tilt", "toggle:Toggle", "open:Open", "close:Close", "stop:Stop", "set_position:Set Position"],
-  "saved cover modal cards use the normal modal label when developer features are off"
+  "saved cover modal cards use the normal modal label"
 );
 assert.strictEqual(hooks.normalizeCoverMode("set_position", false), "", "cover command mode is rejected when commands are disabled");
 assert.strictEqual(hooks.normalizeCoverPosition("-1"), "0", "cover position spec clamps minimum");
@@ -1122,22 +1116,16 @@ assertButtonRoundTrip(hooks, "alarm vacation action button", {
   options: "pin_arm=0",
 }, false);
 
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("alarm", false, false), true, "alarm modal picker visible on parent page");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("alarm", true, false), true, "alarm modal picker visible with experimental flag");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("alarm", true, true), true, "alarm card family visible in subpages");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("alarm_action", false, false), false, "alarm actions hidden as a separate picker item");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("alarm_action", false, true), false, "alarm actions hidden as a separate subpage picker item");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("alarm", false), true, "alarm modal picker visible on parent page");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("alarm", true), true, "alarm card family visible in subpages");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("alarm_action", false), false, "alarm actions hidden as a separate picker item");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("alarm_action", true), false, "alarm actions hidden as a separate subpage picker item");
 assert.strictEqual(
-  loadHooks("?developer=experimental").buttonTypeVisibleInPickerForExperimental("alarm", false, false),
-  true,
-  "alarm modal picker visible with developer URL flag"
-);
-assert.strictEqual(
-  hooks.buttonTypePickerKeysForExperimental(false, false, "alarm").indexOf("alarm") >= 0,
+  hooks.buttonTypePickerKeysFor(false, "alarm").indexOf("alarm") >= 0,
   true,
   "saved alarm modal type remains selectable");
 assert.strictEqual(
-  hooks.buttonTypePickerKeysForExperimental(false, true, "alarm").indexOf("alarm") >= 0,
+  hooks.buttonTypePickerKeysFor(true, "alarm").indexOf("alarm") >= 0,
   true,
   "saved alarm action subtype remains represented in subpages");
 
@@ -1633,23 +1621,22 @@ assertButtonRoundTrip(hooks, "full light control card", {
   precision: "",
   options: "",
 }, false);
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("light_brightness", false, false), true, "lights picker visible on parent page");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("light_brightness", false, true), true, "lights picker visible in subpages");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("light_switch", false, false), false, "light switch subtype hidden from top-level picker");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("light_switch", false, true), false, "light switch subtype hidden from subpage picker");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("light_temperature", false, false), false, "light temperature subtype hidden from top-level picker");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("light_temperature", false, true), false, "light temperature subtype hidden from subpage picker");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("light_control", false, false), false, "full light control subtype hidden from top-level picker");
-assert.strictEqual(hooks.buttonTypeRuntimeSpec("light_control").experimental, "", "full light control is available without developer features");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("light_brightness", false), true, "lights picker visible on parent page");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("light_brightness", true), true, "lights picker visible in subpages");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("light_switch", false), false, "light switch subtype hidden from top-level picker");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("light_switch", true), false, "light switch subtype hidden from subpage picker");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("light_temperature", false), false, "light temperature subtype hidden from top-level picker");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("light_temperature", true), false, "light temperature subtype hidden from subpage picker");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("light_control", false), false, "full light control subtype hidden from top-level picker");
 assert.strictEqual(hooks.buttonTypeRuntimeSpec("light_control").hidden, true, "full light control is grouped under Lights");
 assert.strictEqual(hooks.defaultButtonTypeForPicker("light_brightness"), "light_control", "lights picker defaults to all controls");
 assert.strictEqual(hooks.defaultButtonTypeForPicker("cover"), "cover", "ungrouped picker entries keep their own type");
 assert.strictEqual(
-  hooks.buttonTypePickerKeysForExperimental(false, false, "light_brightness").indexOf("light_brightness") >= 0,
+  hooks.buttonTypePickerKeysFor(false, "light_brightness").indexOf("light_brightness") >= 0,
   true,
   "saved light subtypes remain represented by the lights picker");
 assert.strictEqual(
-  hooks.buttonTypePickerKeysForExperimental(false, true, "light_brightness").indexOf("light_brightness") >= 0,
+  hooks.buttonTypePickerKeysFor(true, "light_brightness").indexOf("light_brightness") >= 0,
   true,
   "saved light subtypes remain represented in subpages");
 
@@ -1729,12 +1716,10 @@ assertButtonMigration(hooks, "fan card clears ignored fields", "fan.bedroom;Bedr
   type: "fan_direction",
 });
 
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("fan_speed", false, false), false, "fan picker hidden without experimental flag");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("fan_speed", true, false), true, "fan picker visible with experimental flag");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("fan_speed", true, true), true, "fan picker visible in subpages with experimental flag");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("image", false, false), true, "image picker visible without experimental flag");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("image", true, false), true, "image picker visible with experimental flag");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("image", true, true), true, "image picker visible in subpages with experimental flag");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("fan_speed", false), true, "fan picker visible on parent page");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("fan_speed", true), true, "fan picker visible in subpages");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("image", false), true, "image picker visible on parent page");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("image", true), true, "image picker visible in subpages");
 assert.deepStrictEqual(Array.from(hooks.imageModalModeValues()), ["fill", "fit"], "image modal mode values are contract-backed");
 assert.deepStrictEqual(Array.from(hooks.cardContractDomains("image")), ["camera", "image"], "image cards accept camera and image entities");
 assert.strictEqual(hooks.normalizeImageOptions("image_refresh=30,image_refresh_mode=timer,unknown=1"), "", "legacy image refresh options are dropped");
@@ -1862,17 +1847,17 @@ assertButtonMigration(hooks, "image card clears label without overlay option", "
   precision: "",
   options: "",
 });
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("fan_switch", true, false), false, "fan subtype hidden from top-level picker");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("fan_switch", true, true), false, "fan switch subtype hidden from subpage picker");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("fan_oscillate", true, true), false, "fan oscillation subtype hidden from subpage picker");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("fan_direction", true, true), false, "fan direction subtype hidden from subpage picker");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("fan_preset", true, true), false, "fan preset subtype hidden from subpage picker");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("fan_switch", false), false, "fan subtype hidden from top-level picker");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("fan_switch", true), false, "fan switch subtype hidden from subpage picker");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("fan_oscillate", true), false, "fan oscillation subtype hidden from subpage picker");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("fan_direction", true), false, "fan direction subtype hidden from subpage picker");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("fan_preset", true), false, "fan preset subtype hidden from subpage picker");
 assert.strictEqual(
-  hooks.buttonTypePickerKeysForExperimental(false, false, "fan_speed").indexOf("fan_speed") >= 0,
+  hooks.buttonTypePickerKeysFor(false, "fan_speed").indexOf("fan_speed") >= 0,
   true,
-  "saved fan type remains selectable while hidden");
+  "fan type remains selectable");
 assert.strictEqual(hooks.buttonTypeRuntimeSpec("todo"), null, "todo card type is removed from the webserver");
-assert.strictEqual(hooks.buttonTypeVisibleInPickerForExperimental("todo", false, false), false, "todo picker is removed");
+assert.strictEqual(hooks.buttonTypeVisibleInPickerFor("todo", false), false, "todo picker is removed");
 assert.deepStrictEqual(Array.from(hooks.cardContractDomains("todo")), [], "todo card has no webserver entity contract");
 assert.strictEqual(hooks.cardLargeNumbersEnabled({ type: "todo", options: "large_numbers" }), false, "todo no longer supports webserver large numbers");
 

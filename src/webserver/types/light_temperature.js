@@ -84,12 +84,7 @@ var LIGHT_CONTROL_TYPE_METADATA = {
     label: "Type",
     idSuffix: "light-control-type",
     options: function (b) {
-      return LIGHT_CONTROL_TYPE_OPTIONS.filter(function (option) {
-        var type = option[0];
-        var typeDef = BUTTON_TYPES[type];
-        var experimental = buttonTypeRegistryValue(typeDef, "experimental", "");
-        return !experimental || isExperimentalEnabled(experimental) || type === normalizeLightControlType(b.type);
-      });
+      return LIGHT_CONTROL_TYPE_OPTIONS;
     },
     value: function (b) { return normalizeLightControlType(b.type); },
     onChange: function (b, helpers) {
@@ -174,7 +169,6 @@ registerButtonType("light_temperature", {
   allowInSubpage: function () { return cardContractAllowInSubpage("light_temperature"); },
   hideLabel: true,
   pickerKey: function () { return cardContractPickerKey("light_temperature"); },
-  experimental: function () { return cardContractExperimental("light_temperature"); },
   hidden: function () { return cardContractHidden("light_temperature"); },
   defaultConfig: function () { return cardContractDefaultConfig("light_temperature"); },
   isAvailable: function () {
@@ -273,7 +267,6 @@ registerButtonType("light_control", {
   allowInSubpage: function () { return cardContractAllowInSubpage("light_control"); },
   hideLabel: true,
   pickerKey: function () { return cardContractPickerKey("light_control"); },
-  experimental: function () { return cardContractExperimental("light_control"); },
   hidden: function () { return cardContractHidden("light_control"); },
   defaultConfig: function () { return cardContractDefaultConfig("light_control"); },
   isAvailable: function () {

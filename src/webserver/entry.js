@@ -280,21 +280,9 @@
       renderSettings: null,
       renderPreview: null,
       contextMenuItems: null,
-      experimental: null,
       cardMetadata: null,
       defaultConfig: null,
     }, def);
-  }
-  function developerExperimentalUrlFlag() {
-    var value = "";
-    try {
-      value = new URLSearchParams(window.location.search).get("developer") || "";
-    } catch (e) {}
-    return value.trim().toLowerCase() === "experimental";
-  }
-
-  function isExperimentalEnabled(key) {
-    return developerExperimentalUrlFlag() || !!state.developerExperimentalFeatures;
   }
 
   function subpageStateDisplayMode(b) {
