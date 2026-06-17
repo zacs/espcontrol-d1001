@@ -506,7 +506,7 @@ inline void light_control_layout_modal(LightControlCtx *ctx) {
     lv_coord_t tab_x = first_tab_x + i * (tab_size + tab_gap);
     lv_obj_align(tabs[i], LV_ALIGN_LEFT_MID, tab_x - (tab_btn_size - tab_size) / 2, 0);
     lv_obj_t *label = lv_obj_get_child(tabs[i], 0);
-    if (label) lv_obj_align(label, LV_ALIGN_CENTER, tab_btn_size / 16, tab_btn_size / 16);
+    if (label) lv_obj_align(label, LV_ALIGN_CENTER, tab_btn_size / 12, tab_btn_size / 12);
   }
 
   lv_coord_t content_center_y = tab_frame_h / 2 + 12;
@@ -539,6 +539,7 @@ inline void light_control_layout_modal(LightControlCtx *ctx) {
       lv_obj_t *btn = lv_obj_get_child(ui.color_grid, i);
       if (!btn) continue;
       lv_obj_set_size(btn, swatch, swatch);
+      apply_width_compensation(btn, ctx->width_compensation_percent);
       lv_obj_align(btn, LV_ALIGN_TOP_LEFT,
         static_cast<lv_coord_t>((i % 4) * (swatch + gap)),
         static_cast<lv_coord_t>((i / 4) * (swatch + gap)));
