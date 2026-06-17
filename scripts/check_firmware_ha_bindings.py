@@ -147,6 +147,8 @@ def firmware_ha_boundary_errors(firmware_dir: Path, root: Path) -> list[str]:
         errors.append(f"{rel}: defer one-off Home Assistant attribute reads when S3 internal heap is critically low")
     if text.count("ha_state_callback_depth() != 0 || !ha_api_state_connected()") < 2:
         errors.append(f"{rel}: queue one-off Home Assistant reads until state subscription is ready")
+    if "request.callback = std::move(callback)" not in text or "request.entity_id == entity_id" not in text:
+        errors.append(f"{rel}: coalesce duplicate deferred Home Assistant reads")
 
     return errors
 
@@ -1801,6 +1803,29 @@ def run_self_test() -> int:
             )
         },
         ("queue one-off Home Assistant reads until state subscription is ready",),
+    )
+    expect_ha_boundary_errors(
+        "duplicate deferred state reads",
+        {
+            "button_grid_ha.h": (
+                "inline bool ha_subscribe_state() {\n  return true;\n}\n"
+                "inline bool ha_subscribe_attribute() {\n  return true;\n}\n"
+                "inline bool ha_cancel_action_response_callback() {\n  handle_action_response(); return true;\n}\n"
+                "inline bool ha_action_send() {\n"
+                "  return ha_api_state_connected() && HA_ACTION_INTERNAL_FREE_MIN_BYTES;\n"
+                "}\n"
+                "inline bool ha_get_state() {\n"
+                "  ha_internal_heap_available(\"Home Assistant attribute request\");\n"
+                "  if (ha_state_callback_depth() != 0 || !ha_api_state_connected()) return true;\n"
+                "  return true;\n"
+                "}\n"
+                "inline bool ha_get_attribute() {\n"
+                "  if (ha_state_callback_depth() != 0 || !ha_api_state_connected()) return true;\n"
+                "  return true;\n"
+                "}\n"
+            )
+        },
+        ("coalesce duplicate deferred Home Assistant reads",),
     )
     expect_ha_boundary_errors(
         "unavailable retry helper symbols",

@@ -101,6 +101,16 @@ inline bool ha_queue_deferred_state_request(const std::string &entity_id,
   constexpr size_t HA_DEFERRED_STATE_REQUEST_MAX = 64;
   if (!callback || !*callback) return false;
   std::vector<HaDeferredStateRequest> &requests = ha_deferred_state_requests();
+  const uint32_t generation = ha_subscription_generation();
+  for (auto &request : requests) {
+    if (request.generation == generation &&
+        request.has_attribute == has_attribute &&
+        request.entity_id == entity_id &&
+        request.attribute == attribute) {
+      request.callback = std::move(callback);
+      return true;
+    }
+  }
   if (requests.size() >= HA_DEFERRED_STATE_REQUEST_MAX) {
     ESP_LOGW("ha", "Dropping deferred Home Assistant state request for %s: queue full",
              entity_id.c_str());
@@ -110,7 +120,7 @@ inline bool ha_queue_deferred_state_request(const std::string &entity_id,
     entity_id,
     attribute,
     std::move(callback),
-    ha_subscription_generation(),
+    generation,
     has_attribute,
   });
   return true;
