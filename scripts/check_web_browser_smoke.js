@@ -885,20 +885,20 @@ async function assertBackupImportSmoke(page, posts, testCase) {
   );
 }
 
-async function entitySuggestionValues(page, inputSelector, query = "light") {
+async function entitySuggestionValues(page, inputSelector, query = "light", expectedValues = []) {
   await page.locator(inputSelector).fill(query);
-  await page.waitForFunction(({ selector, query }) => {
+  const suggestions = await page.waitForFunction(({ selector, query, expectedValues }) => {
     const input = document.querySelector(selector);
     const normalizedQuery = String(query || "").toLowerCase();
     if (!input || String(input.value || "").toLowerCase() !== normalizedQuery) return false;
     const options = Array.from(input.parentElement.querySelectorAll(".sp-entity-dropdown.sp-open .sp-entity-option"));
     if (!options.length) return false;
-    return options.every((option) => String(option.textContent || "").toLowerCase().includes(normalizedQuery));
-  }, { selector: inputSelector, query });
-  return page.locator(inputSelector).evaluate((input) => {
-    return Array.from(input.parentElement.querySelectorAll(".sp-entity-dropdown.sp-open .sp-entity-option"))
-      .map((option) => option.textContent || "");
-  });
+    const values = options.map((option) => String(option.textContent || ""));
+    if (!options.every((option) => String(option.textContent || "").toLowerCase().includes(normalizedQuery))) return false;
+    if (!expectedValues.every((value) => values.indexOf(value) !== -1)) return false;
+    return values;
+  }, { selector: inputSelector, query, expectedValues });
+  return suggestions.jsonValue();
 }
 
 async function assertEditAndApplySmoke(page, posts, errors) {
@@ -908,7 +908,7 @@ async function assertEditAndApplySmoke(page, posts, errors) {
 
   await page.locator('.sp-main [data-slot="1"]').click();
   await page.getByRole("button", { name: "Edit", exact: true }).click();
-  const switchSuggestions = await entitySuggestionValues(page, "#sp-inp-entity");
+  const switchSuggestions = await entitySuggestionValues(page, "#sp-inp-entity", "light", ["light.kitchen"]);
   assert(switchSuggestions.includes("light.kitchen"), "switch card suggestions include a recently used light");
   assert(!switchSuggestions.includes("sensor.energy"), "switch card suggestions exclude recently used sensors");
   assert(!switchSuggestions.includes("media_player.living"), "switch card suggestions exclude recently used media players");

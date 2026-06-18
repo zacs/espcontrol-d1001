@@ -30,8 +30,10 @@ CPP_SOURCE = r'''
 #include <string>
 #include <vector>
 
-#define ESP_LOGW(tag, fmt, ...)
-#define ESP_LOGI(tag, fmt, ...)
+template <typename... Args>
+inline void esp_log_ignore(Args&&...) {}
+#define ESP_LOGW(...) esp_log_ignore(__VA_ARGS__)
+#define ESP_LOGI(...) esp_log_ignore(__VA_ARGS__)
 
 namespace esphome {
 namespace text { class Text {}; }
@@ -78,7 +80,7 @@ constexpr int LV_ALIGN_TOP_LEFT = 0;
 constexpr int LV_ALIGN_TOP_MID = 1;
 constexpr int LV_ALIGN_TOP_RIGHT = 2;
 constexpr int LV_ALIGN_BOTTOM_LEFT = 0;
-constexpr int LV_ALIGN_BOTTOM_RIGHT = 1;
+[[maybe_unused]] constexpr int LV_ALIGN_BOTTOM_RIGHT = 1;
 constexpr int LV_GRID_ALIGN_START = 0;
 constexpr int LV_GRID_ALIGN_STRETCH = 1;
 constexpr int LV_OPA_COVER = 255;
