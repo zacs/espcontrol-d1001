@@ -944,10 +944,16 @@ inline void grid_phase2(
       if (p.label.empty())
         subscribe_friendly_name(s.text_lbl, p.entity);
 
-      if (normalize_subpage_kind(cfg_option_value(p.options, "subpage_kind")) == "climate") {
+      std::string parent_subpage_kind = normalize_subpage_kind(cfg_option_value(p.options, "subpage_kind"));
+      if (parent_subpage_kind == "climate") {
         subscribe_climate_subpage_parent_indicator(
           p.entity, s.btn, s.icon_lbl, has_icon_on[idx - 1],
           icon_off_cp[idx - 1], icon_on_cp[idx - 1]);
+      } else if (parent_subpage_kind == "lawn_mower") {
+        subscribe_toggle_state(s.btn, s.icon_lbl, s.sensor_container,
+          &has_sensor[idx - 1], &sensor_text_mode[idx - 1],
+          &has_icon_on[idx - 1], &icon_off_cp[idx - 1], &icon_on_cp[idx - 1],
+          nullptr, p.entity, false, lawn_mower_state_active_ref);
       } else {
         subscribe_toggle_state(s.btn, s.icon_lbl, s.sensor_container,
           &has_sensor[idx - 1], &sensor_text_mode[idx - 1],

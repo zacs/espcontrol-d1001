@@ -35,6 +35,7 @@ SERVICE_MAPPING_PATTERN = re.compile(
 )
 
 LAWN_MOWER_HEADER = "button_grid_lawn_mower.h"
+GRID_HEADER = "button_grid_grid.h"
 
 
 def service_mapping_line_allowed(line: str) -> bool:
@@ -88,6 +89,13 @@ def check_root(root: Path) -> list[str]:
         for needle in forbidden:
             if needle in text:
                 failures.append(f"components/espcontrol/{LAWN_MOWER_HEADER}: unexpected mower service/reference {needle}")
+    grid_header = root / "components" / "espcontrol" / GRID_HEADER
+    if grid_header.exists():
+        text = grid_header.read_text(encoding="utf-8")
+        if 'parent_subpage_kind == "lawn_mower"' not in text or "lawn_mower_state_active_ref" not in text:
+            failures.append(
+                f"components/espcontrol/{GRID_HEADER}: route mower subpage parent indicators through mower active-state handling"
+            )
     return failures
 
 
@@ -140,6 +148,10 @@ def run_self_test() -> None:
         (
             {"button_grid_lawn_mower.h": "return \"lawn_mower.clean_spot\";\n"},
             ("unexpected mower service/reference lawn_mower.clean_spot",),
+        ),
+        (
+            {"button_grid_grid.h": 'if (parent_subpage_kind == "climate") {}\n'},
+            ("route mower subpage parent indicators through mower active-state handling",),
         ),
     )
     for files, expected in cases:
