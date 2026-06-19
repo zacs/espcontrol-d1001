@@ -48,6 +48,7 @@
     { "key": "home_screen_timeout", "domain": "number", "name": "Home Screen Timeout", "groups": ["settings"] },
     { "key": "screen_saver_clock", "domain": "switch", "name": "Screen Saver: Clock", "groups": ["settings"] },
     { "key": "screen_timezone", "domain": "select", "name": "Screen: Timezone", "groups": ["settings"] },
+    { "key": "screen_active_timezone", "domain": "text_sensor", "name": "Screen: Active Timezone", "groups": ["settings"] },
     { "key": "screen_language", "domain": "select", "name": "Screen: Language", "objectIds": ["screen__language", "screen_language"], "groups": ["settings"] },
     { "key": "screen_clock_format", "domain": "select", "name": "Screen: Clock Format", "groups": ["settings"] },
     { "key": "screen_ntp_server_1", "domain": "text", "name": "Screen: NTP Server 1", "groups": ["settings"] },

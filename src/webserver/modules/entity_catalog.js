@@ -290,6 +290,10 @@ var ENTITY_CATALOG = {
       "domain": "select",
       "name": "Screen: Timezone"
     },
+    "screen_active_timezone": {
+      "domain": "text_sensor",
+      "name": "Screen: Active Timezone"
+    },
     "screen_language": {
       "domain": "select",
       "name": "Screen: Language",
@@ -546,6 +550,7 @@ var ENTITY_CATALOG = {
       "home_screen_timeout",
       "screen_saver_clock",
       "screen_timezone",
+      "screen_active_timezone",
       "screen_language",
       "screen_clock_format",
       "screen_ntp_server_1",

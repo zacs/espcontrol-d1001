@@ -427,7 +427,7 @@ const datePreview = hooks.buttonTypePreviewFor("calendar", {
 });
 assert(datePreview.labelHtml.includes("mdi-calendar-month"), "date preview uses the calendar badge");
 assert(datePreview.iconHtml.includes("sp-sensor-preview"), "date preview uses the shared sensor preview");
-const frenchMonth = new Intl.DateTimeFormat("fr", { month: "long" }).format(new Date());
+const frenchMonth = new Intl.DateTimeFormat("fr", { month: "long" }).format(hooks.webserverMockNow());
 const frenchDatePreview = hooks.buttonTypePreviewFor("calendar", {
   type: "calendar",
   precision: "",
@@ -1146,6 +1146,15 @@ assert.deepStrictEqual(
 assert.strictEqual(hooks.normalizeScreensaverAction("Screen Dimmed"), "dim");
 assert.strictEqual(hooks.previewHtmlValue({ labelHtml: "" }, "labelHtml", "fallback"), "");
 assert.strictEqual(hooks.previewHtmlValue({}, "labelHtml", "fallback"), "fallback");
+assert.strictEqual(hooks.webserverMockNow().toISOString(), "2026-01-01T09:00:00.000Z");
+assert(
+  hooks.buttonTypePreviewFor("clock", { type: "clock" }, { clockFormat: "24h" }).iconHtml.includes("09:00"),
+  "mock webserver clock preview uses fixed 09:00 time"
+);
+assert(
+  hooks.buttonTypePreviewFor("clock", { type: "clock" }, { clockFormat: "12h" }).iconHtml.includes("9:00"),
+  "mock webserver clock preview uses fixed 9:00 time in 12h mode"
+);
 const backOnlySubpage = hooks.parseSubpageConfig(",,,,B");
 hooks.buildSubpageGrid(backOnlySubpage);
 assert.deepStrictEqual(plain(backOnlySubpage.buttons), []);

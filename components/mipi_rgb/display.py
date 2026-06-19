@@ -30,7 +30,6 @@ from esphome.components.mipi import (
     DriverChip,
     dimension_schema,
     map_sequence,
-    model_schema_extractor,
     power_of_two,
     requires_buffer,
 )
@@ -220,7 +219,6 @@ def model_schema(config):
     return schema
 
 
-@model_schema_extractor(MODELS, model_schema)
 def _config_schema(config):
     config = cv.Schema(
         {
@@ -235,19 +233,13 @@ def _config_schema(config):
         only_on_variant(supported=[VARIANT_ESP32S3, VARIANT_ESP32P4]),
     )(config)
     model = MODELS[config[CONF_MODEL].upper()]
-    width, height, _offset_width, _offset_height, _pad_width, _pad_height = (
-        model.get_dimensions(config)
-    )
+    width, height, _offset_width, _offset_height = model.get_dimensions(config)
     display.add_metadata(
         config[CONF_ID],
         width,
         height,
+        requires_buffer(config) or config.get(CONF_AUTO_CLEAR_ENABLED) is True,
         model.rotation_as_transform(config),
-        byte_order=config[CONF_BYTE_ORDER],
-        has_writer=requires_buffer(config)
-        or config.get(CONF_AUTO_CLEAR_ENABLED) is True,
-        rotation=config.get(CONF_ROTATION, 0),
-        draw_rounding=config.get(CONF_DRAW_ROUNDING, 0),
     )
     return config
 
@@ -275,9 +267,7 @@ FINAL_VALIDATE_SCHEMA = _final_validate
 
 async def to_code(config):
     model = MODELS[config[CONF_MODEL].upper()]
-    width, height, _offset_width, _offset_height, _pad_width, _pad_height = (
-        model.get_dimensions(config)
-    )
+    width, height, _offset_width, _offset_height = model.get_dimensions(config)
     var = cg.new_Pvariable(config[CONF_ID], width, height)
     cg.add(var.set_model(model.name))
     if enable_pin := config.get(CONF_ENABLE_PIN):

@@ -274,6 +274,7 @@ if (typeof globalThis !== "undefined" && globalThis.__ESPCONTROL_TEST_HOOKS__) {
       return isRemovedLegacyStateEvent(id, event || {});
     },
     normalizeScreensaverDimmedBrightness: normalizeScreensaverDimmedBrightness,
+    webserverMockNow: webserverMockNow,
     previewHtmlValue: previewHtmlValue,
     buttonTypePreviewFor: function (type, button, options) {
       var oldTimezone = state.timezone;

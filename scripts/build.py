@@ -1299,7 +1299,9 @@ def load_timezone_options():
     options = []
     for match in re.finditer(r'^\s+- "([^"]+)"$', TIME_YAML.read_text(), re.M):
         option = match.group(1)
-        if " (GMT" in option and ("/" in option or option.startswith("UTC ")):
+        if option == "Auto (Home Assistant)" or (
+            " (GMT" in option and ("/" in option or option.startswith("UTC "))
+        ):
             options.append(option)
     if not options:
         raise BuildError(f"No timezone options found in {TIME_YAML.relative_to(ROOT)}")
