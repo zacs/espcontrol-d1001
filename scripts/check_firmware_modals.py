@@ -257,10 +257,42 @@ def firmware_subpage_modal_wiring_errors(root: Path) -> list[str]:
     return errors
 
 
+def firmware_network_status_version_errors(root: Path) -> list[str]:
+    path = root / "components" / "espcontrol" / "network_status.h"
+    errors: list[str] = []
+    if not path.exists():
+        errors.append("components/espcontrol/network_status.h: keep network status version labeling")
+        return errors
+
+    text = path.read_text(encoding="utf-8")
+    if "network_status_is_specific_firmware_version" not in text:
+        errors.append("components/espcontrol/network_status.h: classify release versions before labeling firmware")
+
+    label_match = re.search(
+        r"inline\s+std::string\s+network_status_firmware_label\s*\([^)]*\)\s*\{(?P<body>.*?)\n\}",
+        text,
+        re.S,
+    )
+    if label_match is None:
+        errors.append("components/espcontrol/network_status.h: keep network_status_firmware_label helper")
+        return errors
+
+    body = label_match.group("body")
+    if "network_status_is_specific_firmware_version(trimmed)" not in body:
+        errors.append("components/espcontrol/network_status.h: show only release versions as installed versions")
+    if 'espcontrol_i18n(std::string("Dev build"))' not in body:
+        errors.append("components/espcontrol/network_status.h: label local ESPHome builds as Dev build")
+    if 'espcontrol_i18n(std::string("Version unknown"))' not in body:
+        errors.append("components/espcontrol/network_status.h: keep empty firmware versions readable")
+
+    return errors
+
+
 def run_scan() -> int:
     errors = firmware_modal_errors(FIRMWARE_DIR, ROOT)
     errors.extend(firmware_modal_sleep_takeover_errors(ROOT))
     errors.extend(firmware_subpage_modal_wiring_errors(ROOT))
+    errors.extend(firmware_network_status_version_errors(ROOT))
 
     if errors:
         print("Firmware modal allocation check failed:")
@@ -310,6 +342,20 @@ def expect_subpage_modal_wiring_errors(name: str, grid_text: str, expected: tupl
         path.write_text(grid_text, encoding="utf-8")
 
         errors = firmware_subpage_modal_wiring_errors(root)
+        for item in expected:
+            assert any(item in error for error in errors), f"{name}: missing {item!r} in {errors!r}"
+        if not expected:
+            assert not errors, f"{name}: expected no errors, got {errors!r}"
+
+
+def expect_network_status_version_errors(name: str, header_text: str, expected: tuple[str, ...]) -> None:
+    with TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        path = root / "components" / "espcontrol" / "network_status.h"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(header_text, encoding="utf-8")
+
+        errors = firmware_network_status_version_errors(root)
         for item in expected:
             assert any(item in error for error in errors), f"{name}: missing {item!r} in {errors!r}"
         if not expected:
@@ -465,6 +511,34 @@ def run_self_test() -> int:
             "        }\n"
             "        continue;\n"
             "      }\n"
+        ),
+        (),
+    )
+    expect_network_status_version_errors(
+        "raw local firmware version leaks",
+        (
+            "inline std::string network_status_firmware_label(const std::string &version) {\n"
+            "  std::string trimmed = version;\n"
+            "  if (trimmed.empty()) return espcontrol_i18n(std::string(\"Version unknown\"));\n"
+            "  if (trimmed == \"dev\" || trimmed == \"0.0.0\") return espcontrol_i18n(std::string(\"Dev build\"));\n"
+            "  return trimmed;\n"
+            "}\n"
+        ),
+        (
+            "classify release versions before labeling firmware",
+            "show only release versions as installed versions",
+        ),
+    )
+    expect_network_status_version_errors(
+        "release-only firmware version label",
+        (
+            "inline bool network_status_is_specific_firmware_version(const std::string &version) { return true; }\n"
+            "inline std::string network_status_firmware_label(const std::string &version) {\n"
+            "  std::string trimmed = version;\n"
+            "  if (trimmed.empty()) return espcontrol_i18n(std::string(\"Version unknown\"));\n"
+            "  if (network_status_is_specific_firmware_version(trimmed)) return trimmed;\n"
+            "  return espcontrol_i18n(std::string(\"Dev build\"));\n"
+            "}\n"
         ),
         (),
     )
