@@ -517,17 +517,6 @@ function buildSettingsPage(parent) {
     postClockBar(state.clockBarOn);
   });
 
-  if (CFG.features && CFG.features.voiceServices) {
-    var voiceServices = toggleRow("Voice Services", "sp-set-voice-services", state.voiceServicesOn);
-    clockBarBody.appendChild(voiceServices.row);
-    els.setVoiceServicesToggle = voiceServices.input;
-    voiceServices.input.addEventListener("change", function () {
-      state.voiceServicesOn = this.checked;
-      syncClockBarUi();
-      postVoiceServices(state.voiceServicesOn);
-    });
-  }
-
   var clockBarBadge = document.createElement("span");
   clockBarBadge.setAttribute("aria-label", "Clock bar on");
   clockBarBadge.innerHTML = '<span class="sp-card-badge-dot"></span><span>ON</span>';
@@ -535,6 +524,20 @@ function buildSettingsPage(parent) {
   syncClockBarUi();
   syncTemperatureUi();
   var clockBarCard = makeCollapsibleCard("Clock Bar", clockBarBody, true, clockBarBadge);
+
+  var voiceServicesCard = null;
+  if (CFG.features && CFG.features.voiceServices) {
+    var voiceServicesBody = document.createElement("div");
+    var voiceServices = toggleRow("Voice Services", "sp-set-voice-services", state.voiceServicesOn);
+    voiceServicesBody.appendChild(voiceServices.row);
+    els.setVoiceServicesToggle = voiceServices.input;
+    voiceServices.input.addEventListener("change", function () {
+      state.voiceServicesOn = this.checked;
+      syncClockBarUi();
+      postVoiceServices(state.voiceServicesOn);
+    });
+    voiceServicesCard = makeCollapsibleCard("Voice Services", voiceServicesBody, true);
+  }
 
   var rotationCard = null;
   if (CFG.features && CFG.features.screenRotation) {
@@ -1131,6 +1134,7 @@ function buildSettingsPage(parent) {
     appearanceCard,
     backlightCard,
     clockBarCard,
+    voiceServicesCard,
     rotationCard,
   ]);
   appendSettingsSection(config, "Sleep & Schedule", [
