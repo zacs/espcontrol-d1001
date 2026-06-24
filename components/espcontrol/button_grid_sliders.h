@@ -143,6 +143,8 @@ struct LightControlCtx {
   int kelvin_max = 6500;
   bool available = true;
   bool on = false;
+  bool color_modes_known = false;
+  bool rgb_color_supported = true;
   bool updating_slider = false;
   bool updating_temp_slider = false;
   bool dragging_slider = false;
@@ -180,10 +182,12 @@ struct LightControlVisibleTabs {
 
 struct LightColorPresetClick {
   uint32_t color = 0;
+  int kelvin_pct = -1;
 };
 
 struct LightColorPreset {
   uint32_t color;
+  int kelvin_pct = -1;
 };
 
 struct LightControlModalUi {
@@ -257,6 +261,14 @@ inline bool light_control_tab_visible(LightControlCtx *ctx, LightControlTab tab)
   return tabs.contains(tab);
 }
 
+inline bool light_control_use_temperature_swatches(LightControlCtx *ctx) {
+  return ctx && ctx->color_modes_known && !ctx->rgb_color_supported;
+}
+
+inline uint32_t light_control_swatch_count(LightControlCtx *ctx) {
+  return light_control_use_temperature_swatches(ctx) ? 4 : 16;
+}
+
 inline LightControlTab light_control_first_visible_tab(LightControlCtx *ctx) {
   LightControlVisibleTabs tabs = light_control_visible_tabs(ctx);
   return tabs.count == 0 ? LightControlTab::POWER : tabs.tabs[0];
@@ -282,6 +294,7 @@ inline void light_control_update_slider_handle(lv_obj_t *slider, lv_obj_t *handl
 inline void light_control_update_slider_fill(lv_obj_t *slider, lv_obj_t *fill,
                                              lv_obj_t *handle, int pct,
                                              lv_color_t fill_color);
+inline void light_control_rebuild_color_grid(LightControlCtx *ctx);
 
 inline std::string light_control_title(LightControlCtx *ctx) {
   if (!ctx) return espcontrol_i18n(std::string("Light"));
@@ -838,16 +851,30 @@ inline void light_control_layout_modal(LightControlCtx *ctx) {
     lv_coord_t color_top = layout.panel_h / 2 + color_center_y - grid_side / 2;
     if (!show_tab_bar && color_top < color_safe_top) color_center_y += color_safe_top - color_top;
     lv_obj_align(ui.color_grid, LV_ALIGN_CENTER, 0, color_center_y);
+    uint32_t swatch_count = light_control_swatch_count(ctx);
+    uint32_t columns = swatch_count <= 4 ? swatch_count : 4;
+    uint32_t rows = (swatch_count + columns - 1) / columns;
     lv_coord_t gap = 14;
-    lv_coord_t swatch = (grid_side - gap * 3) / 4;
-    for (uint32_t i = 0; i < 16; i++) {
+    lv_coord_t swatch = (grid_side - gap * static_cast<lv_coord_t>(columns - 1)) /
+      static_cast<lv_coord_t>(columns);
+    if (swatch_count <= 4) {
+      lv_coord_t max_swatch = control_modal_scaled_px(80, layout.short_side);
+      if (swatch > max_swatch) swatch = max_swatch;
+    }
+    lv_coord_t used_w = swatch * static_cast<lv_coord_t>(columns) +
+      gap * static_cast<lv_coord_t>(columns - 1);
+    lv_coord_t used_h = swatch * static_cast<lv_coord_t>(rows) +
+      gap * static_cast<lv_coord_t>(rows - 1);
+    lv_coord_t start_x = (grid_side - used_w) / 2;
+    lv_coord_t start_y = (grid_side - used_h) / 2;
+    for (uint32_t i = 0; i < swatch_count; i++) {
       lv_obj_t *btn = lv_obj_get_child(ui.color_grid, i);
       if (!btn) continue;
       lv_obj_set_size(btn, swatch, swatch);
       apply_width_compensation(btn, ctx->width_compensation_percent);
       lv_obj_align(btn, LV_ALIGN_TOP_LEFT,
-        static_cast<lv_coord_t>((i % 4) * (swatch + gap)),
-        static_cast<lv_coord_t>((i / 4) * (swatch + gap)));
+        start_x + static_cast<lv_coord_t>((i % columns) * (swatch + gap)),
+        start_y + static_cast<lv_coord_t>((i / columns) * (swatch + gap)));
       lv_obj_set_style_radius(btn, swatch / 2, LV_PART_MAIN);
     }
   }
@@ -991,36 +1018,13 @@ inline void light_control_open_modal(LightControlCtx *ctx) {
     if (ui.active) ui.active->dragging_temp_slider = false;
   }, LV_EVENT_PRESS_LOST, nullptr);
 
-  static constexpr LightColorPreset COLOR_PRESETS[16] = {
-    {0xFFE6B3}, {0xFFFFFF}, {0xDCEBFF}, {0xFFD400},
-    {0xFF7A00}, {0xFF2600}, {0xFF1744}, {0xFF4081},
-    {0xD500F9}, {0x7C4DFF}, {0x2979FF}, {0x00E5FF},
-    {0x00B8D4}, {0x00C853}, {0x7ED321}, {0xAEEA00},
-  };
   ui.color_grid = lv_obj_create(ui.panel);
   lv_obj_set_style_bg_opa(ui.color_grid, LV_OPA_TRANSP, LV_PART_MAIN);
   lv_obj_set_style_border_width(ui.color_grid, 0, LV_PART_MAIN);
   lv_obj_set_style_shadow_width(ui.color_grid, 0, LV_PART_MAIN);
   lv_obj_set_style_pad_all(ui.color_grid, 0, LV_PART_MAIN);
   lv_obj_clear_flag(ui.color_grid, LV_OBJ_FLAG_SCROLLABLE);
-  for (uint32_t i = 0; i < 16; i++) {
-    lv_obj_t *swatch = lv_btn_create(ui.color_grid);
-    if (!swatch) continue;
-    lv_obj_set_style_bg_color(swatch, lv_color_hex(COLOR_PRESETS[i].color), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(swatch, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(swatch, 0, LV_PART_MAIN);
-    lv_obj_set_style_shadow_width(swatch, 0, LV_PART_MAIN);
-    control_modal_apply_pressed_fill(swatch);
-    lv_obj_clear_flag(swatch, LV_OBJ_FLAG_SCROLLABLE);
-    LightColorPresetClick *click = new LightColorPresetClick();
-    click->color = COLOR_PRESETS[i].color;
-    lv_obj_add_event_cb(swatch, [](lv_event_t *e) {
-      LightColorPresetClick *click = static_cast<LightColorPresetClick *>(lv_event_get_user_data(e));
-      LightControlModalUi &ui = light_control_modal_ui();
-      if (!click || !ui.active || !ui.active->available) return;
-      send_light_rgb_action(ui.active->entity_id, click->color);
-    }, LV_EVENT_CLICKED, click);
-  }
+  light_control_rebuild_color_grid(ctx);
 
   light_control_layout_modal(ctx);
   light_control_set_modal_value(ctx, light_control_display_pct(ctx));
@@ -1028,6 +1032,56 @@ inline void light_control_open_modal(LightControlCtx *ctx) {
   light_control_apply_modal_power(ctx);
   light_control_apply_tab_visibility();
   lv_obj_move_foreground(ui.overlay);
+}
+
+inline void light_control_rebuild_color_grid(LightControlCtx *ctx) {
+  LightControlModalUi &ui = light_control_modal_ui();
+  if (!ctx || ui.active != ctx || !ui.color_grid) return;
+  lv_obj_clean(ui.color_grid);
+
+  static constexpr LightColorPreset RGB_PRESETS[16] = {
+    {0xFFE6B3}, {0xFFFFFF}, {0xDCEBFF}, {0xFFD400},
+    {0xFF7A00}, {0xFF2600}, {0xFF1744}, {0xFF4081},
+    {0xD500F9}, {0x7C4DFF}, {0x2979FF}, {0x00E5FF},
+    {0x00B8D4}, {0x00C853}, {0x7ED321}, {0xAEEA00},
+  };
+  static constexpr LightColorPreset TEMPERATURE_PRESETS[4] = {
+    {0xFF972C, 0},
+    {0xF8D7BC, 30},
+    {0xDDE6FF, 68},
+    {0xBDD1F7, 100},
+  };
+  const LightColorPreset *presets = light_control_use_temperature_swatches(ctx)
+    ? TEMPERATURE_PRESETS
+    : RGB_PRESETS;
+  uint32_t count = light_control_swatch_count(ctx);
+  for (uint32_t i = 0; i < count; i++) {
+    lv_obj_t *swatch = lv_btn_create(ui.color_grid);
+    if (!swatch) continue;
+    lv_obj_set_style_bg_color(swatch, lv_color_hex(presets[i].color), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(swatch, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(swatch, 0, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(swatch, 0, LV_PART_MAIN);
+    control_modal_apply_pressed_fill(swatch);
+    lv_obj_clear_flag(swatch, LV_OBJ_FLAG_SCROLLABLE);
+    LightColorPresetClick *click = new LightColorPresetClick();
+    click->color = presets[i].color;
+    click->kelvin_pct = presets[i].kelvin_pct;
+    lv_obj_add_event_cb(swatch, [](lv_event_t *e) {
+      LightColorPresetClick *click = static_cast<LightColorPresetClick *>(lv_event_get_user_data(e));
+      LightControlModalUi &ui = light_control_modal_ui();
+      if (!click || !ui.active || !ui.active->available) return;
+      if (click->kelvin_pct >= 0) {
+        int pct = slider_clamp_pct(click->kelvin_pct);
+        ui.active->current_kelvin = light_control_pct_to_kelvin(ui.active, pct);
+        light_control_set_temp_modal_value(ui.active, ui.active->current_kelvin);
+        send_light_temp_action(ui.active->entity_id, pct, ui.active->kelvin_min, ui.active->kelvin_max);
+      } else {
+        send_light_rgb_action(ui.active->entity_id, click->color);
+      }
+    }, LV_EVENT_CLICKED, click);
+  }
+  light_control_layout_modal(ctx);
 }
 
 inline void setup_light_control_card(BtnSlot &s, const ParsedCfg &p) {
@@ -1103,6 +1157,29 @@ inline void subscribe_light_control_state(LightControlCtx *ctx) {
             ui.temp_slider, ui.temp_slider_fill, ui.temp_slider_handle, pct,
             kelvin_to_fill_color(kelvin, ctx->kelvin_min, ctx->kelvin_max));
           light_control_update_slider_handle(ui.temp_slider, ui.temp_slider_handle, pct);
+        }
+      })
+  );
+  ha_subscribe_attribute(
+    ctx->entity_id, std::string("supported_color_modes"),
+    std::function<void(esphome::StringRef)>(
+      [ctx](esphome::StringRef value) {
+        std::string modes = string_ref_limited(value, HA_STATE_TEXT_MAX_LEN);
+        for (char &c : modes) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+        if (modes.empty() || modes == "unknown" || modes == "unavailable") return;
+        bool rgb_supported =
+          modes.find("hs") != std::string::npos ||
+          modes.find("xy") != std::string::npos ||
+          modes.find("rgb") != std::string::npos;
+        bool temperature_supported = modes.find("color_temp") != std::string::npos;
+        bool show_rgb_palette = rgb_supported || !temperature_supported;
+        bool changed = !ctx->color_modes_known || ctx->rgb_color_supported != show_rgb_palette;
+        ctx->color_modes_known = true;
+        ctx->rgb_color_supported = show_rgb_palette;
+        LightControlModalUi &ui = light_control_modal_ui();
+        if (changed && ui.active == ctx && ui.color_grid) {
+          light_control_rebuild_color_grid(ctx);
+          light_control_apply_tab_visibility();
         }
       })
   );
