@@ -115,7 +115,7 @@ inline void switch_confirmation_open_modal(const ParsedCfg &p, lv_obj_t *btn_obj
     button_h / 2, DARK_BORDER, button_font);
   ui.confirm_btn = control_modal_create_text_button(
     ui.panel, switch_confirmation_yes_text(p), button_max_w, button_min_w, button_h,
-    button_h / 2, DEFAULT_SLIDER_COLOR, button_font);
+    button_h / 2, current_button_primary_color(), button_font);
 
   lv_obj_update_layout(ui.message_lbl);
   lv_obj_update_layout(ui.no_btn);

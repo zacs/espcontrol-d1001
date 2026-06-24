@@ -80,6 +80,20 @@ constexpr uint32_t DARK_BORDER = correct_display_color(0x3A3A3A);
 constexpr uint32_t DARK_CONTROL_NEUTRAL = correct_display_color(0x424242);
 constexpr uint32_t DARK_OVERLAY = 0x000000;
 constexpr uint32_t DARK_TRACK_BACKGROUND = correct_display_color(0x2F2F2F);
+
+inline uint32_t &current_button_primary_color_ref() {
+  static uint32_t color = DEFAULT_SLIDER_COLOR;
+  return color;
+}
+
+inline void set_current_button_primary_color(uint32_t color) {
+  current_button_primary_color_ref() = color;
+}
+
+inline uint32_t current_button_primary_color() {
+  return current_button_primary_color_ref();
+}
+
 #ifndef ESPCONTROL_MAX_GRID_SLOTS
 #define ESPCONTROL_MAX_GRID_SLOTS 25
 #endif
