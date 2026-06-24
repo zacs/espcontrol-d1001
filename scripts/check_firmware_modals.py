@@ -340,6 +340,27 @@ def firmware_cover_control_tab_errors(root: Path) -> list[str]:
     return errors
 
 
+def firmware_light_control_tab_errors(root: Path) -> list[str]:
+    path = root / "components" / "espcontrol" / "button_grid_sliders.h"
+    errors: list[str] = []
+
+    if not path.exists():
+        errors.append("components/espcontrol/button_grid_sliders.h: hide light modal tabs when only one control is visible")
+        return errors
+
+    text = path.read_text(encoding="utf-8")
+    if "inline void light_control_apply_tab_visibility()" not in text:
+        errors.append("components/espcontrol/button_grid_sliders.h: keep light modal tab visibility helper")
+    if text.count("bool show_tab_bar = visible_tabs.count > 1;") < 2:
+        errors.append("components/espcontrol/button_grid_sliders.h: hide light and cover modal tabs when only one control is visible")
+    if text.count("if (show_tab_bar) lv_obj_clear_flag(ui.tab_row, LV_OBJ_FLAG_HIDDEN);") < 2:
+        errors.append("components/espcontrol/button_grid_sliders.h: keep single-tab modal rows hidden on the device")
+    if "lv_coord_t content_top = show_tab_bar" not in text:
+        errors.append("components/espcontrol/button_grid_sliders.h: let single-control modals use the tab row space")
+
+    return errors
+
+
 def firmware_network_status_version_errors(root: Path) -> list[str]:
     path = root / "components" / "espcontrol" / "network_status.h"
     errors: list[str] = []
@@ -376,6 +397,7 @@ def run_scan() -> int:
     errors.extend(firmware_modal_sleep_takeover_errors(ROOT))
     errors.extend(firmware_subpage_modal_wiring_errors(ROOT))
     errors.extend(firmware_light_control_brightness_errors(ROOT))
+    errors.extend(firmware_light_control_tab_errors(ROOT))
     errors.extend(firmware_cover_control_tab_errors(ROOT))
     errors.extend(firmware_network_status_version_errors(ROOT))
 

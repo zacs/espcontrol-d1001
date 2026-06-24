@@ -283,6 +283,7 @@
       contextMenuItems: null,
       cardMetadata: null,
       defaultConfig: null,
+      normalizeConfig: null,
     }, def);
   }
 

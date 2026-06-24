@@ -87,26 +87,26 @@ constexpr uint32_t DARK_TRACK_BACKGROUND = correct_display_color(0x2F2F2F);
 constexpr int MAX_GRID_SLOTS = ESPCONTROL_MAX_GRID_SLOTS;
 static_assert(MAX_GRID_SLOTS > 0, "ESPCONTROL_MAX_GRID_SLOTS must be positive");
 constexpr int MAX_SUBPAGE_ITEMS = MAX_GRID_SLOTS * MAX_GRID_SLOTS;
-constexpr const char *SENSOR_STATE_LABELS_OPTION = "state_labels";
-constexpr const char *SENSOR_STATE_INPUT_OPTION = "state_input";
-constexpr const char *SENSOR_STATE_OUTPUT_OPTION = "state_output";
-constexpr const char *SENSOR_STATE_INPUT_2_OPTION = "state_input_2";
-constexpr const char *SENSOR_STATE_OUTPUT_2_OPTION = "state_output_2";
-constexpr const char *SENSOR_STATE_LOW_LABEL_OPTION = "state_low_label";
-constexpr const char *SENSOR_STATE_HIGH_LABEL_OPTION = "state_high_label";
-constexpr const char *IMAGE_LABEL_OPTION = "image_label";
-constexpr const char *IMAGE_ICON_OPTION = "image_icon";
-constexpr const char *IMAGE_MODAL_MODE_OPTION = "image_modal_mode";
-constexpr const char *IMAGE_REFRESH_OPTION = "image_refresh";
-constexpr const char *IMAGE_REFRESH_MODE_OPTION = "image_refresh_mode";
+#include "button_grid_contract_generated.h"
+#include "button_grid_card_runtime.h"
+#include <cstdlib>
+
+constexpr const char *SENSOR_STATE_LABELS_OPTION = card_runtime_option_name_state_labels();
+constexpr const char *SENSOR_STATE_INPUT_OPTION = card_runtime_option_name_state_input();
+constexpr const char *SENSOR_STATE_OUTPUT_OPTION = card_runtime_option_name_state_output();
+constexpr const char *SENSOR_STATE_INPUT_2_OPTION = card_runtime_option_name_state_input_2();
+constexpr const char *SENSOR_STATE_OUTPUT_2_OPTION = card_runtime_option_name_state_output_2();
+constexpr const char *SENSOR_STATE_LOW_LABEL_OPTION = card_runtime_option_name_state_low_label();
+constexpr const char *SENSOR_STATE_HIGH_LABEL_OPTION = card_runtime_option_name_state_high_label();
+constexpr const char *IMAGE_LABEL_OPTION = card_runtime_option_name_image_label();
+constexpr const char *IMAGE_ICON_OPTION = card_runtime_option_name_image_icon();
+constexpr const char *IMAGE_MODAL_MODE_OPTION = card_runtime_option_name_image_modal_mode();
+constexpr const char *IMAGE_REFRESH_OPTION = card_runtime_option_name_image_refresh();
+constexpr const char *IMAGE_REFRESH_MODE_OPTION = card_runtime_option_name_image_refresh_mode();
 constexpr const char *LIGHT_CONTROL_TABS_OPTION = "light_tabs";
 constexpr const char *LIGHT_CONTROL_DEFAULT_TABS_VALUE = "power|brightness|temperature|color";
 constexpr const char *COVER_CONTROL_TABS_OPTION = "cover_tabs";
 constexpr const char *COVER_CONTROL_DEFAULT_TABS_VALUE = "position|controls|tilt";
-
-#include "button_grid_contract_generated.h"
-#include "button_grid_card_runtime.h"
-#include <cstdlib>
 
 inline int bounded_grid_slots(int num_slots) {
   if (num_slots < 0) return 0;

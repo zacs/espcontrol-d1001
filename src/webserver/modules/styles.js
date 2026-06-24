@@ -512,6 +512,7 @@ var CSS =
   ".sp-fw-status{font-size:.8rem;color:var(--text2);line-height:1.4;margin:-4px 0 12px 0}" +
   ".sp-fw-status.sp-update-available{color:#3dd68c}" +
   ".sp-fw-status.sp-update-installing{color:#f9b44e}" +
+  ".sp-fw-status.sp-update-error{color:var(--danger)}" +
   ".sp-fw-status a{color:inherit;text-decoration:underline;text-underline-offset:2px}" +
   ".sp-fw-btn{background:var(--surface2);color:var(--text);border:1px solid var(--border);" +
   "border-radius:var(--action-r);padding:8px 14px;font-size:.8rem;font-weight:500;cursor:pointer;" +

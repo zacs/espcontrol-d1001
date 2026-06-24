@@ -422,24 +422,29 @@ inline void light_control_apply_tab_visibility() {
   if (!ctx) return;
   LightControlVisibleTabs visible_tabs = light_control_visible_tabs(ctx);
   if (!visible_tabs.contains(ui.tab)) ui.tab = visible_tabs.tabs[0];
+  bool show_tab_bar = visible_tabs.count > 1;
   bool show_power = ui.tab == LightControlTab::POWER;
   bool show_brightness = ui.tab == LightControlTab::BRIGHTNESS;
   bool show_temperature = ui.tab == LightControlTab::TEMPERATURE;
   bool show_color = ui.tab == LightControlTab::COLOR;
+  if (ui.tab_row) {
+    if (show_tab_bar) lv_obj_clear_flag(ui.tab_row, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(ui.tab_row, LV_OBJ_FLAG_HIDDEN);
+  }
   if (ui.power_tab) {
-    if (visible_tabs.contains(LightControlTab::POWER)) lv_obj_clear_flag(ui.power_tab, LV_OBJ_FLAG_HIDDEN);
+    if (show_tab_bar && visible_tabs.contains(LightControlTab::POWER)) lv_obj_clear_flag(ui.power_tab, LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(ui.power_tab, LV_OBJ_FLAG_HIDDEN);
   }
   if (ui.brightness_tab) {
-    if (visible_tabs.contains(LightControlTab::BRIGHTNESS)) lv_obj_clear_flag(ui.brightness_tab, LV_OBJ_FLAG_HIDDEN);
+    if (show_tab_bar && visible_tabs.contains(LightControlTab::BRIGHTNESS)) lv_obj_clear_flag(ui.brightness_tab, LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(ui.brightness_tab, LV_OBJ_FLAG_HIDDEN);
   }
   if (ui.temperature_tab) {
-    if (visible_tabs.contains(LightControlTab::TEMPERATURE)) lv_obj_clear_flag(ui.temperature_tab, LV_OBJ_FLAG_HIDDEN);
+    if (show_tab_bar && visible_tabs.contains(LightControlTab::TEMPERATURE)) lv_obj_clear_flag(ui.temperature_tab, LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(ui.temperature_tab, LV_OBJ_FLAG_HIDDEN);
   }
   if (ui.color_tab) {
-    if (visible_tabs.contains(LightControlTab::COLOR)) lv_obj_clear_flag(ui.color_tab, LV_OBJ_FLAG_HIDDEN);
+    if (show_tab_bar && visible_tabs.contains(LightControlTab::COLOR)) lv_obj_clear_flag(ui.color_tab, LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(ui.color_tab, LV_OBJ_FLAG_HIDDEN);
   }
   if (ui.power_group) {
@@ -723,6 +728,7 @@ inline void light_control_layout_modal(LightControlCtx *ctx) {
 
   int tab_count = static_cast<int>(visible_tabs.count);
   if (tab_count < 1) tab_count = 1;
+  bool show_tab_bar = tab_count > 1;
   lv_coord_t tab_size = layout.back_size * 7 / 10;
   if (tab_size < 48) tab_size = 48;
   if (tab_size > 68) tab_size = 68;
@@ -734,7 +740,7 @@ inline void light_control_layout_modal(LightControlCtx *ctx) {
   lv_coord_t tab_frame_h = tab_size + tab_frame_pad * 2;
   lv_coord_t tab_safe_left = layout.back_inset_x + layout.back_size + layout.inset / 2;
   lv_coord_t centered_left = (layout.panel_w - tab_frame_w) / 2;
-  while (centered_left < tab_safe_left && tab_size > 48) {
+  while (show_tab_bar && centered_left < tab_safe_left && tab_size > 48) {
     tab_size--;
     selected_tab_size = tab_size + tab_size / 8;
     tab_frame_pad = tab_size / 5;
@@ -746,13 +752,18 @@ inline void light_control_layout_modal(LightControlCtx *ctx) {
   }
   lv_coord_t slider_w = control_modal_home_card_width(ctx->btn, layout);
   if (ui.tab_row) {
-    lv_obj_set_size(ui.tab_row, tab_frame_w, tab_frame_h);
-    lv_obj_set_style_radius(ui.tab_row, tab_frame_h / 2, LV_PART_MAIN);
-    if (centered_left < tab_safe_left) centered_left = tab_safe_left;
-    lv_obj_align(ui.tab_row, LV_ALIGN_TOP_LEFT, centered_left, layout.inset + 2);
+    if (show_tab_bar) {
+      lv_obj_clear_flag(ui.tab_row, LV_OBJ_FLAG_HIDDEN);
+      lv_obj_set_size(ui.tab_row, tab_frame_w, tab_frame_h);
+      lv_obj_set_style_radius(ui.tab_row, tab_frame_h / 2, LV_PART_MAIN);
+      if (centered_left < tab_safe_left) centered_left = tab_safe_left;
+      lv_obj_align(ui.tab_row, LV_ALIGN_TOP_LEFT, centered_left, layout.inset + 2);
+    } else {
+      lv_obj_add_flag(ui.tab_row, LV_OBJ_FLAG_HIDDEN);
+    }
   }
   lv_coord_t first_tab_x = (tab_frame_w - tabs_total_w) / 2;
-  for (int i = 0; i < tab_count; i++) {
+  for (int i = 0; show_tab_bar && i < tab_count; i++) {
     lv_obj_t *tab_btn = light_control_tab_button(ui, visible_tabs.tabs[i]);
     if (!tab_btn) continue;
     bool active = (visible_tabs.tabs[i] == ui.tab);
@@ -765,9 +776,13 @@ inline void light_control_layout_modal(LightControlCtx *ctx) {
     light_control_center_icon_label(label);
   }
 
-  lv_coord_t content_center_y = tab_frame_h / 2 + 12;
-  lv_coord_t slider_h = layout.panel_h - layout.inset * 3 - tab_frame_h - 16;
+  lv_coord_t content_top = show_tab_bar
+    ? layout.inset + tab_frame_h + 16
+    : layout.inset * 2;
+  lv_coord_t content_bottom = layout.panel_h - layout.inset;
+  lv_coord_t slider_h = content_bottom - content_top;
   if (slider_h < 160) slider_h = layout.panel_h / 2;
+  lv_coord_t content_center_y = content_top + slider_h / 2 - layout.panel_h / 2;
   light_control_layout_power(
     ui.power_group, ui.power_on_btn, ui.power_off_btn, slider_w, slider_h, content_center_y);
   light_control_apply_modal_power(ctx);

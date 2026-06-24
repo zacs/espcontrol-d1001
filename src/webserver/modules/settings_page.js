@@ -50,9 +50,7 @@ function inlineDisclosure(title, bodyElement, defaultOpen) {
   button.setAttribute("aria-expanded", defaultOpen ? "true" : "false");
   var label = document.createElement("span");
   label.textContent = title;
-  var chevron = document.createElement("span");
-  chevron.className = "sp-disclosure-chevron";
-  chevron.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+  var chevron = createDisclosureChevron("sp-disclosure-chevron");
   button.appendChild(label);
   button.appendChild(chevron);
   var body = document.createElement("div");
