@@ -177,7 +177,7 @@ script:
                 condition:
                   lambda: |-
                     return id(cover_art_screensaver_active) ||
-                           alarm_arming_takeover_active() ||
+                           alarm_display_takeover_active() ||
                            (id(media_player_sleep_prevention_enabled).state &&
                             id(media_player_playing));
                 then:
@@ -209,7 +209,7 @@ script:
                       id: screensaver_sensor_sleep_pending
                       value: 'false'
                   - lambda: |-
-                      if (!alarm_arming_takeover_active()) {
+                      if (!alarm_display_takeover_active()) {
                         navigation_return_home(id(main_page)->obj);
                       }
                   - if:
@@ -486,7 +486,7 @@ script:
       - lambda: 'backlight_close_modals_for_display_takeover();'
       - if:
           condition:
-            lambda: 'return !alarm_arming_takeover_active() && (!id(display_takeover_suspended) || id(screen_schedule_asleep));'
+            lambda: 'return !alarm_display_takeover_active() && (!id(display_takeover_suspended) || id(screen_schedule_asleep));'
           then:
             - script.execute: backlight_force_display_off
             - lvgl.resume:
@@ -571,7 +571,7 @@ script:
                 if (std::isnan(val) || val <= 0) val = 60;
                 return (int)(val * 1000);
             - lambda: |-
-                if (!alarm_arming_takeover_active()) {
+                if (!alarm_display_takeover_active()) {
                   navigation_return_home(id(main_page)->obj);
                 }
 
@@ -586,7 +586,7 @@ script:
               return lv_disp_get_inactive_time(NULL) >= (uint32_t)(val * 1000);
           then:
             - lambda: |-
-                if (!alarm_arming_takeover_active()) {
+                if (!alarm_display_takeover_active()) {
                   navigation_return_home(id(main_page)->obj);
                 }
           else:
@@ -760,7 +760,7 @@ script:
               return id(media_player_sleep_prevention_enabled).state &&
                      id(cover_art_media_playing) &&
                      id(cover_art_screensaver_enabled).state &&
-                     !alarm_arming_takeover_active();
+                     !alarm_display_takeover_active();
           then:
             - script.execute: cover_art_delay_timer
 

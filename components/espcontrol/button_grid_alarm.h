@@ -454,10 +454,22 @@ inline bool alarm_control_modal_shows_arming(AlarmCardCtx *ctx) {
   return ctx && alarm_state_is_delay(ctx->state);
 }
 
-inline bool alarm_arming_takeover_active() {
-  AlarmCardCtx *ctx = alarm_arming_takeover_ctx();
+inline bool alarm_delay_takeover_active(AlarmCardCtx *ctx) {
   return ctx && alarm_card_context_valid(ctx) && alarm_state_is_delay(ctx->state) &&
          alarm_remaining_delay_seconds(ctx) > 0;
+}
+
+inline bool alarm_display_takeover_active(AlarmCardCtx *ctx) {
+  return alarm_delay_takeover_active(ctx) ||
+         (ctx && alarm_card_context_valid(ctx) && ctx->state == "triggered");
+}
+
+inline bool alarm_arming_takeover_active() {
+  return alarm_delay_takeover_active(alarm_arming_takeover_ctx());
+}
+
+inline bool alarm_display_takeover_active() {
+  return alarm_display_takeover_active(alarm_arming_takeover_ctx());
 }
 
 inline void alarm_release_arming_takeover(AlarmCardCtx *ctx) {
@@ -476,8 +488,7 @@ inline void alarm_release_arming_takeover(AlarmCardCtx *ctx) {
 
 inline void alarm_refresh_arming_takeover(AlarmCardCtx *ctx) {
   bool should_take_over = ctx && alarm_card_context_valid(ctx) && ctx->available &&
-                          alarm_state_is_delay(ctx->state) &&
-                          alarm_remaining_delay_seconds(ctx) > 0;
+                          alarm_display_takeover_active(ctx);
   if (!should_take_over) {
     alarm_release_arming_takeover(ctx);
     return;
