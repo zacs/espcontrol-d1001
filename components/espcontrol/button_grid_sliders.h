@@ -504,7 +504,7 @@ inline lv_coord_t control_modal_control_tab_size(const ControlModalLayout &layou
 
 inline lv_coord_t light_control_tab_size(const ControlModalLayout &layout) {
   if (control_modal_uses_jc1060p470_tuning(layout))
-    return control_modal_scaled_px(64, layout.short_side);
+    return control_modal_scaled_px(60, layout.short_side);
   return control_modal_control_tab_size(layout);
 }
 
