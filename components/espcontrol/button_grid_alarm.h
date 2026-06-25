@@ -498,17 +498,17 @@ inline void alarm_refresh_arming_takeover(AlarmCardCtx *ctx) {
   if (active && active != ctx) alarm_release_arming_takeover(active);
   alarm_arming_takeover_ctx() = ctx;
 
-  if (!ctx->display_takeover_suspended) {
-    ctx->display_takeover_suspended = true;
-    if (ctx->suspend_display_takeover) ctx->suspend_display_takeover();
-  }
-
   AlarmControlModalUi &ui = alarm_control_modal_ui();
   if (ui.active != ctx || !ui.overlay) {
     alarm_control_open_modal(ctx);
     ctx->arming_modal_auto_opened = true;
   } else {
     lv_obj_move_foreground(ui.overlay);
+  }
+
+  if (!ctx->display_takeover_suspended) {
+    ctx->display_takeover_suspended = true;
+    if (ctx->suspend_display_takeover) ctx->suspend_display_takeover();
   }
 }
 
@@ -903,8 +903,12 @@ inline void alarm_control_update_modal(AlarmCardCtx *ctx) {
 
 inline void alarm_control_hide_modal() {
   AlarmControlModalUi &ui = alarm_control_modal_ui();
+  AlarmCardCtx *active = ui.active;
+  bool release_takeover = active && active->arming_modal_auto_opened &&
+                          alarm_arming_takeover_ctx() == active;
   control_modal_delete_overlay(ControlModalKind::ALARM_CONTROL, ui.overlay);
   ui = AlarmControlModalUi();
+  if (release_takeover) alarm_release_arming_takeover(active);
 }
 
 inline void alarm_pin_hide_modal() {
