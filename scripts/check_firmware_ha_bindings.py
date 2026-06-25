@@ -679,10 +679,14 @@ def firmware_cover_art_refresh_errors(path: Path, root: Path) -> list[str]:
             errors.append(f"{rel}: keep a dedicated replacement artwork transition path")
         else:
             replacement_body = replacement_match.group("body")
-            if "script.execute: cover_art_show_artwork_transition" not in replacement_body:
-                errors.append(f"{rel}: hide stale artwork without blanking the track overlay during replacement downloads")
+            if "script.execute: cover_art_show_track_overlay" not in replacement_body:
+                errors.append(f"{rel}: keep the current artwork visible with updated track text during replacement downloads")
             if "script.execute: cover_art_show_black_screen" in replacement_body:
                 errors.append(f"{rel}: do not use the full black fallback for replacement artwork downloads")
+            if "script.execute: cover_art_clear_image_source" in replacement_body:
+                errors.append(f"{rel}: do not detach visible artwork before replacement artwork is ready")
+            if "artwork_image.release: cover_art_downloaded_image" in replacement_body:
+                errors.append(f"{rel}: do not release visible artwork before replacement artwork is ready")
             if "id(cover_art_loaded_url).clear()" in replacement_body:
                 errors.append(f"{rel}: keep the previous loaded artwork marker until replacement artwork applies")
 
@@ -2873,7 +2877,7 @@ def run_self_test() -> int:
         "                     id(cover_art_refresh_needed) &&\n"
         "                     !${cover_art_live_image_updates};\n"
         "          then:\n"
-        "            - script.execute: cover_art_show_artwork_transition\n"
+        "            - script.execute: cover_art_show_track_overlay\n"
         "      - lambda: |-\n"
         "          if (url.find(\"/api/media_player_proxy/\") != std::string::npos) {\n"
         "            url += url.find('?') == std::string::npos ? \"?time=\" : \"&time=\";\n"
