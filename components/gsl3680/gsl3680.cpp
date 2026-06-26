@@ -11,12 +11,12 @@ namespace gsl3680 {
 void GSL3680::setup() {
 
     ESP_LOGD(TAG, "Setup start");
-    constexpr int16_t TOUCH_RAW_WIDTH = 1280;
-    constexpr int16_t TOUCH_RAW_HEIGHT = 800;
-    // The bundled GSL3680 config reports a 1280x800 touch range even though
-    // the MIPI display is configured as a portrait-native 800x1280 panel.
-    this->x_raw_max_ = this->swap_x_y_ ? TOUCH_RAW_HEIGHT : TOUCH_RAW_WIDTH;
-    this->y_raw_max_ = this->swap_x_y_ ? TOUCH_RAW_WIDTH : TOUCH_RAW_HEIGHT;
+    // LVGL applies the final screen rotation after the touchscreen reports a
+    // display-space point, so calibrate against the native display dimensions.
+    this->x_raw_max_ =
+        this->swap_x_y_ ? this->get_display()->get_native_height() : this->get_display()->get_native_width();
+    this->y_raw_max_ =
+        this->swap_x_y_ ? this->get_display()->get_native_width() : this->get_display()->get_native_height();
 
     this->reset_pin_->pin_mode(esphome::gpio::FLAG_OUTPUT);
     this->reset_pin_->setup();
