@@ -713,7 +713,7 @@ function buildSettingsPage(parent) {
       "e.g. media_player.living_room",
       ["media_player"]);
     coverArtEntityField.appendChild(coverArtEntityInp);
-    coverArtOptions.appendChild(coverArtEntityField);
+    coverArtOnlyOptions.appendChild(coverArtEntityField);
     bindTextPost(coverArtEntityInp, entityName("screen_saver_cover_art_entity"), {
       onBlur: function (value) { state.coverArtMediaPlayerEntity = value; },
     });
@@ -1268,7 +1268,7 @@ function syncCoverArtScreensaverUi() {
   if (els.setCoverArtOptions) {
     els.setCoverArtOptions.classList.toggle(
       "sp-visible",
-      !!state.coverArtScreensaverOn);
+      !!state.coverArtScreensaverOn || !!state.mediaPlayerSleepPreventionOn);
   }
   if (els.setCoverArtOnlyOptions) {
     els.setCoverArtOnlyOptions.classList.toggle(

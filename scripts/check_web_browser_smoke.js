@@ -503,6 +503,19 @@ async function assertSettingsPage(page, label, options = {}) {
       await coverArtCard.locator("#sp-set-ss-cover-art-conditions").isVisible(),
       `${label}: cover art conditions field should render after advanced filtering is enabled`
     );
+    if (!(await coverArtCard.locator("#sp-set-ss-media-sleep-prevention").isChecked())) {
+      await coverArtCard.locator("#sp-set-ss-media-sleep-prevention + .sp-toggle-track").click();
+    }
+    await coverArtCard.locator("#sp-set-ss-cover-art-enable + .sp-toggle-track").click();
+    assert(
+      await coverArtCard.getByText("Keep Screen Awake During Playback", { exact: true }).isVisible(),
+      `${label}: enabled keep-screen-awake option should remain visible when cover art is disabled`
+    );
+    assert.strictEqual(
+      await coverArtCard.locator("#sp-set-ss-cover-art-player").isVisible(),
+      false,
+      `${label}: media player entity field should hide when cover art is disabled even if keep-screen-awake is enabled`
+    );
     assert(
       await page.locator("#sp-set-ss-cover-art-server").count() === 0,
       `${label}: cover art fallback URL field should not render`
