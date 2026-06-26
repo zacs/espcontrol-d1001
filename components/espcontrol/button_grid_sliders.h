@@ -2402,28 +2402,6 @@ inline void subscribe_slider_state(lv_obj_t *btn_ptr, lv_obj_t *icon_lbl,
   bool is_cover = is_cover_entity(entity_id);
   bool is_fan = is_fan_entity(entity_id);
   bool is_light = slider_entity_is_light(entity_id);
-  ESP_LOGI("slider", "Subscribing slider state for %s", entity_id.c_str());
-  ha_subscribe_state(
-    entity_id,
-    std::function<void(esphome::StringRef)>(
-      [slider, btn_ptr, fill, horiz, inv, rad, icon_lbl, has_icon_on, icon_off, icon_on, sctx](esphome::StringRef state) {
-        if (sctx && !sctx->logged_state) {
-          sctx->logged_state = true;
-          ESP_LOGI("slider", "First slider state for %s: %s",
-            sctx->entity_id.c_str(), string_ref_limited(state, HA_SHORT_STATE_MAX_LEN).c_str());
-        }
-        bool unavailable = ha_state_unavailable_ref(state);
-        if (sctx) sctx->available = !unavailable;
-        apply_control_availability(btn_ptr, slider, !unavailable);
-        bool on = is_entity_on_ref(state);
-        if (!on) {
-          slider_set_value_safe(slider, 0);
-          slider_update_fill(fill, btn_ptr, inv ? 100 : 0, horiz, inv, rad);
-        }
-        if (has_icon_on)
-          slider_set_icon_safe(icon_lbl, on ? icon_on : icon_off);
-      })
-  );
   if (is_cover) {
     ha_subscribe_attribute(
       entity_id, std::string(cover_tilt ? "current_tilt_position" : "current_position"),
@@ -2474,6 +2452,28 @@ inline void subscribe_slider_state(lv_obj_t *btn_ptr, lv_obj_t *icon_lbl,
     ESP_LOGW("slider", "No brightness attribute subscription for non-light slider entity %s",
       entity_id.c_str());
   }
+  ESP_LOGI("slider", "Subscribing slider state for %s", entity_id.c_str());
+  ha_subscribe_state(
+    entity_id,
+    std::function<void(esphome::StringRef)>(
+      [slider, btn_ptr, fill, horiz, inv, rad, icon_lbl, has_icon_on, icon_off, icon_on, sctx](esphome::StringRef state) {
+        if (sctx && !sctx->logged_state) {
+          sctx->logged_state = true;
+          ESP_LOGI("slider", "First slider state for %s: %s",
+            sctx->entity_id.c_str(), string_ref_limited(state, HA_SHORT_STATE_MAX_LEN).c_str());
+        }
+        bool unavailable = ha_state_unavailable_ref(state);
+        if (sctx) sctx->available = !unavailable;
+        apply_control_availability(btn_ptr, slider, !unavailable);
+        bool on = is_entity_on_ref(state);
+        if (!on) {
+          slider_set_value_safe(slider, 0);
+          slider_update_fill(fill, btn_ptr, inv ? 100 : 0, horiz, inv, rad);
+        }
+        if (has_icon_on)
+          slider_set_icon_safe(icon_lbl, on ? icon_on : icon_off);
+      })
+  );
 }
 
 // ── Light temperature card helpers ───────────────────────────────────
