@@ -118,6 +118,19 @@ function sliderTypeFactory(opts) {
       b.icon_on = opts.defaultIconOn;
     },
     renderSettings: function (panel, b, slot, helpers) {
+      var cardSettingsPanel = null;
+      var modalSettingsPanel = null;
+      var modalSettingsDisclosure = null;
+
+      if (opts.coverControlTabs) {
+        cardSettingsPanel = document.createElement("div");
+        modalSettingsPanel = document.createElement("div");
+        panel.appendChild(inlineDisclosure("Card Settings", cardSettingsPanel, true));
+        modalSettingsDisclosure = inlineDisclosure("Modal Settings", modalSettingsPanel, false);
+        panel.appendChild(modalSettingsDisclosure);
+        panel = cardSettingsPanel;
+      }
+
       function labelField() {
         helpers.renderCardTextField(panel, b, helpers, metadata.labelField);
       }
@@ -140,9 +153,11 @@ function sliderTypeFactory(opts) {
         if (!opts.coverControlTabs || !coverTabsSection) return;
         coverTabsSection.innerHTML = "";
         if (coverMode === "modal") {
+          if (modalSettingsDisclosure) modalSettingsDisclosure.style.display = "";
           renderCoverControlTabSettings(coverTabsSection, b, helpers);
           return;
         }
+        if (modalSettingsDisclosure) modalSettingsDisclosure.style.display = "none";
         var previousOptions = b.options || "";
         b.options = "";
         if (b.options !== previousOptions) helpers.saveField("options", b.options);
@@ -268,7 +283,7 @@ function sliderTypeFactory(opts) {
 
       if (opts.coverControlTabs) {
         coverTabsSection = document.createElement("div");
-        panel.appendChild(coverTabsSection);
+        modalSettingsPanel.appendChild(coverTabsSection);
       }
 
       function iconField(label, inputSuffix, field, currentVal, defaultVal) {
