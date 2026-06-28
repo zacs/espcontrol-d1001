@@ -121,20 +121,6 @@ function buildSettingsPage(parent) {
     });
     appearBody.appendChild(onColor);
     els.setOnColor = onColor;
-
-    appearBody.appendChild(fieldLabel("Secondary"));
-    var offColor = colorField("sp-set-off-color", DEFAULT_COLOR_PRESET.off, function (hex) {
-      postText(entityName("button_off_color"), hex);
-    });
-    appearBody.appendChild(offColor);
-    els.setOffColor = offColor;
-
-    appearBody.appendChild(fieldLabel("Tertiary"));
-    var sensorColor = colorField("sp-set-sensor-color", DEFAULT_COLOR_PRESET.sensor, function (hex) {
-      postText(entityName("sensor_card_color"), hex);
-    });
-    appearBody.appendChild(sensorColor);
-    els.setSensorColor = sensorColor;
   }
 
   var appearanceResetButton = null;

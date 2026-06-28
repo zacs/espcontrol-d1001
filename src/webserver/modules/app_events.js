@@ -51,6 +51,23 @@ function handleWebServerPingEvent(e) {
   }
 }
 
+function loadPageTitleFromEventStream() {
+  if (eventStreamEnabled() || typeof EventSource !== "function") return;
+  var source = new EventSource("/events");
+  var closeTimer = setTimeout(function () {
+    source.close();
+  }, 5000);
+  source.addEventListener("ping", function (e) {
+    handleWebServerPingEvent(e);
+    clearTimeout(closeTimer);
+    source.close();
+  });
+  source.addEventListener("error", function () {
+    clearTimeout(closeTimer);
+    source.close();
+  });
+}
+
 function applyClockBarStateValue(val, d, matchedKey) {
   var keys = entityStateKeys(d);
   uniquePush(keys, matchedKey);
@@ -129,16 +146,8 @@ function connectEvents() {
       syncColorUi();
       renderPreview();
     },
-    "text-button_off_color": function (val) {
-      state.offColor = val;
-      syncColorUi();
-      renderPreview();
-    },
-    "text-sensor_card_color": function (val) {
-      state.sensorColor = val;
-      syncColorUi();
-      renderPreview();
-    },
+    "text-button_off_color": function () {},
+    "text-sensor_card_color": function () {},
     "switch-indoor_temp_enable": function (val, d) {
       state._clockBarTemperatureVisibilityReceived = true;
       state._indoorOn = d.value === true || val === "ON";

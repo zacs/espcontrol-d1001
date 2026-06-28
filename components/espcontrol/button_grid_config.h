@@ -69,45 +69,6 @@ inline void notify_dashboard_content_changed() {
 static_assert(correct_display_color(0xF0F0F0, 200, 200, 200) == 0xFFFFFF,
               "colour correction must clamp channels at 255");
 
-constexpr uint32_t DEFAULT_SLIDER_COLOR = correct_display_color(0xFF8C00);
-constexpr uint32_t DEFAULT_OFF_COLOR = correct_display_color(0x313131);
-constexpr uint32_t DEFAULT_TERTIARY_COLOR = correct_display_color(0x212121);
-constexpr uint32_t DARK_BACKGROUND_SECONDARY = DEFAULT_OFF_COLOR;
-constexpr uint32_t DARK_BACKGROUND_TERTIARY = DEFAULT_TERTIARY_COLOR;
-constexpr uint32_t DARK_TEXT_PRIMARY = 0xFFFFFF;
-constexpr uint32_t DARK_TEXT_MUTED = 0xB0B0B0;
-constexpr uint32_t DARK_TEXT_SOFT = 0xEFEFEF;
-constexpr uint32_t DARK_BORDER = correct_display_color(0x3A3A3A);
-constexpr uint32_t DARK_CONTROL_NEUTRAL = correct_display_color(0x424242);
-constexpr uint32_t DARK_OVERLAY = 0x000000;
-constexpr uint32_t DARK_TRACK_BACKGROUND = correct_display_color(0x2F2F2F);
-
-constexpr uint32_t readable_text_color_for_bg(uint32_t bg_color) {
-  uint32_t red = (bg_color >> 16) & 0xFF;
-  uint32_t green = (bg_color >> 8) & 0xFF;
-  uint32_t blue = bg_color & 0xFF;
-  uint32_t brightness = (red * 299 + green * 587 + blue * 114) / 1000;
-  return brightness > 186 ? DEFAULT_TERTIARY_COLOR : DARK_TEXT_PRIMARY;
-}
-
-static_assert(readable_text_color_for_bg(0xFFFFFF) == DEFAULT_TERTIARY_COLOR,
-              "light backgrounds need dark text");
-static_assert(readable_text_color_for_bg(0x000000) == DARK_TEXT_PRIMARY,
-              "dark backgrounds need light text");
-
-inline uint32_t &current_button_primary_color_ref() {
-  static uint32_t color = DEFAULT_SLIDER_COLOR;
-  return color;
-}
-
-inline void set_current_button_primary_color(uint32_t color) {
-  current_button_primary_color_ref() = color;
-}
-
-inline uint32_t current_button_primary_color() {
-  return current_button_primary_color_ref();
-}
-
 #ifndef ESPCONTROL_MAX_GRID_SLOTS
 #define ESPCONTROL_MAX_GRID_SLOTS 25
 #endif

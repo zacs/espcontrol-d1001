@@ -20,14 +20,6 @@ var ENTITY_CATALOG = {
       "domain": "text",
       "name": "Button On Color"
     },
-    "button_off_color": {
-      "domain": "text",
-      "name": "Button Off Color"
-    },
-    "sensor_card_color": {
-      "domain": "text",
-      "name": "Sensor Card Color"
-    },
     "button_config": {
       "domain": "text",
       "template": "Button {slot} Config"
@@ -516,9 +508,7 @@ var ENTITY_CATALOG = {
     "card": [
       "button_order",
       "screen_theme",
-      "button_on_color",
-      "button_off_color",
-      "sensor_card_color"
+      "button_on_color"
     ],
     "card_slot": [
       "button_config"

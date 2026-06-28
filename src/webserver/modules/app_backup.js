@@ -29,8 +29,6 @@ function exportConfig() {
     sizes: state.sizes,
     button_order: serializeGrid(state.grid),
     button_on_color: state.onColor,
-    button_off_color: state.offColor,
-    sensor_card_color: state.sensorColor,
     buttons: state.buttons,
     subpages: state.subpages,
     settings: {
@@ -153,8 +151,6 @@ function importConfig() {
       setPostThrottle(importPostThrottleMs);
       resetPostQueueError();
       postText(entityName("button_on_color"), backupPlan.config.button_on_color);
-      postText(entityName("button_off_color"), backupPlan.config.button_off_color);
-      postText(entityName("sensor_card_color"), backupPlan.config.sensor_card_color);
 
       for (var i = 0; i < NUM_SLOTS; i++) {
         var b = backupPlan.buttons[i];
@@ -173,12 +169,8 @@ function importConfig() {
       postText(entityName("button_order"), backupPlan.button_order);
       applyImportedButtonOrder(backupPlan.button_order, backupPlan.importedSizes);
       state.onColor = backupPlan.config.button_on_color;
-      state.offColor = backupPlan.config.button_off_color;
-      state.sensorColor = backupPlan.config.sensor_card_color;
 
       if (els.setOnColor && els.setOnColor._syncColor) els.setOnColor._syncColor(state.onColor);
-      if (els.setOffColor && els.setOffColor._syncColor) els.setOffColor._syncColor(state.offColor);
-      if (els.setSensorColor && els.setSensorColor._syncColor) els.setSensorColor._syncColor(state.sensorColor);
 
       if (backupPlan.settings) {
         var s = backupPlan.settings;

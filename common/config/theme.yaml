@@ -8,11 +8,7 @@
 substitutions:
   screen_theme_initial_option: "Light"
   screen_theme_dark_button_on_color: "FFFFFF"
-  screen_theme_dark_button_off_color: "000000"
-  screen_theme_dark_sensor_card_color: "000000"
   screen_theme_light_button_on_color: "000000"
-  screen_theme_light_button_off_color: "FFFFFF"
-  screen_theme_light_sensor_card_color: "FFFFFF"
 
 select:
   - platform: template
@@ -33,11 +29,7 @@ select:
       - lambda: |-
           if (x == "Dark") {
             id(button_on_color).publish_state("${screen_theme_dark_button_on_color}");
-            id(button_off_color).publish_state("${screen_theme_dark_button_off_color}");
-            id(sensor_card_color).publish_state("${screen_theme_dark_sensor_card_color}");
           } else {
             id(button_on_color).publish_state("${screen_theme_light_button_on_color}");
-            id(button_off_color).publish_state("${screen_theme_light_button_off_color}");
-            id(sensor_card_color).publish_state("${screen_theme_light_sensor_card_color}");
           }
       - script.execute: refresh_button_grid

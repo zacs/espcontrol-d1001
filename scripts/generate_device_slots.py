@@ -771,8 +771,6 @@ def script_block(device: dict) -> str:
             else "          grid_phase2(slots, cfg, sp_cfgs, sp_ext, sp_ext2, sp_ext3,",
             "            id(button_order).state,",
             "            id(button_on_color).state,",
-            "            id(button_off_color).state,",
-            "            id(sensor_card_color).state,",
             "            id(main_page)->obj);",
         ]
         return "\n".join(
@@ -843,13 +841,23 @@ def replace_script_block(text: str, device: dict) -> str:
 def replace_sensor_blocks(text: str, device: dict) -> str:
     text = replace_script_block(text, device)
     text = replace_phase(text, 1, phase1_block(device), "grid_phase1", device["slug"])
-    text = re.sub(
-        r"(?m)^              id\(sensor_card_color\)\.state\);$",
-        "              id(sensor_card_color).state,\n              id(main_page)->obj);",
-        text,
-        count=1,
-    )
     text = replace_phase(text, 2, phase2_block(device), "grid_phase2", device["slug"])
+    text = re.sub(
+        r"(?m)^              id\(button_on_color\)\.state,\n"
+        r"              id\(button_off_color\)\.state,\n"
+        r"              id\(sensor_card_color\)\.state,\n"
+        r"              id\(main_page\)->obj\);$",
+        "              id(button_on_color).state,\n              id(main_page)->obj);",
+        text,
+    )
+    text = re.sub(
+        r"(?m)^            id\(button_on_color\)\.state,\n"
+        r"            id\(button_off_color\)\.state,\n"
+        r"            id\(sensor_card_color\)\.state,\n"
+        r"            id\(main_page\)->obj\);$",
+        "            id(button_on_color).state,\n            id(main_page)->obj);",
+        text,
+    )
     return text
 
 

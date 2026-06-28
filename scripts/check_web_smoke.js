@@ -12,6 +12,7 @@ const SOURCE = path.join(ROOT, "src", "webserver", "entry.js");
 const DEVICE_MANIFEST = path.join(ROOT, "devices", "manifest.json");
 const WEB_OUTPUT_DIR = path.join(ROOT, "docs", "public", "webserver");
 const ALL_ROTATIONS = ["0", "90", "180", "270"];
+const REQUIRED_HOOK_GROUPS = ["config", "preview", "backup", "settings"];
 
 function createWebSandbox() {
   const domEvents = [];
@@ -39,7 +40,15 @@ function loadHooks() {
   const sandbox = createWebSandbox();
   vm.createContext(sandbox);
   vm.runInContext(loadBundledWebSource(), sandbox, { filename: SOURCE });
+  assertRequiredHookGroups(sandbox.__ESPCONTROL_TEST_HOOKS__.groups);
   return sandbox.__ESPCONTROL_TEST_HOOKS__.config;
+}
+
+function assertRequiredHookGroups(groups, prefix = "web test hooks") {
+  assert(groups, `${prefix} must expose grouped hook registrations`);
+  for (const group of REQUIRED_HOOK_GROUPS) {
+    assert(groups[group], `${prefix} must include the ${group} hook group`);
+  }
 }
 
 function plain(value) {
@@ -179,6 +188,7 @@ for (const [slug, device] of Object.entries(manifest.devices || {})) {
     sandbox.__ESPCONTROL_TEST_HOOKS__.config,
     `${slug}: generated web UI must export the same test hooks used by local checks`
   );
+  assertRequiredHookGroups(sandbox.__ESPCONTROL_TEST_HOOKS__.groups, `${slug}: generated web UI`);
   const generatedHooks = sandbox.__ESPCONTROL_TEST_HOOKS__.config;
   const expectedScreenSize = String(device.public.screenSize)
     .toLowerCase()
