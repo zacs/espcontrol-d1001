@@ -1971,10 +1971,11 @@ inline void cover_control_layout_modal(CoverControlCtx *ctx) {
     lv_coord_t start_x = (box_w - total_w) / 2;
     if (start_x < 0) start_x = 0;
     lv_obj_t *buttons[3] = {ui.up_btn, ui.stop_btn, ui.down_btn};
+    lv_coord_t button_radius = control_modal_card_radius(ctx->btn);
     for (int i = 0; i < 3; i++) {
       if (!buttons[i]) continue;
       lv_obj_set_size(buttons[i], btn_size, btn_size);
-      lv_obj_set_style_radius(buttons[i], 0, LV_PART_MAIN);
+      lv_obj_set_style_radius(buttons[i], button_radius, LV_PART_MAIN);
       lv_obj_align(buttons[i], LV_ALIGN_LEFT_MID, start_x + i * (btn_size + gap), 0);
       lv_obj_t *label = lv_obj_get_child(buttons[i], 0);
       if (label) lv_obj_center(label);
