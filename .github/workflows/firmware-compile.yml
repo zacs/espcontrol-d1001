@@ -34,6 +34,12 @@ jobs:
             exit 0
           fi
 
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+            echo "::notice::Skipping firmware compile for fork pull request to keep self-hosted runners trusted-only."
+            echo "compile_required=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           gh api \
             "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
             --paginate \
