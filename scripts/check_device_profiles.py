@@ -433,7 +433,7 @@ def test_temperature_unit_changes_refresh_weather_cards() -> None:
     assert match, "temperature unit label refresh helper is missing"
     body = match.group(0)
     assert "notify_dashboard_content_changed()" in body, (
-        "temperature unit changes must refresh e-paper weather cards"
+        "temperature unit changes must refresh weather cards"
     )
 
 

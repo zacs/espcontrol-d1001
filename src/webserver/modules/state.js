@@ -35,16 +35,8 @@ function defaultTheme() {
   return "Dark";
 }
 
-function isEpaperPreview() {
-  return CFG && CFG.previewTheme === "epaper";
-}
-
 function voiceServicesSupported() {
   return !!(CFG.features && CFG.features.voiceServices);
-}
-
-function epaperPreviewFillColor() {
-  return normalizeTheme(state.theme) === "Light" ? "FFFFFF" : "000000";
 }
 
 function defaultTimezoneOptions() {
@@ -77,7 +69,6 @@ var state = {
   sizes: {},
   buttons: [],
   theme: defaultTheme(),
-  themeOptions: ["Light", "Dark"],
   onColor: DEFAULT_COLOR_PRESET.on,
   selectedSlots: [],
   lastClickedSlot: -1,
@@ -782,27 +773,11 @@ function normalizeTheme(value) {
 }
 
 function syncThemeUi() {
-  if (els.setTheme) els.setTheme.value = normalizeTheme(state.theme);
   if (els.root) els.root.setAttribute("data-screen-theme", normalizeTheme(state.theme).toLowerCase());
 }
 
 function syncColorUi() {
   if (els.setOnColor && els.setOnColor._syncColor) els.setOnColor._syncColor(state.onColor);
-}
-
-function applyThemePreset(theme, postChanges) {
-  state.theme = normalizeTheme(theme);
-  var preset = THEME_PRESETS[state.theme];
-  state.onColor = preset.on;
-  syncThemeUi();
-  syncColorUi();
-  renderPreview();
-  if (postChanges) {
-    postSelect(entityName("screen_theme"), state.theme);
-    if (!isEpaperPreview()) {
-      postText(entityName("button_on_color"), state.onColor);
-    }
-  }
 }
 
 function resetAppearanceColors(postChanges) {
@@ -812,16 +787,6 @@ function resetAppearanceColors(postChanges) {
   if (postChanges) {
     postText(entityName("button_on_color"), state.onColor);
   }
-}
-
-function syncThemeFromDevice(theme, options) {
-  state.theme = normalizeTheme(theme);
-  if (options && Array.isArray(options)) state.themeOptions = options;
-  var preset = THEME_PRESETS[state.theme];
-  state.onColor = preset.on;
-  syncThemeUi();
-  syncColorUi();
-  renderPreview();
 }
 
 function syncClockBarUi() {

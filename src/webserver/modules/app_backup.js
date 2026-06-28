@@ -35,7 +35,6 @@ function exportConfig() {
       indoor_temp_enable: state._indoorOn,
       outdoor_temp_enable: state._outdoorOn,
       clock_bar_temperature_entities: serializeClockBarTemperatureEntities(clockBarTemperatureEntities()),
-      theme: normalizeTheme(state.theme),
       indoor_temp_entity: state.indoorEntity,
       outdoor_temp_entity: state.outdoorEntity,
       temperature_unit: normalizeTemperatureUnit(state.temperatureUnit),
@@ -206,7 +205,6 @@ function importConfig() {
         postTemperatureDegreeSymbol(importedSettings.temperatureDegreeSymbol);
         postSubpageChevron(importedSettings.subpageChevron);
         var importedTimezone = importedSettings.timezone;
-        var importedTheme = normalizeTheme(s.theme || state.theme);
         var importedTemperatureUnit = importedSettings.temperatureUnit;
         var importedLanguage = importedSettings.language;
         var importedClockFormat = importedSettings.clockFormat;
@@ -218,7 +216,6 @@ function importConfig() {
         var importedNtpServer3 = importedSettings.ntpServer3;
         if (s.timezone) postSelect(entityName("screen_timezone"), importedTimezone);
         if (s.language) postSelect(entityName("screen_language"), importedLanguage);
-        if (s.theme && isEpaperPreview()) postSelect(entityName("screen_theme"), importedTheme);
         postSelect(entityName("screen_temperature_unit"), importedTemperatureUnit);
         if (s.clock_format) postSelect(entityName("screen_clock_format"), importedClockFormat);
         if (hasNtpServer1) {
@@ -270,7 +267,6 @@ function importConfig() {
         state.subpageChevronsOn = importedSettings.subpageChevron;
         state.timezone = importedTimezone;
         state.language = importedLanguage;
-        state.theme = importedTheme;
         state.clockFormat = importedClockFormat;
         state.ntpServer1 = importedNtpServer1;
         state.ntpServer2 = importedNtpServer2;
@@ -307,7 +303,6 @@ function importConfig() {
         syncInput(els.setCoverArtMediaPlayer, state.coverArtMediaPlayerEntity);
         syncInput(els.setCoverArtConditions, state.coverArtAttributeConditions);
         syncCoverArtScreensaverUi();
-        syncThemeUi();
         if (els.setTimezone) els.setTimezone.value = state.timezone;
         syncLanguageSelect();
         if (els.setClockFormat) els.setClockFormat.value = state.clockFormat;

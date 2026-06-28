@@ -354,11 +354,6 @@ def package_file_text(device: dict) -> str:
             "  # Configuration (text/select/number components for web UI)",
             "  # ---------------------------------------------------------------------------",
             include_line("colors", "!include ../../common/config/colors.yaml"),
-            *(
-                [include_line("theme", "!include ../../common/config/theme.yaml")]
-                if device.get("display_mode") == "monochrome"
-                else []
-            ),
             include_line("button_order", "!include ../../common/config/button_order.yaml"),
             include_line("display_config", "!include ../../common/config/display.yaml"),
             button_package_block(device).rstrip(),
@@ -900,8 +895,6 @@ def main() -> int:
 
     changed: list[Path] = []
     for device in slot_devices():
-        if device.get("display_mode") == "monochrome":
-            continue
         slug = device["slug"]
         package_path = ROOT / "devices" / slug / "packages.yaml"
         sensor_path = ROOT / "devices" / slug / "device" / "sensors.yaml"

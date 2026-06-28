@@ -8,14 +8,6 @@ var ENTITY_CATALOG = {
       "domain": "text",
       "name": "Button Order"
     },
-    "screen_theme": {
-      "domain": "select",
-      "name": "Screen: Theme",
-      "objectIds": [
-        "screen__theme",
-        "screen_theme"
-      ]
-    },
     "button_on_color": {
       "domain": "text",
       "name": "Button On Color"
@@ -507,7 +499,6 @@ var ENTITY_CATALOG = {
   "groups": {
     "card": [
       "button_order",
-      "screen_theme",
       "button_on_color"
     ],
     "card_slot": [
