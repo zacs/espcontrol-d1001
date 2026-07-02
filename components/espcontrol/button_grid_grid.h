@@ -32,6 +32,8 @@ struct GridConfig {
   const lv_font_t *sp_large_sensor_font = nullptr;
   int large_sensor_unit_offset_percent = -10;
   const lv_font_t *media_title_font;
+  const lv_font_t *media_control_title_font = nullptr;
+  const lv_font_t *media_control_artist_font = nullptr;
   const lv_font_t *option_select_value_font = nullptr;
   const lv_font_t *volume_number_font;
   const lv_font_t *volume_label_font = nullptr;
@@ -73,6 +75,8 @@ inline DisplayProfile display_profile_from_grid_config(const GridConfig &cfg) {
   profile.fonts.sensor = cfg.sp_sensor_font;
   profile.fonts.large_sensor = cfg.sp_large_sensor_font;
   profile.fonts.media_title = cfg.media_title_font;
+  profile.fonts.media_control_title = cfg.media_control_title_font;
+  profile.fonts.media_control_artist = cfg.media_control_artist_font;
   profile.fonts.option_select_value = cfg.option_select_value_font;
   profile.fonts.volume_number = cfg.volume_number_font;
   profile.fonts.volume_label = cfg.volume_label_font;
@@ -632,6 +636,14 @@ inline void refresh_media_card_layout(BtnSlot &s, const ParsedCfg &p,
     if (s.text_lbl) lv_obj_align(s.text_lbl, LV_ALIGN_BOTTOM_LEFT, 0, 0);
     return;
   }
+  if (mode == "control_modal") {
+    if (s.btn) lv_obj_set_user_data(s.btn, nullptr);
+    setup_media_control_button(
+      s.btn, s.icon_lbl, s.sensor_container, s.sensor_lbl, s.unit_lbl, s.text_lbl, p);
+    MediaControlCtx *ctx = (MediaControlCtx *)lv_obj_get_user_data(s.btn);
+    if (ctx) media_control_refresh_parent_card(ctx);
+    return;
+  }
   if (mode == "volume") return;
 
   lv_obj_t *slider = (lv_obj_t *)lv_obj_get_user_data(s.sensor_container);
@@ -954,6 +966,10 @@ inline void grid_delete_fan_card_runtime_ptr(void *ptr) {
   }
 }
 
+inline void grid_delete_media_control_runtime_ptr(void *ptr) {
+  delete_media_control_context(static_cast<MediaControlCtx *>(ptr));
+}
+
 inline void grid_release_runtime_allocations(lv_obj_t *owner) {
   if (owner == nullptr) return;
   std::vector<GridRuntimeAllocation> &allocations = grid_runtime_allocations();
@@ -993,6 +1009,28 @@ inline AlarmActionCtx *grid_track_alarm_action_runtime(lv_obj_t *owner,
       ctx,
       grid_delete_alarm_action_runtime_ptr,
     });
+  }
+  return ctx;
+}
+
+inline MediaControlCtx *grid_track_media_control_runtime(lv_obj_t *owner,
+                                                         MediaControlCtx *ctx) {
+  if (owner != nullptr && ctx != nullptr) {
+    grid_runtime_allocations().push_back({
+      owner,
+      ctx,
+      grid_delete_media_control_runtime_ptr,
+    });
+  }
+  return ctx;
+}
+
+inline MediaControlCtx *grid_delete_media_control_with_owner(lv_obj_t *owner,
+                                                             MediaControlCtx *ctx) {
+  if (owner != nullptr && ctx != nullptr) {
+    lv_obj_add_event_cb(owner, [](lv_event_t *e) {
+      delete_media_control_context(static_cast<MediaControlCtx *>(lv_event_get_user_data(e)));
+    }, LV_EVENT_DELETE, ctx);
   }
   return ctx;
 }
@@ -1436,6 +1474,20 @@ inline void grid_phase2(
           subscribe_media_playlist_state(ctx);
         } else if (media_playback_button_mode(mode)) {
           // Previous/next are momentary actions and do not reflect player state.
+        } else if (mode == "control_modal") {
+          MediaControlCtx *ctx = grid_track_media_control_runtime(s.btn, create_media_control_context(
+            s, p,
+            has_on ? on_val : DEFAULT_SLIDER_COLOR,
+            palette.has_off ? palette.off_val : DEFAULT_OFF_COLOR,
+            palette.has_sensor_color ? palette.sensor_val : DEFAULT_TERTIARY_COLOR,
+            display_media_control_title_font(display),
+            display_media_control_artist_font(
+              display, display_volume_label_font(
+                display, lv_obj_get_style_text_font(s.text_lbl, LV_PART_MAIN))),
+            display_volume_number_font(display),
+            display_icon_font(display),
+            display_volume_width_percent(display)));
+          subscribe_media_control_state(ctx);
         } else if (mode == "volume") {
           MediaVolumeCtx *ctx = create_media_volume_context(
             s.btn, s.text_lbl, p, has_on ? on_val : DEFAULT_SLIDER_COLOR,
@@ -2174,6 +2226,24 @@ inline void grid_phase2(
               subscribe_media_state(sub_slot.btn,
                 media_play_pause_show_state(sb_cfg) ? sub_slot.text_lbl : nullptr,
                 sb_cfg.entity);
+          } else if (mode == "control_modal") {
+            MediaControlCtx *ctx = grid_delete_media_control_with_owner(sb_btn, create_media_control_context(
+              sub_slot, sb_cfg,
+              has_on ? on_val : DEFAULT_SLIDER_COLOR,
+              palette.has_off ? palette.off_val : DEFAULT_OFF_COLOR,
+              palette.has_sensor_color ? palette.sensor_val : DEFAULT_TERTIARY_COLOR,
+              display_media_control_title_font(display),
+              display_media_control_artist_font(
+                display, display_volume_label_font(
+                  display, lv_obj_get_style_text_font(sub_slot.text_lbl, LV_PART_MAIN))),
+              display_volume_number_font(display),
+              display_icon_font(display),
+              display_volume_width_percent(display)));
+            subscribe_media_control_state(ctx);
+            lv_obj_add_event_cb(sb_btn, [](lv_event_t *e) {
+              MediaControlCtx *ctx = (MediaControlCtx *)lv_event_get_user_data(e);
+              if (ctx) media_control_open_modal(ctx);
+            }, LV_EVENT_CLICKED, ctx);
           } else if (mode == "volume") {
             MediaVolumeCtx *ctx = create_media_volume_context(
               sub_slot.btn, sub_slot.text_lbl, sb_cfg,
