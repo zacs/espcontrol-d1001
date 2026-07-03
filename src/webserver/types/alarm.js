@@ -241,17 +241,17 @@ registerButtonType("alarm", {
     );
     var modalSettings = modalSettingsDisclosure.section;
 
-    var labelControl = helpers.renderCardTextField(condField(), b, helpers, {
+    var labelHost = condField();
+    helpers.renderCardTextField(labelHost, b, helpers, {
       label: "Label",
       idSuffix: "alarm-label",
       field: "label",
       placeholder: "e.g. House Alarm",
       rerender: true,
     });
-    var labelField = labelControl.field.parentNode || labelControl.field;
 
     function setLabelVisible(value) {
-      labelField.style.display = value === "name" ? "" : "none";
+      labelHost.classList.toggle("sp-visible", value === "name");
     }
 
     helpers.renderCardSegmentControl(cardSettings, b, helpers, {
@@ -266,19 +266,19 @@ registerButtonType("alarm", {
       }),
     });
     setLabelVisible(alarmLabelDisplayMode(b));
-    cardSettings.appendChild(labelField);
+    cardSettings.appendChild(labelHost);
 
-    var iconControl = helpers.renderCardIconPicker(condField(), b, helpers, {
+    var iconHost = condField();
+    helpers.renderCardIconPicker(iconHost, b, helpers, {
       pickerIdSuffix: "alarm-icon-picker",
       idSuffix: "alarm-icon",
       field: "icon",
       fallback: "Security",
       label: "Icon",
     });
-    var iconField = iconControl.parentNode || iconControl;
 
     function setIconVisible(value) {
-      iconField.style.display = value === "static" ? "" : "none";
+      iconHost.classList.toggle("sp-visible", value === "static");
     }
 
     helpers.renderCardSegmentControl(cardSettings, b, helpers, {
@@ -293,7 +293,7 @@ registerButtonType("alarm", {
       }),
     });
     setIconVisible(alarmIconDisplayMode(b));
-    cardSettings.appendChild(iconField);
+    cardSettings.appendChild(iconHost);
     panel.appendChild(cardSettingsDisclosure.panel);
 
     renderAlarmVisibleActionsField(modalSettings, b, helpers);

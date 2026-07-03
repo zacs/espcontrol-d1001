@@ -1554,6 +1554,47 @@ async function assertAlarmSettingsPanels(page, label) {
   await cardSettings.locator("> .sp-disclosure-button").click();
   assert(await cardSettings.getByText("Label Display", { exact: true }).isVisible(), `${label}: alarm card settings panel should contain label display controls`);
   assert(await cardSettings.getByText("Icon Display", { exact: true }).isVisible(), `${label}: alarm card settings panel should contain icon display controls`);
+  const labelInput = page.locator("#sp-inp-alarm-label");
+  await labelInput.waitFor({ state: "attached" });
+  assert.strictEqual(
+    await labelInput.isVisible(),
+    false,
+    `${label}: alarm label input starts hidden when status label display is selected`,
+  );
+
+  await cardSettings
+    .locator(".sp-field")
+    .filter({ hasText: "Label Display" })
+    .getByRole("button", { name: "Name", exact: true })
+    .click();
+  assert(
+    await labelInput.isVisible(),
+    `${label}: alarm label input appears when name label display is selected`,
+  );
+  assert(
+    await labelInput.evaluate((el) => {
+      var field = el.closest(".sp-cond-field");
+      var displayField = field && field.previousElementSibling;
+      return !!(
+        field &&
+        field.classList.contains("sp-visible") &&
+        displayField &&
+        displayField.textContent.indexOf("Label Display") !== -1
+      );
+    }),
+    `${label}: alarm label input is shown directly below label display controls`,
+  );
+
+  await cardSettings
+    .locator(".sp-field")
+    .filter({ hasText: "Label Display" })
+    .getByRole("button", { name: "Status", exact: true })
+    .click();
+  assert.strictEqual(
+    await labelInput.isVisible(),
+    false,
+    `${label}: alarm label input hides again when status label display is selected`,
+  );
 
   await modalSettings.locator("> .sp-disclosure-button").click();
   assert(await modalSettings.getByText("Visible Actions", { exact: true }).isVisible(), `${label}: alarm modal settings panel should contain visible actions controls`);
