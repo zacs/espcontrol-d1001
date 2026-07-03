@@ -276,6 +276,25 @@ def firmware_subpage_modal_wiring_errors(root: Path) -> list[str]:
         return errors
 
     text = grid_path.read_text(encoding="utf-8")
+    media_home_block = re.search(
+        r"MediaControlCtx \*ctx = grid_track_media_control_runtime"
+        r"(?P<body>.*?)"
+        r"\n\s*\}\s*else if\s*\(mode == \"volume\"\)",
+        text,
+        re.S,
+    )
+    if media_home_block is None:
+        errors.append("components/espcontrol/button_grid_grid.h: keep media control cards wired on the home grid")
+    else:
+        body = media_home_block.group("body")
+        if (
+            "create_media_control_context" not in body
+            or "subscribe_media_control_state(ctx);" not in body
+            or "media_control_open_modal(ctx);" not in body
+            or "LV_EVENT_CLICKED" not in body
+        ):
+            errors.append("components/espcontrol/button_grid_grid.h: open media control modals from home grid cards")
+
     light_block = re.search(
         r'if\s*\(\s*sb_cfg\.type\s*==\s*"light_control"\s*\)\s*\{(?P<body>.*?)\n      \}',
         text,
@@ -697,6 +716,17 @@ def expect_subpage_modal_wiring_errors(name: str, grid_text: str, expected: tupl
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
             grid_text +
+            '        } else if (mode == "control_modal") {\n'
+            "          MediaControlCtx *ctx = grid_track_media_control_runtime(s.btn, create_media_control_context(\n"
+            "            s, p, DEFAULT_SLIDER_COLOR, DEFAULT_OFF_COLOR, DEFAULT_TERTIARY_COLOR,\n"
+            "            nullptr, nullptr, nullptr, nullptr, 100));\n"
+            "          subscribe_media_control_state(ctx);\n"
+            "          lv_obj_add_event_cb(s.btn, [](lv_event_t *e) {\n"
+            "            lv_obj_t *target = static_cast<lv_obj_t *>(lv_event_get_target(e));\n"
+            "            MediaControlCtx *ctx = (MediaControlCtx *)lv_obj_get_user_data(target);\n"
+            "            if (ctx) media_control_open_modal(ctx);\n"
+            "          }, LV_EVENT_CLICKED, nullptr);\n"
+            '        } else if (mode == "volume") {\n'
             '      if (sb_cfg.type == "fan_control") {\n'
             "        if (!sb_cfg.entity.empty()) {\n"
             "          FanCardCtx *ctx = create_fan_card_context(\n"
