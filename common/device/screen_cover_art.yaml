@@ -1091,6 +1091,7 @@ script:
                 then:
                   - lambda: |-
                       ESP_LOGI("cover_art", "Keeping current artwork visible; live image updates disabled for this display");
+                  - script.execute: cover_art_deferred_download
                 else:
                   - if:
                       condition:
