@@ -922,16 +922,16 @@ function displayC6FirmwareVersion(version) {
   return version || "Unknown";
 }
 
+function c6FirmwareVersionLooksKnown(version) {
+  version = String(version == null ? "" : version).trim();
+  return /\d/.test(version);
+}
+
 function c6FirmwareUpdateKnownAvailable() {
-  var value = String(state.c6FirmwareUpdateAvailable || "").toLowerCase();
-  if (value.indexOf("unavailable") !== -1 || value.indexOf("unknown") !== -1) return false;
-  if (value.indexOf("update available") !== -1) return true;
-  if (value.indexOf("available") !== -1 && value.indexOf("up-to-date") === -1) return true;
   var current = String(state.c6FirmwareCurrentVersion || "").trim();
   var latest = String(state.c6FirmwareLatestVersion || "").trim();
-  return !!current && !!latest &&
-    current.toLowerCase() !== "unknown" &&
-    latest.toLowerCase() !== "unknown" &&
+  return c6FirmwareVersionLooksKnown(current) &&
+    c6FirmwareVersionLooksKnown(latest) &&
     current !== latest;
 }
 
