@@ -873,12 +873,15 @@ inline void media_playback_subscribe_playback_state(MediaPlaybackState *state) {
         if (!media_playback_generation_valid(state, generation)) return;
         std::string state_text = string_ref_limited(state_ref, HA_SHORT_STATE_MAX_LEN);
         bool was_playing = state->playing;
+        float paused_position_seconds = was_playing
+          ? media_playback_current_position_seconds(state)
+          : state->position_seconds;
         state->has_state = true;
         state->state_text = state_text;
         state->available = !ha_state_unavailable_ref(state_ref);
         state->playing = state_text == "playing";
         if (was_playing && !state->playing) {
-          state->position_seconds = media_playback_current_position_seconds(state);
+          state->position_seconds = paused_position_seconds;
           state->position_updated_ms = esphome::millis();
           state->position_updated_at_known = false;
           state->position_updated_at_ms = 0;
