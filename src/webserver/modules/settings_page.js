@@ -362,7 +362,9 @@ function buildSettingsPage(parent) {
   var schedulePresInp = entityInput("sp-set-schedule-presence", state.presenceEntity, "Presence sensor entity", ["binary_sensor", "sensor"]);
   schedulePresenceField.appendChild(schedulePresInp);
   scheduleSensor.appendChild(schedulePresenceField);
-  bindTextPost(schedulePresInp, entityName("presence_sensor_entity"), {});
+  bindTextPost(schedulePresInp, entityName("presence_sensor_entity"), {
+    post: postPresenceSensorEntity,
+  });
   scheduleBody.appendChild(scheduleSensor);
   els.setScheduleSensor = scheduleSensor;
   els.setSchedulePresence = schedulePresInp;
@@ -642,7 +644,7 @@ function buildSettingsPage(parent) {
     coverArtToggle.input.addEventListener("change", function () {
       state.coverArtScreensaverOn = this.checked;
       syncCoverArtScreensaverUi();
-      postSwitch(entityName("screen_saver_cover_art"), state.coverArtScreensaverOn);
+      postCoverArtScreensaver(state.coverArtScreensaverOn);
     });
     els.setCoverArtToggle = coverArtToggle.input;
 
@@ -659,7 +661,7 @@ function buildSettingsPage(parent) {
       state.mediaPlayerSleepPreventionOn = this.checked;
       syncMediaPlayerSleepPreventionUi();
       syncCoverArtScreensaverUi();
-      postSwitch(entityName("screen_saver_media_player_sleep_prevention"), state.mediaPlayerSleepPreventionOn);
+      postMediaPlayerSleepPrevention(state.mediaPlayerSleepPreventionOn);
     });
     els.setMediaPlayerSleepPreventionToggle = sleepPreventionToggle.input;
 
@@ -674,7 +676,14 @@ function buildSettingsPage(parent) {
     coverArtEntityField.appendChild(coverArtEntityInp);
     coverArtOnlyOptions.appendChild(coverArtEntityField);
     bindTextPost(coverArtEntityInp, entityName("screen_saver_cover_art_entity"), {
-      onBlur: function (value) { state.coverArtMediaPlayerEntity = value; },
+      onBlur: function (value) {
+        state.coverArtMediaPlayerEntity = value;
+        state.mediaPlayerSleepPreventionEntity = value;
+      },
+      post: function (value) {
+        postCoverArtMediaPlayerEntity(value);
+        postMediaPlayerSleepPreventionEntity(value);
+      },
     });
     els.setCoverArtMediaPlayer = coverArtEntityInp;
 
@@ -785,7 +794,7 @@ function buildSettingsPage(parent) {
       if (!state.coverArtFilteringEnabled) {
         state.coverArtAttributeConditions = "";
         syncInput(els.setCoverArtConditions, "");
-        postText(entityName("screen_saver_cover_art_conditions"), "");
+        postCoverArtConditions("");
       }
       syncCoverArtScreensaverUi();
     });
@@ -811,6 +820,7 @@ function buildSettingsPage(parent) {
         state.coverArtFilteringEnabled = !!value || state.coverArtFilteringEnabled;
         syncCoverArtScreensaverUi();
       },
+      post: postCoverArtConditions,
     });
     els.setCoverArtConditions = coverArtConditionsInp;
     els.setCoverArtFilterOptions = coverArtFilterOptions;
@@ -836,7 +846,9 @@ function buildSettingsPage(parent) {
   var presInp = entityInput("sp-set-presence", state.presenceEntity, "Presence sensor entity", ["binary_sensor", "sensor"]);
   presenceField.appendChild(presInp);
   sensorPanel.appendChild(presenceField);
-  bindTextPost(presInp, entityName("presence_sensor_entity"), {});
+  bindTextPost(presInp, entityName("presence_sensor_entity"), {
+    post: postPresenceSensorEntity,
+  });
   var sensorClockControls = createScreensaverThenControls("sp-set-sensor-clock-mode");
   sensorPanel.appendChild(sensorClockControls.clockField);
   sensorPanel.appendChild(sensorClockControls.dimBrightnessField);
@@ -874,17 +886,17 @@ function buildSettingsPage(parent) {
   disabledBtn.addEventListener("click", function () {
     setSsMode("disabled");
     state.screensaverMode = "disabled";
-    postText(entityName("screensaver_mode"), "disabled");
+    postScreensaverMode("disabled");
   });
   timerBtn.addEventListener("click", function () {
     setSsMode("timer");
     state.screensaverMode = "timer";
-    postText(entityName("screensaver_mode"), "timer");
+    postScreensaverMode("timer");
   });
   sensorBtn.addEventListener("click", function () {
     setSsMode("sensor");
     state.screensaverMode = "sensor";
-    postText(entityName("screensaver_mode"), "sensor");
+    postScreensaverMode("sensor");
   });
   els.setSsMode = setSsMode;
   setSsMode(ssMode);
@@ -915,7 +927,7 @@ function buildSettingsPage(parent) {
   hsSelect.addEventListener("change", function () {
     state.homeScreenTimeout = parseFloat(this.value) || 0;
     syncIdleUi();
-    postNumber(entityName("home_screen_timeout"), this.value);
+    postHomeScreenTimeout(this.value);
   });
   idleBody.appendChild(hsSelect);
   els.setHSTimeout = hsSelect;
@@ -1050,7 +1062,8 @@ function buildSettingsPage(parent) {
       syncFirmwareUpdateUi();
       return;
     }
-    postSwitch(entityName("firmware_auto_update"), this.checked);
+    state.autoUpdate = this.checked;
+    postFirmwareAutoUpdate(state.autoUpdate);
     syncFirmwareUpdateUi();
   });
   els.setAutoUpdateRow = autoUpdateToggle.row;
@@ -1070,7 +1083,8 @@ function buildSettingsPage(parent) {
   freqSelect.value = state.updateFrequency;
   freqSelect.addEventListener("change", function () {
     if (!firmwareUpdateControlsVisible()) return;
-    postSelect(entityName("firmware_update_frequency"), this.value);
+    state.updateFrequency = this.value;
+    postFirmwareUpdateFrequency(state.updateFrequency);
   });
   freqWrap.appendChild(freqSelect);
   fwBody.appendChild(freqWrap);
@@ -1160,10 +1174,7 @@ function buildSettingsPage(parent) {
   haProtocolSelect.addEventListener("change", function () {
     state.homeAssistantArtworkProtocol = normalizeHomeAssistantArtworkProtocol(this.value);
     this.value = state.homeAssistantArtworkProtocol;
-    postSelectWithObjectIds(
-      entityName("home_assistant_artwork_protocol"),
-      entityObjectIds("home_assistant_artwork_protocol"),
-      state.homeAssistantArtworkProtocol);
+    postHomeAssistantArtworkProtocol(state.homeAssistantArtworkProtocol);
   });
   haProtocolField.appendChild(haProtocolSelect);
   homeAssistantSettingsBody.appendChild(haProtocolField);
@@ -1369,7 +1380,7 @@ function createScreensaverThenControls(selectId) {
     state.clockScreensaverOn = state.screensaverAction === "clock";
     syncClockScreensaverControls();
     postScreensaverAction(state.screensaverAction);
-    postSwitch(entityName("screen_saver_clock"), state.clockScreensaverOn);
+    postClockScreensaver(state.clockScreensaverOn);
   });
   clockField.appendChild(clockSelect);
 
