@@ -9,6 +9,7 @@ without extra dependencies.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,7 @@ from device_profiles import (
 ROOT = Path(__file__).resolve().parent.parent
 CARD_CONTRACT_JSON = ROOT / "common" / "config" / "card_contract.json"
 ENTITY_NAMES_JSON = ROOT / "common" / "config" / "entity_names.json"
+ENTITY_IDENTIFIER_RE = re.compile(r"^[a-z0-9_]+$")
 ICONS_JSON = ROOT / "common" / "assets" / "icons.json"
 COMPATIBILITY_FIXTURES_JSON = ROOT / "compatibility" / "fixtures" / "product_compatibility.json"
 PRODUCT_SNAPSHOT_JSON = ROOT / "product" / "product_snapshot.json"
@@ -79,6 +81,25 @@ def load_entity_names(path: Path = ENTITY_NAMES_JSON) -> dict[str, Any]:
         raise ProductSchemaError(f"{rel(path)} must contain a JSON object")
     return data
 
+def validate_entity_identifier_list(entry: dict[str, Any], field: str, entry_path: str, errors: list[str]) -> None:
+    if field not in entry:
+        return
+    values = entry[field]
+    if values == []:
+        return
+    if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):
+        errors.append(path_error(f"{entry_path}.{field}", "must be a list of non-empty strings"))
+        return
+
+    seen: set[str] = set()
+    for index, value in enumerate(values):
+        value_path = f"{entry_path}.{field}[{index}]"
+        if value in seen:
+            errors.append(path_error(value_path, f"duplicates {value!r}"))
+        seen.add(value)
+        if not ENTITY_IDENTIFIER_RE.fullmatch(value):
+            errors.append(path_error(value_path, "must use lowercase letters, numbers, and underscores only"))
+
 
 def load_icon_registry(path: Path = ICONS_JSON) -> dict[str, Any]:
     data = load_json(path)
@@ -128,18 +149,8 @@ def validate_entity_names(data: dict[str, Any]) -> list[str]:
         if isinstance(domain, str) and isinstance(value, str):
             names_by_domain.setdefault(domain, {}).setdefault(value, []).append(key)
 
-        object_ids = entry.get("objectIds", [])
-        if object_ids and (
-            not isinstance(object_ids, list)
-            or not all(isinstance(v, str) and v for v in object_ids)
-        ):
-            errors.append(path_error(f"{entry_path}.objectIds", "must be a list of non-empty strings"))
-        groups = entry.get("groups", [])
-        if groups and (
-            not isinstance(groups, list)
-            or not all(isinstance(v, str) and v for v in groups)
-        ):
-            errors.append(path_error(f"{entry_path}.groups", "must be a list of non-empty strings"))
+        validate_entity_identifier_list(entry, "objectIds", entry_path, errors)
+        validate_entity_identifier_list(entry, "groups", entry_path, errors)
 
     for domain, names in names_by_domain.items():
         for name, entry_keys in names.items():
