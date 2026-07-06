@@ -1750,25 +1750,11 @@ inline lv_obj_t *media_control_create_tab_button(lv_obj_t *parent, const char *i
                                                  const lv_font_t *font,
                                                  MediaControlTab tab,
                                                  int width_compensation_percent) {
-  lv_obj_t *btn = lv_btn_create(parent);
+  lv_obj_t *btn = control_modal_create_flat_icon_button(
+    parent, icon, font, DARK_BACKGROUND_TERTIARY, LV_OPA_TRANSP,
+    width_compensation_percent, 180);
   if (!btn) return nullptr;
-  apply_width_compensation(btn, width_compensation_percent);
-  lv_obj_set_style_bg_color(btn, lv_color_hex(DARK_BACKGROUND_TERTIARY), LV_PART_MAIN);
-  lv_obj_set_style_bg_opa(btn, LV_OPA_TRANSP, LV_PART_MAIN);
-  lv_obj_set_style_border_width(btn, 0, LV_PART_MAIN);
-  lv_obj_set_style_shadow_width(btn, 0, LV_PART_MAIN);
-  lv_obj_set_style_pad_all(btn, 0, LV_PART_MAIN);
-  control_modal_apply_pressed_fill(btn);
-  lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_t *label = lv_label_create(btn);
-  if (label) {
-    lv_label_set_text(label, icon);
-    lv_obj_set_style_text_color(label, lv_color_hex(DARK_TEXT_PRIMARY), LV_PART_MAIN);
-    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    if (font) lv_obj_set_style_text_font(label, font, LV_PART_MAIN);
-    lv_obj_set_style_transform_zoom(label, 180, LV_PART_MAIN);
-    light_control_center_icon_label(label);
-  }
+  light_control_center_icon_label(control_modal_icon_label(btn));
   lv_obj_add_event_cb(btn, [](lv_event_t *e) {
     MediaControlTab tab = static_cast<MediaControlTab>(
       reinterpret_cast<uintptr_t>(lv_event_get_user_data(e)));
@@ -1815,35 +1801,13 @@ inline lv_obj_t *media_control_create_box(lv_obj_t *parent) {
   return box;
 }
 
-inline void media_control_apply_primary_pressed_fill(lv_obj_t *btn, uint32_t pressed_color) {
-  if (!btn) return;
-  control_modal_apply_pressed_fill(btn);
-  lv_obj_set_style_bg_color(btn, lv_color_hex(pressed_color),
-    static_cast<lv_style_selector_t>(LV_PART_MAIN) | static_cast<lv_style_selector_t>(LV_STATE_PRESSED));
-  lv_obj_set_style_bg_opa(btn, LV_OPA_COVER,
-    static_cast<lv_style_selector_t>(LV_PART_MAIN) | static_cast<lv_style_selector_t>(LV_STATE_PRESSED));
-}
-
 inline lv_obj_t *media_control_create_icon_button(lv_obj_t *parent, const char *icon,
                                                   const lv_font_t *font,
                                                   uint32_t pressed_color) {
-  lv_obj_t *btn = lv_btn_create(parent);
+  lv_obj_t *btn = control_modal_create_flat_icon_button(
+    parent, icon, font, DARK_BACKGROUND_SECONDARY, LV_OPA_COVER);
   if (!btn) return nullptr;
-  lv_obj_set_style_bg_color(btn, lv_color_hex(DARK_BACKGROUND_SECONDARY), LV_PART_MAIN);
-  lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_PART_MAIN);
-  lv_obj_set_style_border_width(btn, 0, LV_PART_MAIN);
-  lv_obj_set_style_shadow_width(btn, 0, LV_PART_MAIN);
-  lv_obj_set_style_pad_all(btn, 0, LV_PART_MAIN);
-  media_control_apply_primary_pressed_fill(btn, pressed_color);
-  lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_t *label = lv_label_create(btn);
-  if (label) {
-    lv_label_set_text(label, icon);
-    lv_obj_set_style_text_color(label, lv_color_hex(DARK_TEXT_PRIMARY), LV_PART_MAIN);
-    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    if (font) lv_obj_set_style_text_font(label, font, LV_PART_MAIN);
-    lv_obj_center(label);
-  }
+  control_modal_apply_pressed_fill_color(btn, pressed_color);
   return btn;
 }
 
@@ -2036,8 +2000,8 @@ inline void media_control_create_volume_tab_content(MediaControlCtx *ctx) {
   ui.volume_plus_btn = control_modal_create_round_button(
     ui.content_box, 56, find_icon("Plus"), ctx->icon_font,
     DARK_BORDER, DARK_BACKGROUND_TERTIARY, ctx->width_compensation_percent);
-  media_control_apply_primary_pressed_fill(ui.volume_minus_btn, ctx->accent_color);
-  media_control_apply_primary_pressed_fill(ui.volume_plus_btn, ctx->accent_color);
+  control_modal_apply_pressed_fill_color(ui.volume_minus_btn, ctx->accent_color);
+  control_modal_apply_pressed_fill_color(ui.volume_plus_btn, ctx->accent_color);
   if (ui.volume_minus_btn) {
     lv_obj_add_event_cb(ui.volume_minus_btn, [](lv_event_t *) {
       MediaControlModalUi &ui = media_control_modal_ui();
