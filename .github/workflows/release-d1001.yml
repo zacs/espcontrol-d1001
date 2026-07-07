@@ -1,8 +1,9 @@
 # =============================================================================
-# Publish a GitHub Release with the D1001 factory firmware on a version tag.
+# Publish a GitHub Release with the D1001 factory firmware.
 # =============================================================================
-# Push a tag like `v1.2.0` (or run manually with an existing tag) to compile
-# the factory image and attach firmware.factory.bin to a GitHub Release.
+# Either push a version tag (`v1.2.0`) OR run this workflow manually with a
+# `version` input — the manual path creates the tag and the Release for you.
+# Compiles the factory image and attaches firmware.factory.bin to the Release.
 # =============================================================================
 name: Release reTerminal D1001
 
@@ -11,8 +12,8 @@ on:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
-      tag:
-        description: Existing tag to build and release (e.g. v1.2.0)
+      version:
+        description: Version tag to create and release (e.g. v0.1.0)
         required: true
 
 permissions:
@@ -24,7 +25,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref_name }}
+          # tag push -> build that tag; manual run -> build current main
+          ref: ${{ github.event_name == 'push' && github.ref_name || 'main' }}
 
       - name: Free up disk space
         run: |
@@ -45,7 +47,7 @@ jobs:
 
       - name: Collect firmware
         run: |
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          TAG="${{ github.event.inputs.version || github.ref_name }}"
           BIN=$(find . -name firmware.factory.bin -print -quit)
           if [ -z "$BIN" ]; then echo "::error::firmware.factory.bin not found"; exit 1; fi
           mkdir -p out
@@ -61,5 +63,8 @@ jobs:
           if gh release view "${TAG}" >/dev/null 2>&1; then
             gh release upload "${TAG}" out/*.factory.bin --clobber
           else
-            gh release create "${TAG}" out/*.factory.bin --title "reTerminal D1001 ${TAG}" --notes "${NOTES}"
+            gh release create "${TAG}" out/*.factory.bin \
+              --target "${GITHUB_SHA}" \
+              --title "reTerminal D1001 ${TAG}" \
+              --notes "${NOTES}"
           fi
