@@ -568,7 +568,8 @@
           "esp32C6FirmwareUpdate": true,
           "extraPackages": {
             "power": "!include device/power.yaml",
-            "audio": "!include device/audio.yaml"
+            "audio": "!include device/audio.yaml",
+            "microphone": "!include device/microphone.yaml"
           }
         }
       }

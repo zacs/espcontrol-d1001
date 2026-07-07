@@ -132,6 +132,7 @@ packages:
   fw_update:       !include ../../common/addon/firmware_update.yaml
   power:           !include device/power.yaml
   audio:           !include device/audio.yaml
+  microphone:      !include device/microphone.yaml
 
   # ---------------------------------------------------------------------------
   # Screens (loading must be first page for LVGL startup)
