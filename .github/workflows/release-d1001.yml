@@ -51,19 +51,36 @@ jobs:
           BIN=$(find . -name firmware.factory.bin -print -quit)
           if [ -z "$BIN" ]; then echo "::error::firmware.factory.bin not found"; exit 1; fi
           mkdir -p out
-          cp "$BIN" "out/espcontrol-reterminal-d1001-${TAG}.factory.bin"
+          OUT="out/espcontrol-reterminal-d1001-${TAG}.factory.bin"
+          cp "$BIN" "$OUT"
+
+          # Integrity guard: a real ESP32-P4 factory image is several MB. A file
+          # under 1 MiB means a truncated/failed compile (e.g. disk-full during
+          # docker cp) — refuse to publish a corrupt binary that would brick a flash.
+          SIZE=$(wc -c < "$OUT")
+          echo "Factory image size: ${SIZE} bytes"
+          if [ "$SIZE" -lt 1048576 ]; then
+            echo "::error::factory image is only ${SIZE} bytes (<1 MiB) — likely truncated; refusing to release"
+            exit 1
+          fi
+
+          # Publish a checksum alongside the binary so downloaders can verify it.
+          ( cd out && sha256sum "espcontrol-reterminal-d1001-${TAG}.factory.bin" > "espcontrol-reterminal-d1001-${TAG}.factory.bin.sha256" )
           ls -la out
           echo "TAG=${TAG}" >> "$GITHUB_ENV"
+          echo "SHA256=$(cut -d' ' -f1 < "out/espcontrol-reterminal-d1001-${TAG}.factory.bin.sha256")" >> "$GITHUB_ENV"
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          NOTES="reTerminal D1001 factory firmware (ESPHome ${ESPHOME_VERSION}). Flash \`espcontrol-reterminal-d1001-${TAG}.factory.bin\` at offset 0x0 with any ESP Web Tools flasher (e.g. https://web.esphome.io)."
+          NOTES="reTerminal D1001 factory firmware (ESPHome ${ESPHOME_VERSION}). Flash \`espcontrol-reterminal-d1001-${TAG}.factory.bin\` at offset 0x0 with any ESP Web Tools flasher (e.g. https://web.esphome.io).
+
+          SHA-256: \`${SHA256}\` (also attached as \`.sha256\`; verify with \`sha256sum -c\`)."
           if gh release view "${TAG}" >/dev/null 2>&1; then
-            gh release upload "${TAG}" out/*.factory.bin --clobber
+            gh release upload "${TAG}" out/*.factory.bin out/*.factory.bin.sha256 --clobber
           else
-            gh release create "${TAG}" out/*.factory.bin \
+            gh release create "${TAG}" out/*.factory.bin out/*.factory.bin.sha256 \
               --target "${GITHUB_SHA}" \
               --title "reTerminal D1001 ${TAG}" \
               --notes "${NOTES}"

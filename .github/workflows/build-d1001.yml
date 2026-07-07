@@ -32,7 +32,30 @@ permissions:
   contents: read
 
 jobs:
+  # Fail fast if the committed generated artifacts are stale relative to
+  # devices/manifest.json (device YAML, factory www.js, product snapshot).
+  # Without this, build compiles whatever is committed and can ship firmware
+  # whose UI does not match the manifest.
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install JS deps
+        run: npm ci
+
+      - name: Check generated artifacts are in sync with the manifest
+        run: |
+          python3 scripts/generate_device_slots.py --check
+          python3 scripts/build.py --check
+          python3 scripts/check_product_snapshot.py
+
   build:
+    needs: validate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
