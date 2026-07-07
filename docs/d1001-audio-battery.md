@@ -27,8 +27,8 @@ via the `esp_audio_stack` external component. So this device uses stock
 |---|---|---|---|
 | ES8311 MCLK / BCLK / WS / DOUT | 33 / 32 / 31 / 30 | Speaker (out) | wiki; H:L63-67 |
 | ES7210 MCLK / BCLK / WS / DIN | 29 / 28 / 27 / 26 | Mics (in) | wiki; H:L57-61 |
-| ES8311 I2C address | `0x18` on expander bus (GPIO20/21) | Speaker DAC | C:L429-430 |
-| ES7210 I2C address | `0x40` on expander bus (GPIO20/21) | Mic ADC | C:L475-476 |
+| ES8311 I2C address | `0x18` on expander bus (GPIO20/21) | Speaker DAC | schematic p6 (`I2CADDR:0x18`); C:L429-430 |
+| ES7210 I2C address | `0x40` on expander bus (GPIO20/21) | Mic ADC | schematic p6 (`Codec I2C ADDR:0x40`); C:L475-476 |
 | Amp enable (EN_PA) | `xl9535` pin **13** (Seeed "P13" = BSP bit 11) | Class-D amp | wiki PA table; H:L69, C:L1418 |
 
 ### Battery & power
@@ -84,14 +84,12 @@ validates on ESPHome 2026.6.4; a full compile in CI reports the new totals).
 
 Config validates, but these could only be confirmed against real hardware:
 
-1. **Codec I2C addresses** `0x18`/`0x40` — chip/`esp_codec_dev` defaults; confirm
-   via the boot I2C scan if the speaker/mic are silent.
-2. **Sound level dB scale** — ESPHome `sound_level` reports dBFS (0 = full scale,
+1. **Sound level dB scale** — ESPHome `sound_level` reports dBFS (0 = full scale,
    negative below); the `-45 dB` threshold is a starting guess. Watch the **Noise
    Level** entity in a quiet vs. talking room and set **Sound Detection
    Threshold** accordingly.
-3. **Concurrent mic + speaker + LVGL** — two I2S buses plus the display animating;
+2. **Concurrent mic + speaker + LVGL** — two I2S buses plus the display animating;
    watch for DMA/PSRAM contention or audio stutter and adjust buffer durations /
    task priorities if needed.
-4. **Amp gating pop** — if enabling the amp on play produces an audible pop,
+3. **Amp gating pop** — if enabling the amp on play produces an audible pop,
    increase the `on_play` settle delay.
