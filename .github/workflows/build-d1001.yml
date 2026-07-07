@@ -1,0 +1,59 @@
+# =============================================================================
+# Build the Seeed reTerminal D1001 factory firmware on every push to main.
+# =============================================================================
+# Compiles builds/seeed-esp32-p4-reterminal-d1001.factory.yaml in the pinned
+# ESPHome container (.github/esphome.env) on a GitHub-hosted runner and uploads
+# firmware.factory.bin as an artifact. Also runnable on demand (workflow_dispatch)
+# because this file lives on the default branch.
+# =============================================================================
+name: Build reTerminal D1001
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Newer pushes cancel an in-flight build for the same ref.
+concurrency:
+  group: build-d1001-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+          docker image prune -af || true
+
+      - name: Load pinned ESPHome version
+        run: cat .github/esphome.env >> "$GITHUB_ENV"
+
+      - name: Compile factory image
+        run: |
+          docker run --rm \
+            -u "$(id -u):$(id -g)" \
+            -e HOME=/config \
+            -v "$PWD":/config \
+            "ghcr.io/esphome/esphome:${ESPHOME_VERSION}" \
+            compile builds/seeed-esp32-p4-reterminal-d1001.factory.yaml
+
+      - name: Locate firmware
+        run: |
+          BIN=$(find . -name firmware.factory.bin -print -quit)
+          if [ -z "$BIN" ]; then echo "::error::firmware.factory.bin not found"; find . -name '*.bin' | sed 's/^/  found: /'; exit 1; fi
+          echo "Found firmware at: $BIN"
+          mkdir -p out && cp "$BIN" out/firmware.factory.bin
+          ls -la out
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: reterminal-d1001-factory-bin
+          path: out/firmware.factory.bin
