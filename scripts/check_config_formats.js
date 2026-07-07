@@ -232,6 +232,9 @@ function assertNormalizationFixtures(hooks, groups) {
       const parsed = buttonShape(hooks.parseButtonConfig(fixture.input));
       assert.deepStrictEqual(parsed, buttonShape(fixture.expected), `${group.label} fixture ${fixture.name}: web parse`);
       const canonical = hooks.serializeButtonConfig(parsed);
+      if (Object.prototype.hasOwnProperty.call(fixture, "canonical")) {
+        assert.strictEqual(canonical, fixture.canonical, `${group.label} fixture ${fixture.name}: web canonical string`);
+      }
       assert.deepStrictEqual(
         buttonShape(hooks.parseButtonConfig(canonical)),
         buttonShape(fixture.expected),
@@ -486,6 +489,33 @@ assert.strictEqual(
   playlistOptions.options,
   "playlist_content_id=media-source%3A//music/morning%2Cmix,playlist_player_source=Kitchen Speaker",
   "media playlist default content type is omitted while playback source is preserved"
+);
+const encodedPlaylistOptions = { sensor: "playlist" };
+hooks.setMediaPlaylistContentId(encodedPlaylistOptions, "media-source://music/morning,mix=50%");
+hooks.setMediaPlaylistContentType(encodedPlaylistOptions, "music");
+hooks.setMediaPlaylistPlayerSource(encodedPlaylistOptions, "Kitchen, Main=Zone 50%");
+const encodedPlaylistButton = {
+  entity: "media_player.kitchen",
+  label: "Morning Mix",
+  icon: "Music",
+  icon_on: "Auto",
+  sensor: "playlist",
+  unit: "",
+  type: "media",
+  precision: "",
+  options: encodedPlaylistOptions.options,
+};
+assertButtonRoundTrip(hooks, "media playlist encoded option values", encodedPlaylistButton, false);
+const parsedEncodedPlaylistButton = hooks.parseButtonConfig(hooks.serializeButtonConfig(encodedPlaylistButton));
+assert.strictEqual(
+  hooks.mediaPlaylistContentId(parsedEncodedPlaylistButton),
+  "media-source://music/morning,mix=50%",
+  "media playlist content ID keeps punctuation after parse and serialize"
+);
+assert.strictEqual(
+  hooks.mediaPlaylistPlayerSource(parsedEncodedPlaylistButton),
+  "Kitchen, Main=Zone 50%",
+  "media playlist player source keeps punctuation after parse and serialize"
 );
 assert.strictEqual(
   hooks.normalizeMediaOptions("volume_max=40", "volume"),

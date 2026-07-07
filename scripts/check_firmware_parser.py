@@ -15,6 +15,8 @@ ROOT = Path(__file__).resolve().parent.parent
 CONFIG_DIR = ROOT / "common" / "config"
 CONFIG_HEADER = ROOT / "components" / "espcontrol" / "button_grid_config.h"
 STYLE_HEADER = ROOT / "components" / "espcontrol" / "button_grid_style.h"
+DISPLAY_COLOR_HEADER = ROOT / "components" / "espcontrol" / "display_color.h"
+SCREEN_LOCK_STATE_HEADER = ROOT / "components" / "espcontrol" / "screen_lock_state.h"
 CONTRACT_HEADER = ROOT / "components" / "espcontrol" / "button_grid_contract_generated.h"
 CARD_RUNTIME_HEADER = ROOT / "components" / "espcontrol" / "button_grid_card_runtime.h"
 BACKLIGHT_HEADER = ROOT / "components" / "espcontrol" / "backlight.h"
@@ -596,7 +598,7 @@ def compiler() -> str | None:
 
 def pure_config_header() -> str:
     text = CONFIG_HEADER.read_text(encoding="utf-8")
-    marker = "inline const char* weather_icon_for_state"
+    marker = '#include "button_grid_weather_forecast.h"'
     index = text.find(marker)
     if index < 0:
         raise RuntimeError(f"Could not find pure parser boundary in {CONFIG_HEADER}")
@@ -628,12 +630,16 @@ def generated_fixture_assertions(fixtures: list[dict], comment: str, prefix: str
     lines = [f"  // {comment}"]
     for fixture in fixtures:
         name = fixture["name"]
-        input_value = fixture["input"]
         expected = fixture["expected"]
         var_name = prefix + "".join(ch if ch.isalnum() else "_" for ch in name.lower())
-        lines.append(f"  auto {var_name} = parse_cfg({cpp_string(input_value)});")
-        for field in ("entity", "label", "icon", "icon_on", "sensor", "unit", "type", "precision", "options"):
-            lines.append(f"  assert({var_name}.{field} == {cpp_string(expected[field])});")
+        cases = [("input", fixture["input"])]
+        if "canonical" in fixture:
+            cases.append(("canonical", fixture["canonical"]))
+        for case_name, input_value in cases:
+            case_var_name = var_name if case_name == "input" else f"{var_name}_{case_name}"
+            lines.append(f"  auto {case_var_name} = parse_cfg({cpp_string(input_value)});")
+            for field in ("entity", "label", "icon", "icon_on", "sensor", "unit", "type", "precision", "options"):
+                lines.append(f"  assert({case_var_name}.{field} == {cpp_string(expected[field])});")
     return "\n".join(lines) + "\n"
 
 
@@ -666,6 +672,8 @@ def main() -> int:
         (tmp_path / "button_grid_config_pure.h").write_text(pure_config_header(), encoding="utf-8")
         shutil.copy2(ROOT / "components" / "espcontrol" / "temperature_unit.h", tmp_path / "temperature_unit.h")
         shutil.copy2(ROOT / "components" / "espcontrol" / "sun_calc.h", tmp_path / "sun_calc.h")
+        shutil.copy2(DISPLAY_COLOR_HEADER, tmp_path / "display_color.h")
+        shutil.copy2(SCREEN_LOCK_STATE_HEADER, tmp_path / "screen_lock_state.h")
         shutil.copy2(CONTRACT_HEADER, tmp_path / "button_grid_contract_generated.h")
         shutil.copy2(CARD_RUNTIME_HEADER, tmp_path / "button_grid_card_runtime.h")
         shutil.copy2(CLOCK_BAR_HEADER, tmp_path / "clock_bar.h")
