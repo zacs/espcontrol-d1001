@@ -565,7 +565,10 @@
             "screen_schedule_clock_default_brightness": "\"10\""
           },
           "deviceFontPackageKey": "fonts_device",
-          "esp32C6FirmwareUpdate": true
+          "esp32C6FirmwareUpdate": true,
+          "extraPackages": {
+            "power": "!include device/power.yaml"
+          }
         }
       }
     },
