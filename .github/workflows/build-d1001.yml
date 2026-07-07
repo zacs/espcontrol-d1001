@@ -11,6 +11,16 @@ name: Build reTerminal D1001
 on:
   push:
     branches: [main]
+    # Only rebuild when something that affects the firmware changes (skips
+    # docs-only checkins). Widen this list if a build input is missing.
+    paths:
+      - "devices/**"
+      - "components/**"
+      - "common/**"
+      - "builds/seeed-esp32-p4-reterminal-d1001*.yaml"
+      - "docs/public/webserver/seeed-esp32-p4-reterminal-d1001/**"
+      - ".github/esphome.env"
+      - ".github/workflows/build-d1001.yml"
   workflow_dispatch:
 
 # Newer pushes cancel an in-flight build for the same ref.

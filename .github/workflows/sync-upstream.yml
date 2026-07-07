@@ -1,0 +1,60 @@
+# =============================================================================
+# Weekly sync from upstream espControl (jtenniswood/espcontrol).
+# =============================================================================
+# Mirrors upstream's main into an `upstream-sync` branch and opens/refreshes a
+# pull request into main, so you review (and resolve any conflicts) before the
+# upstream changes land. Upstream ships very frequently, so this runs weekly.
+# See dev-docs/syncing-upstream.md.
+# =============================================================================
+name: Sync upstream espControl
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Mirror upstream/main and open/refresh sync PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git remote add upstream https://github.com/jtenniswood/espcontrol
+          git fetch upstream main
+
+          AHEAD=$(git rev-list --count origin/main..upstream/main)
+          if [ "$AHEAD" -eq 0 ]; then
+            echo "main is already up to date with upstream."; exit 0
+          fi
+          echo "upstream/main is ${AHEAD} commit(s) ahead of main."
+
+          # Point the upstream-sync branch at upstream's latest main.
+          git push origin "upstream/main:refs/heads/upstream-sync" --force
+
+          # One open PR is enough; force-pushing the branch refreshes it.
+          if gh pr list --base main --head upstream-sync --state open \
+               --json number --jq '.[].number' | grep -q .; then
+            echo "Sync PR already open; refreshed by the branch update."
+            exit 0
+          fi
+
+          gh pr create --base main --head upstream-sync \
+            --title "Sync upstream espControl (${AHEAD} new commits)" \
+            --body "Automated weekly sync from [jtenniswood/espcontrol](https://github.com/jtenniswood/espcontrol).
+
+          Review the changes and merge. If GitHub flags conflicts, resolve them
+          against the fork's additions (D1001 device dir, \`components/gsl3670\`,
+          the D1001 manifest entry, \`common/device/screen_cover_art.yaml\`, and a
+          few docs/registration spots) — see \`dev-docs/syncing-upstream.md\`.
+
+          Merging updates \`main\`, which triggers a fresh firmware build."

@@ -1,3 +1,28 @@
+# EspControl for Seeed reTerminal D1001
+
+A Seeed-focused fork of **[jtenniswood/espcontrol](https://github.com/jtenniswood/espcontrol)** that adds first-class support for the **Seeed Studio reTerminal D1001** — the 8-inch ESP32-P4 panel — on top of the upstream firmware.
+
+## 🙏 Full credit to the upstream project
+
+**EspControl is [Jonathan Tenniswood's](https://github.com/jtenniswood) work, and it's genuinely excellent.** The firmware, the drag-and-drop web UI, the card system, the whole architecture — all of it is his. This repository is a downstream fork that carries his project verbatim and adds support for one more piece of hardware. If you're here, please go **[star and follow the upstream project](https://github.com/jtenniswood/espcontrol)** — that's where the real development happens, and this fork tracks it closely (see [`dev-docs/syncing-upstream.md`](dev-docs/syncing-upstream.md)). Huge thanks to Jonathan for building and sharing it.
+
+## What this fork adds
+
+- **Seeed reTerminal D1001** (8-inch, ESP32-P4) as a supported screen — display, touch, physical button, WiFi.
+- **Battery & power reporting** — level, voltage, charging, external-power, and power-outage sensors.
+- **Speaker + media player** — Home Assistant can cast TTS/announcements and media to the panel (on-device decode).
+- **Microphone** — room-noise level and a sound-detection sensor.
+
+See [`docs/d1001-audio-battery.md`](docs/d1001-audio-battery.md) for the audio/battery details.
+
+## Install
+
+Download the latest `espcontrol-reterminal-d1001-*.factory.bin` from the [**Releases**](../../releases) page and flash it at offset `0x0` with any ESP Web Tools flasher (e.g. [web.esphome.io](https://web.esphome.io)). On first boot the panel creates an **"EspControl reTerminal D1001"** WiFi hotspot for setup. Every push to `main` also builds a fresh factory image (Actions → *Build reTerminal D1001* → artifacts).
+
+---
+
+_Everything below is the upstream EspControl README, unchanged._
+
 ![EspControl on a 7-inch touchscreen: home screen with temperature, clock, and control tiles](docs/public/images/home_screen_hero.jpg)
 
 # EspControl

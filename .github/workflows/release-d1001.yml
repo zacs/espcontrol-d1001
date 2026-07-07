@@ -1,0 +1,65 @@
+# =============================================================================
+# Publish a GitHub Release with the D1001 factory firmware on a version tag.
+# =============================================================================
+# Push a tag like `v1.2.0` (or run manually with an existing tag) to compile
+# the factory image and attach firmware.factory.bin to a GitHub Release.
+# =============================================================================
+name: Release reTerminal D1001
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build and release (e.g. v1.2.0)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+          docker image prune -af || true
+
+      - name: Load pinned ESPHome version
+        run: cat .github/esphome.env >> "$GITHUB_ENV"
+
+      - name: Compile factory image
+        run: |
+          docker run --rm \
+            -u "$(id -u):$(id -g)" \
+            -e HOME=/config \
+            -v "$PWD":/config \
+            "ghcr.io/esphome/esphome:${ESPHOME_VERSION}" \
+            compile builds/seeed-esp32-p4-reterminal-d1001.factory.yaml
+
+      - name: Collect firmware
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          BIN=$(find . -name firmware.factory.bin -print -quit)
+          if [ -z "$BIN" ]; then echo "::error::firmware.factory.bin not found"; exit 1; fi
+          mkdir -p out
+          cp "$BIN" "out/espcontrol-reterminal-d1001-${TAG}.factory.bin"
+          ls -la out
+          echo "TAG=${TAG}" >> "$GITHUB_ENV"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES="reTerminal D1001 factory firmware (ESPHome ${ESPHOME_VERSION}). Flash \`espcontrol-reterminal-d1001-${TAG}.factory.bin\` at offset 0x0 with any ESP Web Tools flasher (e.g. https://web.esphome.io)."
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" out/*.factory.bin --clobber
+          else
+            gh release create "${TAG}" out/*.factory.bin --title "reTerminal D1001 ${TAG}" --notes "${NOTES}"
+          fi
