@@ -90,31 +90,25 @@ function buttonTypePickerOptionList(isSub, selectedTypeKey) {
   var hasSelectedType = selectedTypeKey !== null && selectedTypeKey !== undefined;
   for (var k in BUTTON_TYPES) {
     var td = BUTTON_TYPES[k];
+    var typeKey = k;
     var pickerKey = buttonTypeRegistryValue(td, "pickerKey", "");
     var allowInSubpage = !!buttonTypeRegistryValue(td, "allowInSubpage", false);
     var label = buttonTypeRegistryValue(td, "label", td.key || "Toggle");
-    if (buttonTypeDisabledForDevice(td.key) || buttonTypeDisabledForDevice(pickerKey)) continue;
-    if (!buttonTypeInfoOnlyVisible(td.key) || (pickerKey && !buttonTypeInfoOnlyVisible(pickerKey))) {
-      if (hasSelectedType && (selectedTypeKey === td.key || (pickerKey && selectedTypeKey === pickerKey))) {
+    if (buttonTypeDisabledForDevice(typeKey) || buttonTypeDisabledForDevice(pickerKey)) continue;
+    if (!buttonTypeInfoOnlyVisible(typeKey) || (pickerKey && !buttonTypeInfoOnlyVisible(pickerKey))) {
+      if (hasSelectedType && (selectedTypeKey === typeKey || (pickerKey && selectedTypeKey === pickerKey))) {
         selectedUnsupported = { key: selectedTypeKey, label: label };
       }
       continue;
     }
-    if (pickerKey && pickerKey !== td.key) continue;
+    if (pickerKey && pickerKey !== typeKey) continue;
     if (isSub && !allowInSubpage) continue;
-    if (td.isAvailable && !td.isAvailable({ isSub: isSub }) && selectedTypeKey !== td.key) continue;
+    if (td.isAvailable && !td.isAvailable({ isSub: isSub }) && selectedTypeKey !== typeKey) continue;
     typeOpts.push(Object.assign({
-      key: td.key,
+      key: typeKey,
       label: label,
       disabled: false,
-    }, buttonTypePickerDetails(td.key, label)));
-    if (td.key === "media") {
-      typeOpts.push(Object.assign({
-        key: "media_control",
-        label: "All Controls",
-        disabled: false,
-      }, buttonTypePickerDetails("media_control", "All Controls")));
-    }
+    }, buttonTypePickerDetails(typeKey, label)));
   }
   if (selectedUnsupported) {
     var unsupportedLabel = selectedUnsupported.label + " (not available)";

@@ -418,13 +418,13 @@ assert(
   hooks.buttonTypePreviewFor("alarm", { label: "Alarm", icon: "Security", type: "alarm" }).iconHtml.includes("mdi-shield-off"),
   "alarm preview defaults to the status icon"
 );
-const mediaControlPickerOption = pickerOptions.find((option) => option.key === "media_control");
-assert(mediaControlPickerOption, "media control appears as a top-level card picker shortcut");
-assert.strictEqual(mediaControlPickerOption.label, "All Controls", "media control picker option has a clear label");
-assert.strictEqual(
-  hooks.defaultButtonTypeForPicker("media_control"),
-  "media",
-  "media control picker shortcut still saves as the media card type"
+assert(
+  !pickerOptions.some((option) => option.key === "media_control"),
+  "media all controls is not shown as a top-level card picker shortcut"
+);
+assert(
+  !pickerOptions.some((option) => option.label === "All Controls"),
+  "all controls subtypes stay out of the top-level card picker"
 );
 assert(
   Array.from(hooks.mediaModeOptionValues()).includes("control_modal"),
