@@ -1452,6 +1452,9 @@ struct CoverControlCtx {
   lv_obj_t *label_lbl = nullptr;
   const char *icon_closed_glyph = nullptr;
   const char *icon_open_glyph = nullptr;
+  const lv_font_t *option_title_font = nullptr;
+  const lv_font_t *option_value_font = nullptr;
+  const lv_font_t *card_icon_font = nullptr;
   const lv_font_t *icon_font = nullptr;
   int width_compensation_percent = 100;
   bool available = true;
@@ -1781,32 +1784,77 @@ inline lv_obj_t *cover_control_create_wide_icon_button(lv_obj_t *parent, const c
 }
 
 inline lv_obj_t *cover_control_create_preset_button(lv_obj_t *parent, int pct,
-                                                    const lv_font_t *font) {
+                                                    const lv_font_t *icon_font,
+                                                    const lv_font_t *title_font,
+                                                    const lv_font_t *value_font,
+                                                    int width_compensation_percent) {
   lv_obj_t *btn = lv_btn_create(parent);
   if (!btn) return nullptr;
+  lv_obj_set_size(btn, compensated_width(240, width_compensation_percent), 94);
+  lv_obj_set_flex_grow(btn, 0);
+  lv_obj_add_flag(btn, LV_OBJ_FLAG_SCROLL_CHAIN_HOR);
   lv_obj_set_style_bg_color(btn, lv_color_hex(SECONDARY_GREY), LV_PART_MAIN);
   lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_PART_MAIN);
   lv_obj_set_style_border_width(btn, 0, LV_PART_MAIN);
   lv_obj_set_style_shadow_width(btn, 0, LV_PART_MAIN);
-  lv_obj_set_style_pad_all(btn, 0, LV_PART_MAIN);
+  lv_obj_set_style_pad_left(btn, 26, LV_PART_MAIN);
+  lv_obj_set_style_pad_right(btn, 22, LV_PART_MAIN);
+  lv_obj_set_style_pad_top(btn, 12, LV_PART_MAIN);
+  lv_obj_set_style_pad_bottom(btn, 12, LV_PART_MAIN);
+  lv_obj_set_style_pad_column(btn, 24, LV_PART_MAIN);
+  lv_obj_set_style_pad_row(btn, 0, LV_PART_MAIN);
+  lv_obj_set_layout(btn, LV_LAYOUT_FLEX);
+  lv_obj_set_style_flex_flow(btn, LV_FLEX_FLOW_ROW, LV_PART_MAIN);
+  lv_obj_set_style_flex_main_place(btn, LV_FLEX_ALIGN_START, LV_PART_MAIN);
+  lv_obj_set_style_flex_cross_place(btn, LV_FLEX_ALIGN_CENTER, LV_PART_MAIN);
   control_modal_apply_pressed_fill(btn);
   lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_t *icon = lv_label_create(btn);
   if (icon) {
     lv_label_set_text(icon, pct <= 50 ? find_icon("Blinds Open") : find_icon("Blinds"));
-    lv_obj_set_style_text_color(icon, lv_color_hex(DARK_TEXT_PRIMARY), LV_PART_MAIN);
+    lv_obj_set_style_text_color(icon, lv_color_hex(DARK_TEXT_SOFT), LV_PART_MAIN);
     lv_obj_set_style_text_align(icon, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    if (font) lv_obj_set_style_text_font(icon, font, LV_PART_MAIN);
+    if (icon_font) lv_obj_set_style_text_font(icon, icon_font, LV_PART_MAIN);
+    lv_obj_clear_flag(icon, LV_OBJ_FLAG_CLICKABLE);
   }
 
-  lv_obj_t *label = lv_label_create(btn);
-  if (label) {
+  lv_obj_t *text_box = lv_obj_create(btn);
+  if (text_box) {
+    lv_obj_set_size(text_box, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(text_box, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(text_box, 0, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(text_box, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(text_box, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(text_box, 4, LV_PART_MAIN);
+    lv_obj_clear_flag(text_box, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_clear_flag(text_box, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_layout(text_box, LV_LAYOUT_FLEX);
+    lv_obj_set_style_flex_flow(text_box, LV_FLEX_FLOW_COLUMN, LV_PART_MAIN);
+    lv_obj_set_style_flex_main_place(text_box, LV_FLEX_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_flex_cross_place(text_box, LV_FLEX_ALIGN_START, LV_PART_MAIN);
+
+    lv_obj_t *title = lv_label_create(text_box);
+    if (title) {
+      lv_label_set_text(title, espcontrol_i18n("Position"));
+      lv_label_set_long_mode(title, LV_LABEL_LONG_CLIP);
+      lv_obj_set_width(title, compensated_width(150, width_compensation_percent));
+      lv_obj_set_style_text_color(title, lv_color_hex(DARK_TEXT_MUTED), LV_PART_MAIN);
+      if (title_font) lv_obj_set_style_text_font(title, title_font, LV_PART_MAIN);
+      lv_obj_clear_flag(title, LV_OBJ_FLAG_CLICKABLE);
+    }
+
+    lv_obj_t *pct_value = lv_label_create(text_box);
     char buf[8];
     snprintf(buf, sizeof(buf), "%d%%", pct);
-    lv_label_set_text(label, buf);
-    lv_obj_set_style_text_color(label, lv_color_hex(DARK_TEXT_PRIMARY), LV_PART_MAIN);
-    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    if (pct_value) {
+      lv_label_set_text(pct_value, buf);
+      lv_label_set_long_mode(pct_value, LV_LABEL_LONG_CLIP);
+      lv_obj_set_width(pct_value, compensated_width(150, width_compensation_percent));
+      lv_obj_set_style_text_color(pct_value, lv_color_hex(DARK_TEXT_SOFT), LV_PART_MAIN);
+      if (value_font) lv_obj_set_style_text_font(pct_value, value_font, LV_PART_MAIN);
+      lv_obj_clear_flag(pct_value, LV_OBJ_FLAG_CLICKABLE);
+    }
   }
 
   lv_obj_add_event_cb(btn, [](lv_event_t *e) {
@@ -2030,40 +2078,29 @@ inline void cover_control_layout_modal(CoverControlCtx *ctx) {
     lv_obj_set_size(ui.presets_box, box_w, box_h);
     lv_obj_align(ui.presets_box, LV_ALIGN_CENTER, 0, content_center_y);
     lv_coord_t gap = cover_control_home_grid_row_gap(layout);
-    lv_coord_t row_count = 2;
-    lv_coord_t top_count = 3;
-    lv_coord_t btn_size = (box_w - gap * (top_count - 1)) / top_count;
-    lv_coord_t max_by_h = (box_h - gap * (row_count - 1)) / row_count;
-    if (btn_size > max_by_h) btn_size = max_by_h;
-    if (btn_size < 48) btn_size = 48;
-    lv_coord_t button_radius = control_modal_card_radius(ctx->btn);
+    lv_coord_t tile_w = box_w - layout.inset * 2;
+    if (tile_w > 280) tile_w = 280;
+    if (tile_w < 220) tile_w = box_w;
+    lv_coord_t tile_h = layout.short_side < 520 ? 86 : 94;
+    lv_coord_t visual_tile_w = compensated_width(tile_w, ctx->width_compensation_percent);
+    lv_coord_t total_h = tile_h * 5 + gap * 4;
+    lv_obj_set_style_pad_all(ui.presets_box, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(ui.presets_box, gap, LV_PART_MAIN);
+    lv_obj_set_layout(ui.presets_box, LV_LAYOUT_FLEX);
+    lv_obj_set_style_flex_flow(ui.presets_box, LV_FLEX_FLOW_COLUMN, LV_PART_MAIN);
+    lv_obj_set_style_flex_main_place(ui.presets_box,
+      total_h > box_h ? LV_FLEX_ALIGN_START : LV_FLEX_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_flex_cross_place(ui.presets_box, LV_FLEX_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_scroll_dir(ui.presets_box, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(ui.presets_box, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_add_flag(ui.presets_box, LV_OBJ_FLAG_SCROLLABLE);
     for (int i = 0; i < 5; i++) {
       lv_obj_t *btn = ui.preset_btns[i];
       if (!btn) continue;
-      lv_coord_t row = i < 3 ? 0 : 1;
-      lv_coord_t col_count = i < 3 ? 3 : 2;
-      lv_coord_t col = i < 3 ? i : i - 3;
-      lv_coord_t total_w = btn_size * col_count + gap * (col_count - 1);
-      lv_coord_t total_h = btn_size * row_count + gap * (row_count - 1);
-      lv_coord_t start_x = (box_w - total_w) / 2;
-      lv_coord_t start_y = (box_h - total_h) / 2;
-      if (start_x < 0) start_x = 0;
-      if (start_y < 0) start_y = 0;
-      lv_obj_set_size(btn, btn_size, btn_size);
-      lv_obj_set_style_radius(btn, button_radius, LV_PART_MAIN);
-      lv_obj_align(btn, LV_ALIGN_TOP_LEFT, start_x + col * (btn_size + gap),
-                   start_y + row * (btn_size + gap));
-
-      lv_obj_t *icon = lv_obj_get_child(btn, 0);
-      lv_obj_t *label = lv_obj_get_child(btn, 1);
-      if (icon) {
-        lv_obj_set_style_transform_zoom(icon, btn_size < 64 ? 150 : 180, LV_PART_MAIN);
-        lv_obj_align(icon, LV_ALIGN_CENTER, 0, -btn_size / 7);
-      }
-      if (label) {
-        lv_obj_align(label, LV_ALIGN_CENTER, 0, btn_size / 4);
-      }
+      lv_obj_set_size(btn, visual_tile_w, tile_h);
+      lv_obj_set_style_radius(btn, tile_h / 2, LV_PART_MAIN);
     }
+    lv_obj_scroll_to_y(ui.presets_box, 0, LV_ANIM_OFF);
   }
   lv_obj_move_foreground(ui.back_btn);
 }
@@ -2254,11 +2291,14 @@ inline void cover_control_open_modal(CoverControlCtx *ctx) {
   lv_obj_set_style_border_width(ui.presets_box, 0, LV_PART_MAIN);
   lv_obj_set_style_shadow_width(ui.presets_box, 0, LV_PART_MAIN);
   lv_obj_set_style_pad_all(ui.presets_box, 0, LV_PART_MAIN);
-  lv_obj_clear_flag(ui.presets_box, LV_OBJ_FLAG_SCROLLABLE);
   const int preset_values[5] = {0, 25, 50, 75, 100};
   for (int i = 0; i < 5; i++) {
     ui.preset_btns[i] = cover_control_create_preset_button(
-      ui.presets_box, preset_values[i], ctx->icon_font);
+      ui.presets_box, preset_values[i],
+      ctx->card_icon_font ? ctx->card_icon_font : ctx->icon_font,
+      ctx->option_title_font,
+      ctx->option_value_font,
+      ctx->width_compensation_percent);
   }
 
   ui.position_slider = lv_slider_create(ui.panel);
@@ -2345,6 +2385,9 @@ inline CoverControlCtx *create_cover_control_context(
     const ParsedCfg &p,
     uint32_t accent_color,
     uint32_t secondary_color,
+    const lv_font_t *option_title_font,
+    const lv_font_t *option_value_font,
+    const lv_font_t *card_icon_font,
     const lv_font_t *icon_font,
     int width_compensation_percent) {
   CoverControlCtx *ctx = new CoverControlCtx();
@@ -2368,6 +2411,9 @@ inline CoverControlCtx *create_cover_control_context(
   ctx->label_lbl = s.text_lbl;
   ctx->icon_closed_glyph = slider_icon_off(p.type, p.entity, p.icon);
   ctx->icon_open_glyph = slider_icon_on(p.type, p.entity, p.icon, p.icon_on);
+  ctx->option_title_font = option_title_font;
+  ctx->option_value_font = option_value_font;
+  ctx->card_icon_font = card_icon_font;
   ctx->icon_font = icon_font;
   ctx->width_compensation_percent = width_compensation_percent;
   lv_obj_set_user_data(s.btn, ctx);
