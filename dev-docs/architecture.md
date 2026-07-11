@@ -15,7 +15,7 @@ outputs. For the hard edit/rebuild/check contract, use
 
 | Area | Path | Purpose |
 |---|---|---|
-| Product profiles | `devices/manifest.json` | Supported displays, slot counts, layout, firmware substitutions, font roles, and public device facts. |
+| Product profiles | `devices/catalog.json` | Supported displays, reusable profiles, slot counts, layout, firmware substitutions, font roles, and public device facts. |
 | Card metadata | `common/config/card_contract.json` | Card type names, defaults, allowed domains, options, aliases, and subpage codes. |
 | Entity names | `common/config/entity_names.json` | Shared Home Assistant entity names used by firmware and the setup page. |
 | Icons | `common/assets/icons.json` and `common/assets/*glyphs.yaml` | Icon names, glyphs, and font glyph sets. |

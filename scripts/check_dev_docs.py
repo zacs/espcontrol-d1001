@@ -55,6 +55,12 @@ SOURCE_TRUTH_ROWS: tuple[SourceTruthRow, ...] = (
         "`python3 scripts/build.py entities --check` and `npm run check:product`",
     ),
     SourceTruthRow(
+        "devices/catalog.json",
+        ("devices/manifest.json",),
+        "python3 scripts/generate_device_manifest.py",
+        "`python3 scripts/generate_device_manifest.py --check` and `npm run check:product`",
+    ),
+    SourceTruthRow(
         "devices/manifest.json",
         ("docs/public/device-profiles.json", "docs/generated/screens/*.md"),
         "python3 scripts/build.py devices",
@@ -107,7 +113,7 @@ SOURCE_TRUTH_ROWS: tuple[SourceTruthRow, ...] = (
         "`npm run check:backup-contract` and `npm run check:product`",
     ),
     SourceTruthRow(
-        "`devices/manifest.json`, `common/config/card_contract.json`, `common/config/entity_names.json`, `common/assets/icons.json`, `compatibility/fixtures/product_compatibility.json`",
+        "`devices/catalog.json`, `common/config/card_contract.json`, `common/config/entity_names.json`, `common/assets/icons.json`, `compatibility/fixtures/product_compatibility.json`",
         ("product/product_snapshot.json",),
         "python3 scripts/check_product_snapshot.py --update",
         "`npm run check:product-snapshot` and `npm run check:product`",

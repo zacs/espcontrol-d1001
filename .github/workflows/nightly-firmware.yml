@@ -26,6 +26,7 @@ jobs:
             builds/*.yaml
             common/assets/*.yaml
             common/assets/fonts/*
+            devices/catalog.json
             devices/manifest.json
             devices/*/device/fonts.yaml
             scripts/device_matrix.py

@@ -63,7 +63,7 @@ or upstream project instead.
 
 - The hard ownership map is [Source of Truth Contract](source-of-truth.md):
   edit authored sources, never generated outputs.
-- Product metadata starts in `devices/manifest.json`.
+- Product metadata starts in `devices/catalog.json`; `devices/manifest.json` is generated for compatibility.
 - Card behavior starts in `common/config/card_contract.json`.
 - Shared Home Assistant entity names start in `common/config/entity_names.json`.
 - Web setup code lives under `src/webserver/`.
