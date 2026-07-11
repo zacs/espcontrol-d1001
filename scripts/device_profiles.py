@@ -83,6 +83,30 @@ PROFILE_CATEGORIES = (
     "audio",
     "input",
 )
+CANONICAL_DEVICE_KEYS = (
+    "slots",
+    "public",
+    "layout",
+    "rotation",
+    "internalRelays",
+    "web",
+    "firmware",
+)
+CANONICAL_PUBLIC_KEYS = ("name", "docsPath", "screenSize", "resolution", "orientation")
+CANONICAL_FIRMWARE_KEYS = ("build", "fonts", "display", "package")
+CANONICAL_PACKAGE_KEYS = (
+    "firmwareVersion",
+    "subpageConfigChunks",
+    "substitutions",
+    "deviceFontPackageKey",
+    "touchscreenPackage",
+    "networkCoprocessor",
+    "esp32C6FirmwareUpdate",
+    "ethernetSelectable",
+    "extraPackages",
+    "backlightPwmFrequency",
+    "apiNavigateAction",
+)
 
 
 def rel(path: Path) -> str:
@@ -191,6 +215,27 @@ def _apply_overrides(target: dict[str, Any], overrides: dict[str, Any], slug: st
             target[key] = copy.deepcopy(value)
 
 
+def _ordered_object(value: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:
+    ordered = {key: value[key] for key in keys if key in value}
+    ordered.update((key, child) for key, child in value.items() if key not in ordered)
+    return ordered
+
+
+def canonicalize_device(device: dict[str, Any]) -> dict[str, Any]:
+    device = _ordered_object(device, CANONICAL_DEVICE_KEYS)
+    public = device.get("public")
+    if isinstance(public, dict):
+        device["public"] = _ordered_object(public, CANONICAL_PUBLIC_KEYS)
+    firmware = device.get("firmware")
+    if isinstance(firmware, dict):
+        firmware = _ordered_object(firmware, CANONICAL_FIRMWARE_KEYS)
+        package = firmware.get("package")
+        if isinstance(package, dict):
+            firmware["package"] = _ordered_object(package, CANONICAL_PACKAGE_KEYS)
+        device["firmware"] = firmware
+    return device
+
+
 def compose_catalog_data(data: Any) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise DeviceProfileError("devices/catalog.json must contain a JSON object")
@@ -251,7 +296,7 @@ def compose_catalog_data(data: Any) -> dict[str, Any]:
                 _merge_profile(composed, profile, slug, contributor, owners)
         _apply_overrides(composed, overrides, slug)
         _merge_config(composed, config, slug)
-        expanded["devices"][slug] = composed
+        expanded["devices"][slug] = canonicalize_device(composed)
     return expanded
 
 

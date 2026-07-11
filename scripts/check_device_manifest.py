@@ -66,6 +66,7 @@ def run_self_test() -> int:
     }
     composed = compose_catalog_data(catalog)
     assert list(composed["devices"]) == ["example"]
+    assert list(composed["devices"]["example"]) == ["slots", "layout", "firmware", "tags"]
     assert composed["devices"]["example"]["layout"]["cols"] == 5
     assert composed["devices"]["example"]["tags"] == ["override"]
 
