@@ -314,12 +314,15 @@ binary_sensor:
 #
 # The GSL3670 shares I2C0 (bus_touch, GPIO37/38) with the camera SCCB, per the
 # reTerminal D1001 I2C tree (touch 0x40, camera 0x26). Its reset line, TP_RST,
-# is on the XL9535 expander (schematic EXP_GPO12 -> ESPHome pin 12) and MUST be
-# driven high to bring the controller out of reset. If it is left unwired the
-# expander pin floats/reads low, the GSL3670 stays in reset and never ACKs, so
-# setup fails with "I2C Error: 2" and touch is absent from the bus scan. This
-# also keeps touch reset deterministic when the camera (person detection) is
-# brought up on the shared bus and drives the neighbouring expander pins.
+# is on the XL9535 expander. Seeed's BSP defines BSP_LCD_TOUCH_RST = 1<<12
+# (expander bit 12); ESPHome numbers the second port 10-17, so expander bit 12
+# is xl9535 pin 14 (bit 9 CAM_RST -> pin 11, bit 8 PWR_HOLD -> pin 10 confirm
+# the +2 offset). The BSP leaves this line's reset call commented out, so it
+# normally floats; on this panel it settles low, holding the GSL3670 in reset
+# so it never ACKs and setup fails with "I2C Error: 2" (absent from the bus
+# scan). Drive it high here to bring the controller out of reset. This also
+# keeps touch deterministic once the camera (person detection) is brought up on
+# the shared bus and drives the neighbouring expander pins.
 # ---------------------------------------------------------------------------
 touchscreen:
   - platform: gsl3670
@@ -328,7 +331,7 @@ touchscreen:
     interrupt_pin: GPIO16
     reset_pin:
       xl9535: xl9535_hub
-      number: 12
+      number: 14
     transform:
       swap_xy: false
       mirror_x: true
