@@ -407,7 +407,7 @@
         "icon_on": "Auto",
         "sensor": "",
         "unit": "",
-        "type": "climate",
+        "type": "climate_control",
         "precision": "",
         "options": ""
       }
@@ -497,8 +497,8 @@
           "name": "cover_tabs",
           "label": "Visible Tabs",
           "kind": "text",
-          "values": ["position", "controls", "tilt"],
-          "defaultValue": "position|controls|tilt"
+          "values": ["position", "controls", "tilt", "presets"],
+          "defaultValue": "position|controls|tilt|presets"
         }
       ],
       "behavior": {

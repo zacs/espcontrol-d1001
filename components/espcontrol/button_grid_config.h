@@ -61,7 +61,6 @@ constexpr const char *IMAGE_REFRESH_MODE_OPTION = card_runtime_option_name_image
 constexpr const char *LIGHT_CONTROL_TABS_OPTION = card_runtime_option_name_light_tabs();
 constexpr const char *LIGHT_CONTROL_DEFAULT_TABS_VALUE = "power|brightness|temperature|color";
 constexpr const char *COVER_CONTROL_TABS_OPTION = card_runtime_option_name_cover_tabs();
-constexpr const char *COVER_CONTROL_DEFAULT_TABS_VALUE = "position|controls|tilt";
 constexpr const char *CLIMATE_CONTROL_TABS_OPTION = "climate_tabs";
 constexpr const char *CLIMATE_CONTROL_DEFAULT_TABS_VALUE = "temperature|mode|preset|fan|swing";
 constexpr const char *FAN_CONTROL_TABS_OPTION = "fan_tabs";
@@ -1031,11 +1030,12 @@ inline ParsedCfg normalize_parsed_cfg(ParsedCfg p) {
     p.options = media_card_options_normalized(p.options, p.sensor);
   }
   if (climate_card_type(p.type)) {
+    p.type = "climate_control";
     p.sensor.clear();
     p.unit.clear();
     if (p.icon.empty()) p.icon = "Thermostat";
     p.precision = normalize_climate_precision_config(p.precision);
-    p.options = climate_card_options_normalized(p.options, p.type == "climate_control");
+    p.options = climate_card_options_normalized(p.options, true);
   }
   if (p.type == "garage") {
     if (!card_runtime_garage_mode_valid(p.sensor)) p.sensor.clear();

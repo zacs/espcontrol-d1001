@@ -61,8 +61,6 @@ function renderBackButtonSettings(container, c) {
 function renderButtonSettings(forceOpen) {
   var container = els.buttonSettings;
   container.innerHTML = "";
-  var settingsModal = els.settingsOverlay ? els.settingsOverlay.querySelector(".sp-settings-modal") : null;
-  if (settingsModal) settingsModal.classList.remove("sp-card-type-picker-open");
   var c = ctx();
 
   if (isConfigLocked()) {
@@ -368,11 +366,44 @@ function renderButtonSettings(forceOpen) {
     ], value || "0", onChange);
   }
 
+  function selectDefaultCardType(option) {
+    if (!option || option.disabled) return null;
+    var pickerType = option.key;
+    var newType = defaultButtonTypeForPicker(pickerType);
+    b.type = newType;
+    if (state.settingsDraft && state.settingsDraft.key === draftKey) {
+      state.settingsDraft.typeSelected = true;
+    }
+    var td = BUTTON_TYPES[newType];
+    if (td && td.onSelect) td.onSelect(b);
+    if (state.settingsDraft && state.settingsDraft.key === draftKey) {
+      state.settingsDraft.autoSelectedButton = cloneButtonConfig(b);
+    }
+    return pickerType;
+  }
+
+  function clearAutomaticTypeDefaults() {
+    var draft = state.settingsDraft;
+    var automatic = draft && draft.key === draftKey && draft.autoSelectedButton;
+    if (!isNewDraft || !automatic) return;
+    var empty = emptyButtonConfig();
+    ["entity", "label", "icon", "icon_on", "sensor", "unit", "precision", "options"].forEach(function (field) {
+      if (b[field] === automatic[field]) b[field] = empty[field];
+    });
+    draft.autoSelectedButton = null;
+  }
+
   function selectCardType(newType) {
-    if (newType === "__choose-card-type__") return;
     var pickerType = newType;
     newType = defaultButtonTypeForPicker(newType);
     var keepMediaEntity = pickerType === "media_control" && b.type === "media";
+    clearAutomaticTypeDefaults();
+    if (isNewDraft && b.type === "action" && newType !== "action") {
+      b.sensor = "";
+      b.unit = "";
+      b.precision = "";
+      b.options = "";
+    }
     b.type = newType;
     if (state.settingsDraft && state.settingsDraft.key === draftKey) {
       state.settingsDraft.typeSelected = true;
@@ -390,37 +421,6 @@ function renderButtonSettings(forceOpen) {
     }
     saveField("type", b.type);
     renderButtonSettings();
-  }
-
-  function renderCardTypeGrid(options) {
-    var field = document.createElement("div");
-    field.className = "sp-field sp-card-type-picker-field";
-    field.appendChild(fieldLabel("Card", "sp-card-type-picker"));
-    var grid = document.createElement("div");
-    grid.className = "sp-card-type-grid";
-    grid.id = "sp-card-type-picker";
-    grid.setAttribute("role", "list");
-    (options || []).forEach(function (o) {
-      var item = document.createElement("button");
-      item.type = "button";
-      item.className = "sp-card-type-option";
-      item.disabled = !!o.disabled;
-      item.setAttribute("data-card-type", o.key);
-      item.setAttribute("aria-label", o.label + " card type");
-      item.appendChild(mdiIcon(o.icon || "card-outline", "sp-card-type-icon mdi"));
-      var copy = document.createElement("span");
-      copy.className = "sp-card-type-copy";
-      copy.appendChild(textSpan(o.label, "sp-card-type-title"));
-      copy.appendChild(textSpan(o.description || "", "sp-card-type-description"));
-      item.appendChild(copy);
-      item.addEventListener("click", function () {
-        if (item.disabled) return;
-        selectCardType(o.key);
-      });
-      grid.appendChild(item);
-    });
-    field.appendChild(grid);
-    return field;
   }
 
   function renderActiveDisplaySettings(panel, button, idPrefix) {
@@ -552,42 +552,35 @@ function renderButtonSettings(forceOpen) {
   var rawTypeDef = isNewDraftWithoutType ? null : (BUTTON_TYPES[b.type || ""] || BUTTON_TYPES[""]);
   var typeDef = rawTypeDef;
   {
-    var chooseTypeValue = "__choose-card-type__";
     var selectedTypeKey = isNewDraftWithoutType
       ? null
       : buttonTypeRegistryValue(rawTypeDef, "pickerKey", "") || (b.type || "");
     var typeOpts = buttonTypePickerOptionList(c.isSub, selectedTypeKey);
+    if (isNewDraftWithoutType) {
+      for (var defaultTypeIndex = 0; defaultTypeIndex < typeOpts.length; defaultTypeIndex++) {
+        selectedTypeKey = selectDefaultCardType(typeOpts[defaultTypeIndex]);
+        if (selectedTypeKey) break;
+      }
+      rawTypeDef = BUTTON_TYPES[b.type || ""] || BUTTON_TYPES[""];
+      typeDef = rawTypeDef;
+    }
     var tf = document.createElement("div");
     tf.className = "sp-field";
     tf.appendChild(fieldLabel("Card", "sp-inp-type"));
     var typeSelect = document.createElement("select");
     typeSelect.className = "sp-select";
     typeSelect.id = "sp-inp-type";
-    if (isNewDraftWithoutType) {
-      var chooseOpt = document.createElement("option");
-      chooseOpt.value = chooseTypeValue;
-      chooseOpt.textContent = "Select card type";
-      chooseOpt.disabled = true;
-      chooseOpt.selected = true;
-      typeSelect.appendChild(chooseOpt);
-    }
     typeOpts.forEach(function (o) {
       var opt = document.createElement("option");
       opt.value = o.key;
       opt.textContent = o.label;
       opt.disabled = !!o.disabled;
-      if (!isNewDraftWithoutType && selectedTypeKey === o.key) opt.selected = true;
+      if (selectedTypeKey === o.key) opt.selected = true;
       typeSelect.appendChild(opt);
     });
     typeSelect.addEventListener("change", function () {
       selectCardType(this.value);
     });
-    if (isNewDraftWithoutType) {
-      if (settingsModal) settingsModal.classList.add("sp-card-type-picker-open");
-      panel.appendChild(renderCardTypeGrid(typeOpts));
-      container.appendChild(panel);
-      return;
-    }
     tf.appendChild(typeSelect);
     panel.appendChild(tf);
   }
@@ -714,5 +707,3 @@ function renderButtonSettings(forceOpen) {
 
   container.appendChild(panel);
 }
-
-

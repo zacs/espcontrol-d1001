@@ -17,7 +17,7 @@ See [`docs/d1001-audio-battery.md`](docs/d1001-audio-battery.md) for the audio/b
 
 ## Install
 
-Download the latest `espcontrol-reterminal-d1001-*.factory.bin` from the [**Releases**](../../releases) page and flash it at offset `0x0` with any ESP Web Tools flasher (e.g. [web.esphome.io](https://web.esphome.io)). On first boot the panel creates an **"EspControl reTerminal D1001"** WiFi hotspot for setup. Every push to `main` also builds a fresh factory image (Actions → *Build reTerminal D1001* → artifacts).
+Download the latest `espcontrol-reterminal-d1001-*.factory.bin` from the [**Releases**](https://github.com/zacs/espcontrol/releases) page and flash it at offset `0x0` with any ESP Web Tools flasher (e.g. [web.esphome.io](https://web.esphome.io)). On first boot the panel creates an **"EspControl reTerminal D1001"** WiFi hotspot for setup. Every push to `main` also builds a fresh factory image (Actions → *Build reTerminal D1001* → artifacts).
 
 ---
 

@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FIRMWARE_DIR = ROOT / "components" / "espcontrol"
 CORE_INFRA_PATH = ROOT / "common" / "device" / "core_infra.yaml"
 API_NAVIGATE_PATH = ROOT / "common" / "device" / "api_navigate.yaml"
+C6_FIRMWARE_UPDATE_PATH = ROOT / "common" / "device" / "esp32_c6_firmware_update.yaml"
 COVER_ART_PATH = ROOT / "common" / "device" / "screen_cover_art.yaml"
 ARTWORK_IMAGE_PATH = ROOT / "components" / "artwork_image" / "artwork_image.cpp"
 BACKLIGHT_PATH = ROOT / "common" / "addon" / "backlight.yaml"
@@ -1644,8 +1645,8 @@ def firmware_connectivity_api_errors(paths: tuple[Path, ...], root: Path) -> lis
         elif (
             "delay: 5s" not in body
             or "ha_api_state_connected()" not in body
-            or "Trying to connect to Home Assistant" not in body
-            or "If this persists, check your server for issues" not in body
+            or "Connecting to\\nHome Assistant" not in body
+            or 'lv_label_set_text(id(ha_setup_instructions), "");' not in body
             or "lvgl.page.show: ha_setup_page" not in body
         ):
             errors.append(f"{rel}: keep the Home Assistant waiting screen delayed and tied to HA state connection")
@@ -1664,6 +1665,30 @@ def firmware_ha_reconnect_flow_errors(core_infra_path: Path, root: Path) -> list
         errors.append(f"{rel}: restore the display immediately when Home Assistant reconnects")
     if "apply_registered_ha_control_availability" in text:
         errors.append(f"{rel}: do not dim registered cards when HA disconnects")
+    return errors
+
+
+def firmware_c6_update_status_errors(path: Path, root: Path) -> list[str]:
+    if not path.exists():
+        return []
+    rel = path.relative_to(root)
+    text = path.read_text(encoding="utf-8")
+    errors: list[str] = []
+    if "UPDATE_STATE_UNKNOWN" not in text:
+        errors.append(f"{rel}: keep the C6 update status unknown until ESPHome checks for updates")
+    latest_match = re.search(
+        r"(?ms)id:\s*c6_update_latest_firmware\b(?P<body>.*?)(?:^button:|\Z)",
+        text,
+    )
+    if not latest_match:
+        errors.append(f"{rel}: define the C6 latest firmware sensor")
+    else:
+        latest_body = latest_match.group("body")
+        if (
+            "UPDATE_STATE_NO_UPDATE" not in latest_body
+            or "upd->update_info.current_version" not in latest_body
+        ):
+            errors.append(f"{rel}: report the current C6 firmware as available when no update exists")
     return errors
 
 
@@ -1715,6 +1740,7 @@ def run_scan() -> int:
     errors.extend(firmware_todo_disabled_errors(DEVICE_DEVICE_PATHS, ROOT))
     errors.extend(firmware_connectivity_api_errors(CONNECTIVITY_PATHS, ROOT))
     errors.extend(firmware_ha_reconnect_flow_errors(CORE_INFRA_PATH, ROOT))
+    errors.extend(firmware_c6_update_status_errors(C6_FIRMWARE_UPDATE_PATH, ROOT))
     if errors:
         print("Firmware Home Assistant binding check failed:")
         for error in errors:
@@ -2337,7 +2363,53 @@ def expect_connectivity_api_errors(name: str, text: str, expected: tuple[str, ..
             assert not errors, f"{name}: expected no errors, got {errors!r}"
 
 
+def expect_c6_update_status_errors(name: str, text: str, expected: tuple[str, ...]) -> None:
+    with TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        path = root / "common" / "device" / "esp32_c6_firmware_update.yaml"
+        path.parent.mkdir(parents=True)
+        path.write_text(text, encoding="utf-8")
+
+        errors = firmware_c6_update_status_errors(path, root)
+        for item in expected:
+            assert any(item in error for error in errors), f"{name}: missing {item!r} in {errors!r}"
+        if not expected:
+            assert not errors, f"{name}: expected no errors, got {errors!r}"
+
+
 def run_self_test() -> int:
+    expect_c6_update_status_errors(
+        "missing c6 no-update fallback",
+        'text_sensor:\n'
+        '  - platform: template\n'
+        '    id: c6_update_available\n'
+        '    lambda: |-\n'
+        '      if (upd->state == esphome::update::UpdateState::UPDATE_STATE_UNKNOWN) return "Unknown";\n'
+        '  - platform: template\n'
+        '    id: c6_update_latest_firmware\n'
+        '    lambda: |-\n'
+        '      auto &lat = upd->update_info.latest_version;\n'
+        '      if (lat.empty()) return "Unknown";\n'
+        'button:\n',
+        ("report the current C6 firmware as available when no update exists",),
+    )
+    expect_c6_update_status_errors(
+        "missing c6 unknown status",
+        'text_sensor:\n'
+        '  - platform: template\n'
+        '    id: c6_update_available\n'
+        '    lambda: |-\n'
+        '      return "Up-to-date";\n'
+        '  - platform: template\n'
+        '    id: c6_update_latest_firmware\n'
+        '    lambda: |-\n'
+        '      if (upd->state == esphome::update::UpdateState::UPDATE_STATE_NO_UPDATE) {\n'
+        '        auto &cur = upd->update_info.current_version;\n'
+        '        if (!cur.empty()) return cur;\n'
+        '      }\n'
+        'button:\n',
+        ("keep the C6 update status unknown until ESPHome checks for updates",),
+    )
     expect_errors(
         "direct action send",
         {"button_grid_actions.h": "esphome::api::global_api_server->send_homeassistant_action(req);\n"},
@@ -4410,8 +4482,8 @@ def run_self_test() -> int:
         "          condition:\n"
         "            lambda: 'return !ha_api_state_connected();'\n"
         "          then:\n"
-        "            - lambda: 'lv_label_set_text(id(ha_setup_title), espcontrol_i18n(\"Trying to connect to Home Assistant\"));'\n"
-        "            - lambda: 'lv_label_set_text(id(ha_setup_instructions), espcontrol_i18n(\"If this persists, check your server for issues\"));'\n"
+        "            - lambda: 'lv_label_set_text(id(ha_setup_title), espcontrol_i18n(\"Connecting to\\nHome Assistant\"));'\n"
+        "            - lambda: 'lv_label_set_text(id(ha_setup_instructions), \"\");'\n"
         "            - lvgl.page.show: ha_setup_page\n",
         (),
     )

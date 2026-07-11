@@ -1323,32 +1323,41 @@ async function assertEmptyCellSettings(page, posts, label) {
     before,
     `${label}: opening a new card draft should not post immediately`,
   );
-  assert(
-    await page.locator("#sp-card-type-picker").isVisible(),
-    `${label}: new card draft shows the card type grid`,
+  assert.strictEqual(
+    await page.locator("#sp-card-type-picker").count(),
+    0,
+    `${label}: new card draft uses the compact type dropdown instead of the old grid`,
   );
-  const switchTypeOption = page.getByRole("button", {
-    name: "Switch card type",
+  assert(
+    await page.locator("#sp-inp-type").isVisible(),
+    `${label}: new card draft shows the card type dropdown`,
+  );
+  const initialTypeSelection = await page.locator("#sp-inp-type").evaluate((select) => {
+    return {
+      selectedIndex: select.selectedIndex,
+      value: select.value,
+      firstValue: select.options.length ? select.options[0].value : null,
+      firstLabel: select.options.length ? select.options[0].textContent : null,
+    };
   });
-  assert(
-    await switchTypeOption.isVisible(),
-    `${label}: new card draft shows Switch as a card type`,
-  );
-  assert(
-    (
-      await switchTypeOption.locator(".sp-card-type-icon").getAttribute("class")
-    ).includes("mdi-toggle-switch"),
-    `${label}: card type picker preserves pre-slugged MDI icon names`,
+  assert.strictEqual(
+    initialTypeSelection.selectedIndex,
+    0,
+    `${label}: new card draft defaults to the first card type option`,
   );
   assert.strictEqual(
-    await page.locator("#sp-inp-type").count(),
-    0,
-    `${label}: new card draft does not show the compact type dropdown before selection`,
+    initialTypeSelection.value,
+    initialTypeSelection.firstValue,
+    `${label}: new card draft selected value matches the first card type option`,
   );
   assert.strictEqual(
-    await page.locator(".sp-settings-modal .sp-save-btn").count(),
-    0,
-    `${label}: new card draft hides Save until a type is selected`,
+    initialTypeSelection.firstLabel,
+    "Action",
+    `${label}: new card draft first card type option should be Action`,
+  );
+  assert(
+    await page.locator(".sp-settings-modal .sp-save-btn").isVisible(),
+    `${label}: new card draft shows Save once the first card type is selected by default`,
   );
   assert.strictEqual(
     await page.locator(".sp-settings-modal .sp-delete-btn").count(),
@@ -1433,7 +1442,7 @@ async function assertEmptyCellSettings(page, posts, label) {
   assert.strictEqual(
     posts.length,
     before,
-    `${label}: closing a new card draft before choosing a type should not post`,
+    `${label}: closing a new card draft without saving should not post`,
   );
   await page
     .locator(`.sp-main [data-pos="${pos}"].sp-empty-cell`)
@@ -1441,11 +1450,34 @@ async function assertEmptyCellSettings(page, posts, label) {
 
   await page.locator(`.sp-main [data-pos="${pos}"]`).click();
   await page.waitForSelector(".sp-settings-overlay.sp-visible");
-  await page.getByRole("button", { name: "Switch card type" }).click();
+  await page.locator("#sp-inp-label").fill("Keep this label");
+  await page.locator("#sp-inp-entity").fill("switch.keep_this_entity");
+  await page.locator("#sp-inp-action").selectOption({ label: "Run Script" });
+  await page.locator("#sp-inp-type").selectOption({ label: "Switch" });
   await page.locator("#sp-inp-entity").waitFor({ state: "visible" });
+  assert.strictEqual(
+    await page.locator("#sp-inp-label").inputValue(),
+    "Keep this label",
+    `${label}: changing the default card type preserves the typed label`,
+  );
+  assert.strictEqual(
+    await page.locator("#sp-inp-entity").inputValue(),
+    "switch.keep_this_entity",
+    `${label}: changing the default card type preserves the typed entity`,
+  );
+  assert.strictEqual(
+    await page.locator("#sp-inp-icon").inputValue(),
+    "Auto",
+    `${label}: changing the default Action card type clears its icon default`,
+  );
+  assert.strictEqual(
+    await page.locator("#sp-inp-sensor-when-on-toggle").isChecked(),
+    false,
+    `${label}: changing the default Action card type clears its active display default`,
+  );
   assert(
     await page.locator(".sp-settings-modal .sp-save-btn").isVisible(),
-    `${label}: selecting a card type shows Save`,
+    `${label}: changing the default card type keeps Save visible`,
   );
   assert.strictEqual(
     await page.locator(".sp-settings-modal .sp-delete-btn").count(),
@@ -1469,7 +1501,7 @@ async function assertEmptyCellSettings(page, posts, label) {
 
   await page.locator(`.sp-main [data-pos="${pos}"]`).click();
   await page.waitForSelector(".sp-settings-overlay.sp-visible");
-  await page.getByRole("button", { name: "Switch card type" }).click();
+  await page.locator("#sp-inp-type").selectOption({ label: "Switch" });
   await page.locator("#sp-inp-label").fill("New Card");
   await page.locator("#sp-inp-entity").fill("switch.new_card");
   await page.getByRole("button", { name: "Save" }).click();

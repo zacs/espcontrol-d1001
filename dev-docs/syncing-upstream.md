@@ -29,8 +29,8 @@ Conflicts are usually limited to files this fork also edits:
 - `devices/seeed-esp32-p4-reterminal-d1001/**` — the whole device dir
 - `components/gsl3670/**` — the vendored touch driver
 - `common/device/screen_cover_art.yaml` — the D1001 shares the jc8012 layout
-- a few docs/registration spots (README table, `config.mts`, install selector,
-  `pages.yml` optional-firmware slugs, `check_firmware_parser.py`)
+- a few docs and registration spots (README table, `config.mts`, install
+  selector, and `check_firmware_parser.py`)
 
 Take upstream's side for shared files and re-apply the D1001 additions, or keep
 this fork's side where the change is D1001-only.
