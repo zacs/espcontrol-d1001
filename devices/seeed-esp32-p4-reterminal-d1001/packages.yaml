@@ -133,6 +133,7 @@ packages:
   power:           !include device/power.yaml
   audio:           !include device/audio.yaml
   microphone:      !include device/microphone.yaml
+  person_detect:   !include device/person_detect.yaml
 
   # ---------------------------------------------------------------------------
   # Screens (loading must be first page for LVGL startup)
