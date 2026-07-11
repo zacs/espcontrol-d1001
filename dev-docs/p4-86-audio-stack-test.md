@@ -25,6 +25,9 @@ Follow-up test on 2026-07-11:
 - Locally switched the AFE test profile back to `mode: high_perf` with `input_format: MMNR` and `aec_nlp_level: normal`, then built and flashed successfully on `COM3`.
 - Set `memory_alloc_mode: more_psram`, kept `task_priority: 5`, and moved the AFE feed/fetch frame buffers back to internal RAM while leaving the feed ring in PSRAM, then built and flashed successfully on `COM3`.
 - Tried `feed_ring_in_psram: false`, but the device segfaulted because there was not enough internal memory. Reverted it to `true` and flashed successfully on `COM3`.
+- Changed the AFE diagnostic `input_volume` and `output_rms` update intervals from `500ms` to `250ms`; ES7210 input gain remained at `30.0`, then built and flashed successfully on `COM3`.
+- Raised ES7210 input gain from `30.0` to `33.0`, then to `36.0`; built and flashed successfully on `COM3`.
+- Returned the AFE diagnostic `input_volume` and `output_rms` update intervals to `500ms` and made them internal so they are not published back to Home Assistant, then built and flashed successfully on `COM3`.
 
 ## Current Working Candidate
 
@@ -37,6 +40,8 @@ Audio configuration:
 - NS, VAD gating, VAD mute playback, and AGC are disabled.
 - `memory_alloc_mode: more_psram`, `feed_buf_in_psram: false`, `feed_ring_in_psram: true`, and `fetch_ring_in_psram: false`.
 - The feed and fetch frame buffers are kept internal to reduce latency and improve responsiveness, but the feed ring stays in PSRAM because moving it internal caused a memory-pressure segfault.
+- AFE diagnostic `input_volume` and `output_rms` sensors are internal and update every `500ms`.
+- ES7210 input gain is currently `36.0`.
 - TDM remapping is enabled with four slots:
   - slot 0: microphone 1
   - slot 1: hardware speaker/AEC reference

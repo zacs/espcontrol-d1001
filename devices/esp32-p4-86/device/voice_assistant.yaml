@@ -62,7 +62,7 @@ esp_audio_stack:
       type: es7210
       address: 0x40
       mic_selected: 0x0F
-      gain_db: 30.0
+      gain_db: 36.0
       ref_channel: 1
       ref_gain_db: 0.0
     output:
@@ -205,11 +205,13 @@ sensor:
       id: voice_afe_input_volume
       name: Voice AFE Input Volume
       entity_category: diagnostic
+      internal: true
       update_interval: 500ms
     output_rms:
       id: voice_afe_output_rms
       name: Voice AFE Output RMS
       entity_category: diagnostic
+      internal: true
       update_interval: 500ms
 
   - platform: sound_level
