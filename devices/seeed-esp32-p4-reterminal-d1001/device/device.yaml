@@ -10,7 +10,7 @@
 # =============================================================================
 
 substitutions:
-  espcontrol_component_url: "https://github.com/jtenniswood/espcontrol"
+  espcontrol_component_url: "https://github.com/zacs/espcontrol-d1001"
   espcontrol_component_ref: "main"
   mdi_font_file: "https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/fonts/materialdesignicons-webfont.ttf"
 
@@ -253,9 +253,11 @@ light:
                     - script.execute: screen_schedule_manual_sleep
 
 # ---------------------------------------------------------------------------
-# I2C buses
-#   bus_touch    - GSL3670 touch controller (I2C0 on the BSP)
-#   bus_expander - XL9535/PCA9535 GPIO expander (I2C1 on the BSP)
+# I2C buses (per the reTerminal D1001 I2C tree in the schematic)
+#   bus_touch    - I2C0 (GPIO37/38): GSL3670 touch (0x40) + camera SCCB (0x26)
+#   bus_expander - I2C1 (GPIO20/21): XL9535 GPIO expander (0x20), ES8311 codec
+#                  (0x18), ES7210 ADC (0x40), RTC (0x51), 6DoF (0x6A), charger
+#                  (0x6B)
 # ---------------------------------------------------------------------------
 i2c:
   - id: bus_touch
@@ -308,14 +310,25 @@ binary_sensor:
         pulldown: true
 
 # ---------------------------------------------------------------------------
-# Touchscreen (GSL3670 capacitive, wakes screensaver on touch). Touch reset is
-# on expander pin 12 but the BSP leaves it unused, so no reset_pin is wired.
+# Touchscreen (GSL3670 capacitive, wakes screensaver on touch).
+#
+# The GSL3670 shares I2C0 (bus_touch, GPIO37/38) with the camera SCCB, per the
+# reTerminal D1001 I2C tree (touch 0x40, camera 0x26). Its reset line, TP_RST,
+# is on the XL9535 expander (schematic EXP_GPO12 -> ESPHome pin 12) and MUST be
+# driven high to bring the controller out of reset. If it is left unwired the
+# expander pin floats/reads low, the GSL3670 stays in reset and never ACKs, so
+# setup fails with "I2C Error: 2" and touch is absent from the bus scan. This
+# also keeps touch reset deterministic when the camera (person detection) is
+# brought up on the shared bus and drives the neighbouring expander pins.
 # ---------------------------------------------------------------------------
 touchscreen:
   - platform: gsl3670
     id: my_touchscreen
     i2c_id: bus_touch
     interrupt_pin: GPIO16
+    reset_pin:
+      xl9535: xl9535_hub
+      number: 12
     transform:
       swap_xy: false
       mirror_x: true
