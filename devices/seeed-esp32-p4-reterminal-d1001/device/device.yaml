@@ -121,6 +121,13 @@ esphome:
       then:
         - lambda: 'id(screen_rotation_ready) = true;'
         - script.execute: apply_screen_rotation
+        # Sync the person-detect privacy switch to a known state at boot. The
+        # component's switch never applies its own restore, so without this the
+        # entity reads OFF while detection defaults ON (see person_detect.yaml).
+        # Drive it ON here so the entity matches the detector's default-enabled
+        # state and toggling it OFF genuinely stops detection. Change to
+        # switch.turn_off for a privacy-first (detection off until enabled) boot.
+        - switch.turn_on: presence_detection_switch
 
 # ---------------------------------------------------------------------------
 # ESP32-C6 co-processor (provides WiFi/BLE via SDIO)
