@@ -152,7 +152,16 @@ jobs:
       - name: Install browser runtime
         run: npx playwright install --with-deps chromium
 
-      - run: npm run check:ci
+      - name: Run required check graph
+        run: npm run check:ci -- --summary-json check-task-summary.json
+
+      - name: Upload task graph summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: check-task-graph-summary
+          path: check-task-summary.json
+          if-no-files-found: warn
 
   docs:
     name: Build Docs
