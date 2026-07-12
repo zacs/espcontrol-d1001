@@ -450,10 +450,15 @@ def generated_check_matrix() -> str:
         alias = f"check:{item.id}"
         command = f"`npm run {alias}`" if alias in package else f"`python3 scripts/check_tasks.py run-task {item.id}`"
         inputs = "<br>".join(f"`{path}`" for path in item.inputs)
+        cache_env = "<br>".join(f"`{name}`" for name in item.cache_env) or "—"
+        cache_tools = "<br>".join(f"`{name}`" for name in item.cache_tools) or "—"
         registered_rows.append((
             f"`{item.id}`",
             ", ".join(item.domains),
             "Yes" if item.parallel_safe else "No",
+            item.cache,
+            cache_env,
+            cache_tools,
             inputs,
             command,
         ))
@@ -462,7 +467,16 @@ def generated_check_matrix() -> str:
         "### Registered Check Tasks\n\n"
         "This detailed routing table is generated directly from `scripts/check_tasks_data.py`.\n\n"
         + markdown_table(
-            ("Task", "Domains", "Parallel-safe", "Declared inputs", "Focused command"),
+            (
+                "Task",
+                "Domains",
+                "Parallel-safe",
+                "Cache",
+                "Cache environment",
+                "Cache tools",
+                "Declared inputs",
+                "Focused command",
+            ),
             registered_rows,
         ),
     ))

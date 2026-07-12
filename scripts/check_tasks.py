@@ -8,16 +8,19 @@ from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextlib import contextmanager, redirect_stdout
 from datetime import datetime, timezone
 from fnmatch import fnmatchcase
+import hashlib
 from io import StringIO
 import json
 import os
+import platform
+import shutil
 import signal
 import subprocess
 import sys
 import threading
 import time
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import TextIO
 
 from check_tasks_data import DOMAINS, PROFILES, TASKS, Task
@@ -33,6 +36,18 @@ class ConfigurationError(ValueError):
 
 SUMMARY_SCHEMA_VERSION = 1
 TASK_STATUSES = ("passed", "failed", "blocked", "not_run", "cached")
+CACHE_SCHEMA_VERSION = 1
+CACHE_DIRECTORY = "espcontrol-check-cache-v1"
+CACHE_SUCCESS_STATUSES = {"passed", "cached"}
+LOCKFILES = (
+    "package-lock.json",
+    "npm-shrinkwrap.json",
+    "pyproject.toml",
+    "uv.lock",
+    "poetry.lock",
+    "Pipfile.lock",
+    "requirements.txt",
+)
 
 
 def validate_registry(tasks: tuple[Task, ...] = TASKS) -> dict[str, Task]:
@@ -49,10 +64,16 @@ def validate_registry(tasks: tuple[Task, ...] = TASKS) -> dict[str, Task]:
             raise ConfigurationError(f"task {item.id} has invalid profiles: {sorted(invalid_profiles)}")
         if invalid_domains:
             raise ConfigurationError(f"task {item.id} has invalid domains: {sorted(invalid_domains)}")
+        if item.cache not in {"never", "deterministic"}:
+            raise ConfigurationError(f"task {item.id} has invalid cache policy: {item.cache}")
         if item.cache != "never" and not item.inputs:
             raise ConfigurationError(f"cacheable task {item.id} has no inputs")
         if not isinstance(item.parallel_safe, bool):
             raise ConfigurationError(f"task {item.id} has invalid parallel safety")
+        if len(set(item.cache_env)) != len(item.cache_env) or any(not name for name in item.cache_env):
+            raise ConfigurationError(f"task {item.id} has invalid cache environment declarations")
+        if len(set(item.cache_tools)) != len(item.cache_tools) or any(not name for name in item.cache_tools):
+            raise ConfigurationError(f"task {item.id} has invalid cache tool declarations")
     for item in tasks:
         missing = set(item.dependencies) - set(registry)
         if missing:
@@ -329,7 +350,302 @@ def task_json(item: Task) -> dict[str, object]:
         "generated_inputs": list(item.generated_inputs),
         "cache": item.cache,
         "parallel_safe": item.parallel_safe,
+        "cache_env": list(item.cache_env),
+        "cache_tools": list(item.cache_tools),
     }
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def git_common_directory(root: Path) -> Path:
+    common = Path(git_output(root, "rev-parse", "--git-common-dir").strip())
+    if not common.is_absolute():
+        common = root / common
+    return common.resolve()
+
+
+def cache_directory(root: Path) -> Path:
+    return git_common_directory(root) / CACHE_DIRECTORY
+
+
+class CacheKeyBuilder:
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self._file_fingerprints: dict[Path, dict[str, object]] = {}
+        self._tool_versions: dict[str, dict[str, object]] = {}
+        self._browser: dict[str, object] | None = None
+        project_files = git_output(root, "ls-files", "-co", "--exclude-standard", "-z")
+        self._project_files = tuple(
+            root / relative
+            for relative in sorted(path for path in project_files.split("\0") if path)
+        )
+
+    def file_fingerprint(self, path: Path) -> dict[str, object]:
+        path = path.absolute()
+        if path in self._file_fingerprints:
+            return self._file_fingerprints[path]
+        try:
+            relative = path.relative_to(self.root.absolute()).as_posix()
+        except ValueError:
+            relative = str(path)
+        if path.is_symlink():
+            value: dict[str, object] = {
+                "path": relative,
+                "kind": "symlink",
+                "target": os.readlink(path),
+            }
+            resolved_target = path.resolve()
+            if resolved_target.is_file():
+                value["target_size"] = resolved_target.stat().st_size
+                value["target_sha256"] = sha256_file(resolved_target)
+        elif path.is_file():
+            value = {
+                "path": relative,
+                "kind": "file",
+                "size": path.stat().st_size,
+                "sha256": sha256_file(path),
+            }
+        else:
+            value = {"path": relative, "kind": "missing"}
+        self._file_fingerprints[path] = value
+        return value
+
+    def pattern_fingerprints(self, patterns: tuple[str, ...]) -> list[dict[str, object]]:
+        fingerprints: list[dict[str, object]] = []
+        for pattern in patterns:
+            matches = sorted(
+                {
+                    path
+                    for path in self._project_files
+                    if matches_input(path.relative_to(self.root).as_posix(), pattern)
+                    and (path.is_file() or path.is_symlink())
+                },
+                key=lambda path: path.relative_to(self.root).as_posix(),
+            )
+            fingerprints.append({
+                "pattern": pattern,
+                "matches": [self.file_fingerprint(path) for path in matches],
+            })
+        return fingerprints
+
+    def tool_version(self, executable: str) -> dict[str, object]:
+        if executable in self._tool_versions:
+            return self._tool_versions[executable]
+        local_executable = self.root / executable
+        resolved = str(local_executable) if "/" in executable and local_executable.exists() else shutil.which(executable)
+        if resolved is None:
+            value: dict[str, object] = {"executable": executable, "state": "missing"}
+        else:
+            try:
+                result = subprocess.run(
+                    [resolved, "--version"],
+                    cwd=self.root,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                version = (result.stdout or result.stderr).strip()
+                value = {
+                    "executable": executable,
+                    "path": str(Path(resolved).resolve()),
+                    "return_code": result.returncode,
+                    "version": version,
+                }
+            except (OSError, subprocess.TimeoutExpired) as error:
+                value = {
+                    "executable": executable,
+                    "path": str(Path(resolved).resolve()),
+                    "error": type(error).__name__,
+                }
+        self._tool_versions[executable] = value
+        return value
+
+    def browser_fingerprint(self) -> dict[str, object]:
+        if self._browser is not None:
+            return self._browser
+        script = (
+            "const {chromium}=require('playwright');"
+            "const p=require('playwright/package.json');"
+            "console.log(JSON.stringify({version:p.version,path:chromium.executablePath()}));"
+        )
+        try:
+            result = subprocess.run(
+                ["node", "-e", script],
+                cwd=self.root,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            details = json.loads(result.stdout)
+            executable = Path(details["path"])
+            stat = executable.stat()
+            browser_version = subprocess.run(
+                [str(executable), "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            details["executable"] = {
+                "path": str(executable.resolve()),
+                "size": stat.st_size,
+                "mtime_ns": stat.st_mtime_ns,
+                "return_code": browser_version.returncode,
+                "version": (browser_version.stdout or browser_version.stderr).strip(),
+            }
+            self._browser = details
+        except (
+            FileNotFoundError,
+            OSError,
+            subprocess.CalledProcessError,
+            subprocess.TimeoutExpired,
+            json.JSONDecodeError,
+            KeyError,
+        ) as error:
+            self._browser = {"state": "unavailable", "error": type(error).__name__}
+        return self._browser
+
+    def cacheable(self, item: Task) -> bool:
+        return item.cache == "deterministic" and (
+            item.id != "web-browser-smoke"
+            or self.browser_fingerprint().get("state") != "unavailable"
+        )
+
+    def key(
+        self,
+        item: Task,
+        dependency_keys: dict[str, str],
+    ) -> str:
+        tools = sorted({
+            "python3",
+            "node",
+            "npm",
+            *item.cache_tools,
+            *(command[0] for command in item.commands),
+        })
+        payload: dict[str, object] = {
+            "schema_version": CACHE_SCHEMA_VERSION,
+            "task": task_json(item),
+            "dependencies": {
+                dependency: dependency_keys[dependency]
+                for dependency in item.dependencies
+            },
+            "inputs": self.pattern_fingerprints(item.inputs),
+            "generated_inputs": self.pattern_fingerprints(item.generated_inputs),
+            "orchestrator": [
+                self.file_fingerprint(self.root / "scripts" / "check_tasks.py"),
+                self.file_fingerprint(self.root / "scripts" / "check_tasks_data.py"),
+            ],
+            "lockfiles": [
+                self.file_fingerprint(self.root / lockfile)
+                for lockfile in LOCKFILES
+                if (self.root / lockfile).exists()
+            ],
+            "platform": {
+                "system": platform.system(),
+                "release": platform.release(),
+                "machine": platform.machine(),
+            },
+            "tools": [self.tool_version(executable) for executable in tools],
+            "environment": {
+                name: os.environ.get(name)
+                for name in item.cache_env
+            },
+        }
+        if item.id == "web-browser-smoke":
+            payload["browser"] = self.browser_fingerprint()
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        return hashlib.sha256(encoded).hexdigest()
+
+
+class CacheStore:
+    def __init__(self, root: Path) -> None:
+        self.root = root
+
+    def entry_path(self, task_id: str, key: str) -> Path:
+        return self.root / task_id / f"{key}.json"
+
+    def contains(self, task_id: str, key: str) -> bool:
+        path = self.entry_path(task_id, key)
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        return value == {
+            "schema_version": CACHE_SCHEMA_VERSION,
+            "task_id": task_id,
+            "key": key,
+            "status": "passed",
+        }
+
+    def write_pass(self, task_id: str, key: str) -> None:
+        directory = self.entry_path(task_id, key).parent
+        directory.mkdir(parents=True, exist_ok=True)
+        value = {
+            "schema_version": CACHE_SCHEMA_VERSION,
+            "task_id": task_id,
+            "key": key,
+            "status": "passed",
+        }
+        with NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=directory,
+            prefix=".entry-",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            json.dump(value, handle, sort_keys=True)
+            handle.write("\n")
+            temporary = Path(handle.name)
+        try:
+            os.replace(temporary, self.entry_path(task_id, key))
+        finally:
+            temporary.unlink(missing_ok=True)
+
+
+def cache_status(root: Path) -> dict[str, object]:
+    directory = cache_directory(root)
+    entries = 0
+    corrupt = 0
+    size_bytes = 0
+    tasks: set[str] = set()
+    if directory.exists():
+        for path in directory.rglob("*.json"):
+            entries += 1
+            tasks.add(path.parent.name)
+            try:
+                size_bytes += path.stat().st_size
+                value = json.loads(path.read_text(encoding="utf-8"))
+                if (
+                    value.get("schema_version") != CACHE_SCHEMA_VERSION
+                    or value.get("status") != "passed"
+                    or value.get("task_id") != path.parent.name
+                    or value.get("key") != path.stem
+                ):
+                    corrupt += 1
+            except (OSError, json.JSONDecodeError, AttributeError):
+                corrupt += 1
+    return {
+        "path": str(directory),
+        "entries": entries,
+        "tasks": len(tasks),
+        "corrupt_entries": corrupt,
+        "size_bytes": size_bytes,
+    }
+
+
+def clear_cache(root: Path) -> Path:
+    directory = cache_directory(root)
+    if directory.exists():
+        shutil.rmtree(directory)
+    return directory
 
 
 def utc_now() -> str:
@@ -497,6 +813,18 @@ def skipped_result(item: Task, status: str) -> dict[str, object]:
         "duration_seconds": 0.0,
         "exit_code": None,
         "commands": [list(command) for command in item.commands],
+        "cache": {"state": "not_run"},
+    }
+
+
+def cached_result(item: Task, key: str) -> dict[str, object]:
+    return {
+        "id": item.id,
+        "status": "cached",
+        "duration_seconds": 0.0,
+        "exit_code": 0,
+        "commands": [list(command) for command in item.commands],
+        "cache": {"state": "hit", "key": key},
     }
 
 
@@ -508,6 +836,7 @@ def execute_tasks(
     domain: str | None,
     requested_task: str | None,
     jobs: int = 1,
+    no_cache: bool = False,
 ) -> tuple[int, dict[str, object]]:
     if jobs < 1:
         raise ConfigurationError("--jobs must be at least 1")
@@ -519,6 +848,54 @@ def execute_tasks(
     exit_code = 0
     registry = validate_registry(tuple(selected))
     controller = ProcessController()
+    ci_disabled = os.environ.get("CI", "").lower() == "true"
+    cache_enabled = not no_cache and not ci_disabled
+    cache_reason = (
+        "disabled by --no-cache"
+        if no_cache
+        else "disabled because CI=true"
+        if ci_disabled
+        else "enabled for deterministic read-only tasks"
+    )
+    cache_builder: CacheKeyBuilder | None = None
+    cache_store: CacheStore | None = None
+    cache_keys: dict[str, str] = {}
+    cache_eligible: set[str] = set()
+    cache_checked: dict[str, bool] = {}
+    cache_hits = 0
+    cache_misses = 0
+    cache_writes = 0
+    if cache_enabled and any(item.cache == "deterministic" for item in selected):
+        cache_builder = CacheKeyBuilder(root)
+        cache_store = CacheStore(cache_directory(root))
+        for item in selected:
+            cache_keys[item.id] = cache_builder.key(item, cache_keys)
+            if cache_builder.cacheable(item):
+                cache_eligible.add(item.id)
+
+    def check_cache(item: Task) -> dict[str, object] | None:
+        nonlocal cache_hits, cache_misses
+        if item.id not in cache_eligible or cache_store is None:
+            return None
+        if item.id not in cache_checked:
+            cache_checked[item.id] = cache_store.contains(item.id, cache_keys[item.id])
+            if cache_checked[item.id]:
+                cache_hits += 1
+            else:
+                cache_misses += 1
+        if cache_checked[item.id]:
+            return cached_result(item, cache_keys[item.id])
+        return None
+
+    def record_execution(item: Task, result: dict[str, object]) -> None:
+        nonlocal cache_writes
+        if item.id in cache_eligible and cache_store is not None:
+            result["cache"] = {"state": "miss", "key": cache_keys[item.id]}
+            if result["status"] == "passed":
+                cache_store.write_pass(item.id, cache_keys[item.id])
+                cache_writes += 1
+        else:
+            result["cache"] = {"state": "disabled"}
 
     with forward_interrupts(controller):
         if jobs == 1:
@@ -532,7 +909,13 @@ def execute_tasks(
                     status = "blocked" if depends_on(item.id, failed_id, registry) else "not_run"
                     result_by_id[item.id] = skipped_result(item, status)
                     continue
+                hit = check_cache(item)
+                if hit is not None:
+                    print(f"\n==> {item.id}\ncache hit", flush=True)
+                    result_by_id[item.id] = hit
+                    continue
                 result, _ = execute_task(item, root, controller, capture=False)
+                record_execution(item, result)
                 result_by_id[item.id] = result
                 task_exit = int(result["exit_code"])
                 if task_exit != 0:
@@ -556,12 +939,28 @@ def execute_tasks(
                     passed_ids = {
                         task_id
                         for task_id, result in result_by_id.items()
-                        if result["status"] == "passed"
+                        if result["status"] in CACHE_SUCCESS_STATUSES
                     }
-                    ready_parallel = [
+                    ready = [
                         item
                         for item in pending
-                        if item.parallel_safe and set(item.dependencies) <= passed_ids
+                        if set(item.dependencies) <= passed_ids
+                    ]
+                    cached_ready = [
+                        (item, check_cache(item))
+                        for item in ready
+                    ]
+                    hits = [(item, result) for item, result in cached_ready if result is not None]
+                    if hits:
+                        for item, result in hits:
+                            print(f"\n==> {item.id}\ncache hit", flush=True)
+                            result_by_id[item.id] = result
+                            pending.remove(item)
+                        continue
+                    ready_parallel = [
+                        item
+                        for item in ready
+                        if item.parallel_safe
                     ]
                     while ready_parallel and len(active) < jobs:
                         item = ready_parallel.pop(0)
@@ -580,6 +979,7 @@ def execute_tasks(
                         for future in sorted(done, key=lambda value: selected.index(active[value])):
                             item = active.pop(future)
                             result, task_output = future.result()
+                            record_execution(item, result)
                             result_by_id[item.id] = result
                             captured_outputs[item.id] = task_output
                             if result["status"] == "failed":
@@ -588,14 +988,15 @@ def execute_tasks(
 
                     ready_serial = [
                         item
-                        for item in pending
-                        if not item.parallel_safe and set(item.dependencies) <= passed_ids
+                        for item in ready
+                        if not item.parallel_safe
                     ]
                     if ready_serial:
                         replay_completed()
                         item = ready_serial[0]
                         pending.remove(item)
                         result, _ = execute_task(item, root, controller, capture=False)
+                        record_execution(item, result)
                         result_by_id[item.id] = result
                         if result["status"] == "failed":
                             failed_ids.add(item.id)
@@ -608,6 +1009,7 @@ def execute_tasks(
                     for future in sorted(done, key=lambda value: selected.index(active[value])):
                         item = active[future]
                         result, task_output = future.result()
+                        record_execution(item, result)
                         result_by_id[item.id] = result
                         captured_outputs[item.id] = task_output
                         if result["status"] == "failed":
@@ -637,7 +1039,14 @@ def execute_tasks(
         "finished_at": utc_now(),
         "duration_seconds": duration,
         "jobs": {"requested": requested_jobs, "used": jobs},
-        "cache": {"enabled": False, "reason": "result caching is not implemented in this stage"},
+        "cache": {
+            "enabled": cache_enabled,
+            "reason": cache_reason,
+            "path": str(cache_store.root) if cache_store is not None else None,
+            "hits": cache_hits,
+            "misses": cache_misses,
+            "writes": cache_writes,
+        },
         "status": "passed" if exit_code == 0 else "interrupted" if exit_code == 130 else "failed",
         "exit_code": exit_code,
         "tasks": results,
@@ -651,6 +1060,12 @@ def summary_markdown(summary: dict[str, object]) -> str:
         "",
         f"Overall: **{summary['status']}** in {summary['duration_seconds']:.3f}s",
         f"Workers: **{summary['jobs']['used']}**",
+        (
+            f"Cache: **{summary['cache']['hits']} hits**, "
+            f"{summary['cache']['misses']} misses"
+            if summary["cache"]["enabled"]
+            else f"Cache: **disabled** ({summary['cache']['reason']})"
+        ),
         "",
         "| Task | Status | Duration |",
         "| --- | --- | ---: |",
@@ -671,6 +1086,15 @@ def print_summary(summary: dict[str, object], output: TextIO = sys.stdout) -> No
         ),
         file=output,
     )
+    if summary["cache"]["enabled"]:
+        print(
+            f"Cache: {summary['cache']['hits']} hit(s), "
+            f"{summary['cache']['misses']} miss(es), "
+            f"{summary['cache']['writes']} write(s)",
+            file=output,
+        )
+    else:
+        print(f"Cache: disabled ({summary['cache']['reason']})", file=output)
     print(f"{'TASK':28} {'STATUS':10} {'SECONDS':>8}", file=output)
     for result in summary["tasks"]:
         print(f"{result['id']:28} {result['status']:10} {result['duration_seconds']:8.3f}", file=output)
@@ -762,6 +1186,32 @@ def self_test() -> None:
     if unsafe:
         raise AssertionError(f"unsafe tasks are marked parallel-safe: {unsafe}")
 
+    never_cached = {
+        "local-artifacts",
+        "local-esphome",
+        "pr-process",
+        "pr-testing-guidance",
+        "firmware-release",
+        "release-confidence",
+        "release-changelog",
+        "docs-build",
+    }
+    cacheable_unsafe = sorted(task_id for task_id in never_cached if registry[task_id].cache != "never")
+    if cacheable_unsafe:
+        raise AssertionError(f"unsafe tasks are cacheable: {cacheable_unsafe}")
+    browser = registry["web-browser-smoke"]
+    if (
+        browser.cache != "deterministic"
+        or "src/webserver/**" not in browser.inputs
+        or "docs/public/webserver/**" not in browser.generated_inputs
+        or "PLAYWRIGHT_BROWSERS_PATH" not in browser.cache_env
+    ):
+        raise AssertionError("browser cache policy omits required web, layout, or environment inputs")
+    if "node_modules/.bin/esbuild" not in registry["generated"].cache_tools:
+        raise AssertionError("generated-output cache keys omit the esbuild tool version")
+    if not {"c++", "g++", "clang++"} <= set(registry["firmware-parser"].cache_tools):
+        raise AssertionError("firmware parser cache keys omit compiler tool versions")
+
     if registry["types"].commands != (("npm", "exec", "--", "tsc", "--noEmit"),):
         raise AssertionError("TypeScript checks do not use the project-managed compiler")
     if "icon-groups" not in {item.id for item in plan("fast", "docs")}:
@@ -786,9 +1236,18 @@ def self_test() -> None:
     expect_invalid((Task("profile", (("true",),), profiles=("unknown",), inputs=("x",)),), "invalid profile")
     expect_invalid((Task("domain", (("true",),), domains=("unknown",), inputs=("x",)),), "invalid domain")
     expect_invalid((Task("inputs", (("true",),), cache="deterministic"),), "cacheable task with empty inputs")
+    expect_invalid((Task("cache", (("true",),), cache="sometimes"),), "invalid cache policy")
     expect_invalid(
         (Task("parallel", (("true",),), parallel_safe="yes"),),  # type: ignore[arg-type]
         "invalid parallel safety",
+    )
+    expect_invalid(
+        (Task("cache-env", (("true",),), cache_env=("VALUE", "VALUE")),),
+        "duplicate cache environment declarations",
+    )
+    expect_invalid(
+        (Task("cache-tools", (("true",),), cache_tools=("tool", "tool")),),
+        "duplicate cache tool declarations",
     )
 
     first = Task("first", (("true",),), dependencies=("second",), inputs=("x",))
@@ -1066,6 +1525,292 @@ def self_test() -> None:
         if parallel_interrupted.returncode != 0:
             raise AssertionError("interrupts are not forwarded to all active parallel tasks")
 
+    previous_ci = os.environ.pop("CI", None)
+    try:
+        with TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            repo = base / "repo"
+            linked = base / "linked"
+            repo.mkdir()
+
+            def cache_git(root: Path, *args: str) -> None:
+                subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+
+            cache_git(repo, "init", "-b", "main")
+            cache_git(repo, "config", "user.name", "Check Cache Test")
+            cache_git(repo, "config", "user.email", "check-cache@example.invalid")
+            (repo / "scripts").mkdir()
+            (repo / "scripts" / "check_tasks.py").write_text("runner-v1\n")
+            (repo / "scripts" / "check_tasks_data.py").write_text("registry-v1\n")
+            (repo / "input.txt").write_text("authored-v1\n")
+            (repo / "generated.txt").write_text("generated-v1\n")
+            (repo / "package-lock.json").write_text("lock-v1\n")
+            (repo / "nested" / "deep").mkdir(parents=True)
+            (repo / "nested" / "deep" / "value.txt").write_text("nested-v1\n")
+            cache_git(repo, "add", ".")
+            cache_git(repo, "commit", "-m", "cache fixture")
+            cache_git(repo, "worktree", "add", "-b", "linked", str(linked))
+
+            execution_marker = base / "executed.txt"
+            cache_task = Task(
+                "cacheable",
+                ((
+                    sys.executable,
+                    "-c",
+                    f"from pathlib import Path; Path({str(execution_marker)!r}).write_text('ran')",
+                ),),
+                inputs=("input.txt",),
+                generated_inputs=("generated.txt",),
+                cache="deterministic",
+                cache_env=("CHECK_TASK_TEST_ENV",),
+            )
+
+            os.environ["CHECK_TASK_TEST_ENV"] = "one"
+            with redirect_stdout(StringIO()):
+                first_code, first_cache_summary = execute_tasks(
+                    [cache_task],
+                    repo,
+                    profile="fast",
+                    domain=None,
+                    requested_task=None,
+                )
+            if (
+                first_code != 0
+                or first_cache_summary["cache"]["misses"] != 1
+                or first_cache_summary["cache"]["writes"] != 1
+                or not execution_marker.exists()
+            ):
+                raise AssertionError("a successful deterministic task was not cached")
+
+            execution_marker.unlink()
+            with redirect_stdout(StringIO()):
+                shared_code, shared_summary = execute_tasks(
+                    [cache_task],
+                    linked,
+                    profile="fast",
+                    domain=None,
+                    requested_task=None,
+                )
+            if (
+                shared_code != 0
+                or shared_summary["tasks"][0]["status"] != "cached"
+                or shared_summary["cache"]["hits"] != 1
+                or execution_marker.exists()
+                or cache_directory(repo) != cache_directory(linked)
+            ):
+                raise AssertionError("cache entries are not shared safely across worktrees")
+
+            (linked / "input.txt").write_text("authored-v2\n")
+            with redirect_stdout(StringIO()):
+                input_code, input_summary = execute_tasks(
+                    [cache_task],
+                    linked,
+                    profile="fast",
+                    domain=None,
+                    requested_task=None,
+                )
+            if input_code != 0 or input_summary["tasks"][0]["status"] != "passed":
+                raise AssertionError("an authored input change did not invalidate the cache")
+
+            execution_marker.unlink()
+            (linked / "generated.txt").write_text("generated-v2\n")
+            with redirect_stdout(StringIO()):
+                generated_code, generated_summary = execute_tasks(
+                    [cache_task],
+                    linked,
+                    profile="fast",
+                    domain=None,
+                    requested_task=None,
+                )
+            if generated_code != 0 or generated_summary["tasks"][0]["status"] != "passed":
+                raise AssertionError("a generated output change did not invalidate the cache")
+
+            changed_command_task = Task(
+                "cacheable",
+                ((
+                    sys.executable,
+                    "-c",
+                    f"from pathlib import Path; Path({str(execution_marker)!r}).write_text('new-command')",
+                ),),
+                inputs=("input.txt",),
+                generated_inputs=("generated.txt",),
+                cache="deterministic",
+                cache_env=("CHECK_TASK_TEST_ENV",),
+            )
+            execution_marker.unlink()
+            with redirect_stdout(StringIO()):
+                command_code, command_summary = execute_tasks(
+                    [changed_command_task],
+                    linked,
+                    profile="fast",
+                    domain=None,
+                    requested_task=None,
+                )
+            if command_code != 0 or command_summary["tasks"][0]["status"] != "passed":
+                raise AssertionError("a task command change did not invalidate the cache")
+
+            failing_task = Task(
+                "cache-failure",
+                ((sys.executable, "-c", "raise SystemExit(7)"),),
+                inputs=("input.txt",),
+                cache="deterministic",
+            )
+            for _ in range(2):
+                with redirect_stdout(StringIO()):
+                    failure_code, failure_cache_summary = execute_tasks(
+                        [failing_task],
+                        linked,
+                        profile="fast",
+                        domain=None,
+                        requested_task=None,
+                    )
+                if (
+                    failure_code != 1
+                    or failure_cache_summary["tasks"][0]["status"] != "failed"
+                    or failure_cache_summary["cache"]["writes"] != 0
+                ):
+                    raise AssertionError("failed task status was cached")
+
+            builder = CacheKeyBuilder(linked)
+            corrupt_key = builder.key(cache_task, {})
+            corrupt_store = CacheStore(cache_directory(linked))
+            corrupt_path = corrupt_store.entry_path(cache_task.id, corrupt_key)
+            corrupt_path.parent.mkdir(parents=True, exist_ok=True)
+            corrupt_path.write_text("not json\n")
+            execution_marker.unlink(missing_ok=True)
+            with redirect_stdout(StringIO()):
+                corrupt_code, corrupt_summary = execute_tasks(
+                    [cache_task],
+                    linked,
+                    profile="fast",
+                    domain=None,
+                    requested_task=None,
+                )
+            if (
+                corrupt_code != 0
+                or corrupt_summary["tasks"][0]["status"] != "passed"
+                or not corrupt_store.contains(cache_task.id, corrupt_key)
+            ):
+                raise AssertionError("a corrupt cache entry was not treated as a miss")
+
+            execution_marker.unlink()
+            os.environ["CI"] = "true"
+            with redirect_stdout(StringIO()):
+                ci_code, ci_summary = execute_tasks(
+                    [cache_task],
+                    linked,
+                    profile="fast",
+                    domain=None,
+                    requested_task=None,
+                )
+            os.environ.pop("CI")
+            if (
+                ci_code != 0
+                or ci_summary["cache"]["enabled"]
+                or ci_summary["tasks"][0]["status"] != "passed"
+                or not execution_marker.exists()
+            ):
+                raise AssertionError("CI used an existing local cache entry")
+
+            execution_marker.unlink()
+            with redirect_stdout(StringIO()):
+                no_cache_code, no_cache_summary = execute_tasks(
+                    [cache_task],
+                    linked,
+                    profile="fast",
+                    domain=None,
+                    requested_task=None,
+                    no_cache=True,
+                )
+            if (
+                no_cache_code != 0
+                or no_cache_summary["cache"]["enabled"]
+                or not execution_marker.exists()
+            ):
+                raise AssertionError("--no-cache did not force fresh execution")
+
+            dependency_v1 = Task(
+                "cache-dependency",
+                ((sys.executable, "-c", "raise SystemExit(0)"),),
+                inputs=("input.txt",),
+                cache="deterministic",
+            )
+            dependency_v2 = Task(
+                "cache-dependency",
+                ((sys.executable, "-c", "print('changed dependency')"),),
+                inputs=("input.txt",),
+                cache="deterministic",
+            )
+            consumer = Task(
+                "cache-consumer",
+                ((sys.executable, "-c", "raise SystemExit(0)"),),
+                dependencies=("cache-dependency",),
+                inputs=("input.txt",),
+                cache="deterministic",
+            )
+            first_builder = CacheKeyBuilder(linked)
+            dependency_key_v1 = first_builder.key(dependency_v1, {})
+            consumer_key_v1 = first_builder.key(
+                consumer,
+                {dependency_v1.id: dependency_key_v1},
+            )
+            second_builder = CacheKeyBuilder(linked)
+            dependency_key_v2 = second_builder.key(dependency_v2, {})
+            consumer_key_v2 = second_builder.key(
+                consumer,
+                {dependency_v2.id: dependency_key_v2},
+            )
+            if dependency_key_v1 == dependency_key_v2 or consumer_key_v1 == consumer_key_v2:
+                raise AssertionError("dependency changes do not invalidate consumer cache keys")
+
+            baseline_builder = CacheKeyBuilder(linked)
+            baseline_key = baseline_builder.key(cache_task, {})
+            (linked / "scripts" / "check_tasks_data.py").write_text("registry-v2\n")
+            registry_key = CacheKeyBuilder(linked).key(cache_task, {})
+            (linked / "scripts" / "check_tasks.py").write_text("runner-v2\n")
+            runner_key = CacheKeyBuilder(linked).key(cache_task, {})
+            (linked / "package-lock.json").write_text("lock-v2\n")
+            lock_key = CacheKeyBuilder(linked).key(cache_task, {})
+            os.environ["CHECK_TASK_TEST_ENV"] = "two"
+            environment_key = CacheKeyBuilder(linked).key(cache_task, {})
+            if len({baseline_key, registry_key, runner_key, lock_key, environment_key}) != 5:
+                raise AssertionError(
+                    "runner, registry, lockfile, or environment changes do not invalidate cache keys"
+                )
+
+            broad_task = Task(
+                "broad-input",
+                ((sys.executable, "-c", "raise SystemExit(0)"),),
+                inputs=("nested/**",),
+                cache="deterministic",
+            )
+            broad_key_v1 = CacheKeyBuilder(linked).key(broad_task, {})
+            (linked / "nested" / "deep" / "value.txt").write_text("nested-v2\n")
+            broad_key_v2 = CacheKeyBuilder(linked).key(broad_task, {})
+            if broad_key_v1 == broad_key_v2:
+                raise AssertionError("nested files under a broad input glob do not invalidate cache keys")
+
+            tool_builder_one = CacheKeyBuilder(linked)
+            tool_builder_one._tool_versions["python3"] = {"version": "tool-one"}
+            tool_key_one = tool_builder_one.key(cache_task, {})
+            tool_builder_two = CacheKeyBuilder(linked)
+            tool_builder_two._tool_versions["python3"] = {"version": "tool-two"}
+            tool_key_two = tool_builder_two.key(cache_task, {})
+            if tool_key_one == tool_key_two:
+                raise AssertionError("tool version changes do not invalidate cache keys")
+
+            status = cache_status(linked)
+            if status["entries"] == 0 or status["corrupt_entries"] != 0:
+                raise AssertionError("cache status does not report valid shared entries")
+            cleared = clear_cache(linked)
+            if cleared.exists():
+                raise AssertionError("cache clear left shared entries behind")
+    finally:
+        os.environ.pop("CHECK_TASK_TEST_ENV", None)
+        os.environ.pop("CI", None)
+        if previous_ci is not None:
+            os.environ["CI"] = previous_ci
+
     def task_ids(selected: list[Task]) -> set[str]:
         return {item.id for item in selected}
 
@@ -1250,6 +1995,10 @@ def parse_args() -> argparse.Namespace:
     changed_parser.add_argument("--base")
     changed_parser.add_argument("--explain", action="store_true")
     changed_parser.add_argument("--json", action="store_true")
+    cache_parser = subparsers.add_parser("cache", help="inspect or clear local check results")
+    cache_subparsers = cache_parser.add_subparsers(dest="cache_command", required=True)
+    cache_subparsers.add_parser("status", help="show local check cache status")
+    cache_subparsers.add_parser("clear", help="remove all local check cache entries")
     return parser.parse_args()
 
 
@@ -1287,6 +2036,7 @@ def main() -> int:
                 domain=args.domain,
                 requested_task=None,
                 jobs=args.jobs,
+                no_cache=args.no_cache,
             )
             print_summary(summary)
             write_summary(summary, args.summary_json)
@@ -1331,7 +2081,18 @@ def main() -> int:
                         for reason in reasons.get(item.id, []):
                             print(f"    - {reason}")
             return 0
-        print("choose 'list', 'plan', 'run', 'run-task', or 'changed', or use --self-test", file=sys.stderr)
+        if args.command == "cache":
+            if args.cache_command == "status":
+                status = cache_status(ROOT)
+                print(f"Cache: {status['path']}")
+                print(f"Entries: {status['entries']} across {status['tasks']} tasks")
+                print(f"Corrupt entries: {status['corrupt_entries']}")
+                print(f"Size: {status['size_bytes']} bytes")
+                return 0
+            directory = clear_cache(ROOT)
+            print(f"Cleared cache: {directory}")
+            return 0
+        print("choose 'list', 'plan', 'run', 'run-task', 'changed', or 'cache', or use --self-test", file=sys.stderr)
         return 2
     except ConfigurationError as error:
         print(f"check task configuration error: {error}", file=sys.stderr)

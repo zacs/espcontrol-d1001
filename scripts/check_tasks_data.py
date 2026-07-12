@@ -24,6 +24,8 @@ class Task:
     generated_inputs: tuple[str, ...] = ()
     cache: str = "never"
     parallel_safe: bool = False
+    cache_env: tuple[str, ...] = ()
+    cache_tools: tuple[str, ...] = ()
 
 
 def task(
@@ -36,6 +38,8 @@ def task(
     generated_inputs: tuple[str, ...] = (),
     cache: str = "deterministic",
     parallel_safe: bool = False,
+    cache_env: tuple[str, ...] = (),
+    cache_tools: tuple[str, ...] = (),
 ) -> Task:
     return Task(
         task_id,
@@ -47,6 +51,8 @@ def task(
         generated_inputs,
         cache,
         parallel_safe,
+        cache_env,
+        cache_tools,
     )
 
 
@@ -61,7 +67,8 @@ MAINTAINER_DOCS = ("dev-docs/**", "DEVELOPERS.md", "README.md", "product/README.
 TASKS = (
     task("generated", ("python3", "scripts/build.py", "--check"), profiles=PRODUCT,
          domains=("product", "firmware", "web", "docs"), inputs=("common/**", "devices/**", "src/webserver/**", "scripts/build.py"),
-         generated_inputs=("components/espcontrol/*_generated.h", "docs/generated/**", "docs/public/**"), parallel_safe=True),
+         generated_inputs=("components/espcontrol/*_generated.h", "docs/generated/**", "docs/public/**"),
+         parallel_safe=True, cache_tools=("node_modules/.bin/esbuild",)),
     task("device-manifest", ("python3", "scripts/check_device_manifest.py"),
          ("python3", "scripts/check_device_manifest.py", "--self-test"), profiles=FAST,
          domains=("product", "firmware"), inputs=("devices/**", "builds/**", "scripts/check_device_manifest.py"), parallel_safe=True),
@@ -94,13 +101,16 @@ TASKS = (
     task("memory-monitor", ("python3", "scripts/monitor_display_memory.py", "--self-test"), profiles=FAST,
          domains=("firmware",), inputs=("scripts/monitor_display_memory.py",), parallel_safe=True),
     task("cover-art-contract", ("python3", "scripts/check_cover_art_contract.py"), profiles=FAST,
-         domains=("firmware",), inputs=("common/device/screen_cover_art.yaml", "components/espcontrol/cover_art.h", "scripts/check_cover_art_contract.py"), parallel_safe=True),
+         domains=("firmware",), inputs=("common/device/screen_cover_art.yaml", "components/espcontrol/cover_art.h", "scripts/check_cover_art_contract.py"),
+         parallel_safe=True, cache_tools=("c++",)),
     task("web-smoke", ("node", "scripts/check_web_smoke.js"), dependencies=("generated", "device-manifest-output"), profiles=PRODUCT,
          domains=("web", "product"), inputs=("src/webserver/**", "scripts/check_web_smoke.js"), generated_inputs=("docs/public/webserver/**",), parallel_safe=True),
     task("types", ("npm", "exec", "--", "tsc", "--noEmit"), profiles=FAST,
-         domains=("web",), inputs=("src/**/*.ts", "tsconfig.json", "package-lock.json"), parallel_safe=True),
+         domains=("web",), inputs=("src/**/*.ts", "tsconfig.json", "package-lock.json"),
+         parallel_safe=True, cache_tools=("node_modules/.bin/tsc",)),
     task("firmware-parser", ("python3", "scripts/check_firmware_parser.py"), dependencies=("device-slots",), profiles=FAST,
-         domains=("firmware",), inputs=("components/**", "scripts/check_firmware_parser.py"), parallel_safe=True),
+         domains=("firmware",), inputs=("components/**", "scripts/check_firmware_parser.py"),
+         parallel_safe=True, cache_tools=("c++", "g++", "clang++")),
     task("firmware-modals", ("python3", "scripts/check_firmware_modals.py"),
          ("python3", "scripts/check_firmware_modals.py", "--self-test"), profiles=FAST,
          domains=("firmware",), inputs=("components/**", "scripts/check_firmware_modals.py"), parallel_safe=True),
@@ -114,7 +124,7 @@ TASKS = (
          ("python3", "scripts/check_firmware_card_runtime.py", "--self-test"), dependencies=("generated",), profiles=PRODUCT,
          domains=("firmware", "product"), inputs=("components/**", "common/config/card_contract.json", "scripts/check_firmware_card_runtime.py"), parallel_safe=True),
     task("firmware-release", ("python3", "scripts/check_firmware_release.py"), profiles=FAST + RELEASE,
-         domains=("firmware", "workflow"), inputs=("builds/**", "devices/**", ".github/esphome.env", ".github/workflows/release.yml", "scripts/check_firmware_release.py")),
+         domains=("firmware", "workflow"), inputs=("builds/**", "devices/**", ".github/esphome.env", ".github/workflows/release.yml", "scripts/check_firmware_release.py"), cache="never"),
     task("device-matrix", ("python3", "scripts/check_device_matrix.py"), profiles=FAST,
          domains=("firmware", "product"), inputs=("builds/**", "devices/**", "scripts/check_device_matrix.py"), parallel_safe=True),
     task("device-profiles", ("python3", "scripts/check_device_profiles.py"), dependencies=("generated", "device-slots"), profiles=PRODUCT,
@@ -134,12 +144,15 @@ TASKS = (
          inputs=("common/assets/**", "devices/**", "docs/.vitepress/theme/components/IconGallery.vue", "scripts/check_icon_groups.py"), parallel_safe=True),
     task("timezones", ("python3", "scripts/check_timezones.py"),
          ("python3", "scripts/check_timezones.py", "--self-test"), profiles=FAST,
-         domains=("firmware", "web"), inputs=("common/**", "src/webserver/**", "scripts/check_timezones.py"), parallel_safe=True),
+         domains=("firmware", "web"), inputs=("common/**", "src/webserver/**", "scripts/check_timezones.py"),
+         parallel_safe=True, cache_env=("TZ",)),
     task("public-firmware-script", ("python3", "scripts/check_public_firmware.py", "--self-test"), profiles=PRODUCT,
          domains=("firmware", "workflow"), inputs=("scripts/**", "docs/public/**"), parallel_safe=True),
     task("web-browser-smoke", ("node", "scripts/check_web_browser_smoke.js"), dependencies=("generated", "device-manifest-output"), profiles=CI,
-         domains=("web",), inputs=("src/webserver/**", "scripts/check_web_browser_smoke.js", "package-lock.json"), cache="never"),
+         domains=("web",), inputs=("src/webserver/**", "scripts/check_web_browser_smoke.js", "package-lock.json"),
+         generated_inputs=("docs/public/webserver/**",),
+         cache_env=("PLAYWRIGHT_BROWSERS_PATH", "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD")),
     task("docs-build", ("npm", "run", "docs:build"), dependencies=("generated",), profiles=("all", "release"),
          domains=("docs",), inputs=("docs/**",) + MAINTAINER_DOCS + ("package-lock.json",),
-         generated_inputs=("docs/generated/**",)),
+         generated_inputs=("docs/generated/**",), cache="never"),
 )

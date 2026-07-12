@@ -41,6 +41,29 @@ unchanged. Median duration improved from 11.850 seconds to 9.635 seconds, an
 remains explicit-only through `check:parallel`; normal npm aliases and CI retain
 their one-worker default.
 
+Successful deterministic local checks are cached by content. Entries live under
+the repository's shared Git directory, so linked worktrees can reuse them without
+copying or restoring generated files. A cache key includes the task and command,
+dependency keys, every declared authored and generated input, the runner and
+registry, lockfiles, operating system and architecture, tool versions, and each
+environment variable declared by the task. Any change to those values causes a
+fresh check.
+
+Use `--no-cache` on a profile run when fresh local execution is required. Inspect
+or remove the shared entries with:
+
+```bash
+python3 scripts/check_tasks.py cache status
+python3 scripts/check_tasks.py cache clear
+```
+
+Only successful status is stored, and corrupt entries are treated as misses.
+Local-artifact, PR-process, Git-history, release-confidence, changelog,
+firmware-release, external-state, and shared-output checks are never cached.
+Browser smoke is eligible only when Playwright, Node, the resolved browser
+executable, generated layouts, and all web inputs are fingerprinted. `CI=true`
+disables result caching entirely, so CI always validates from scratch.
+
 For an advisory local route based on everything changed from `main`, including
 committed, staged, unstaged, renamed, deleted, and untracked files, run:
 
