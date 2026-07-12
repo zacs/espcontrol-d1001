@@ -77,16 +77,7 @@ sensor:
     entity_category: diagnostic
 
 # Privacy: off releases the camera and stops all inference (hard cut).
-#
-# NOTE: person_detect v0.3.1's PersonDetectSwitch has no setup(), so it never
-# applies its restore_mode / never syncs at boot. The detector's enabled_
-# defaults to true (detection ON), but the switch entity reports its OFF base
-# default to Home Assistant -> the entity reads OFF while detection is actually
-# running, and tapping "off" is a no-op because HA already thinks it's off.
-# device.yaml's on_boot drives this switch once at startup so the entity state
-# and the detector's enabled_ agree and the toggle becomes authoritative.
 switch:
   - platform: person_detect
     person_detect_id: presence
-    id: presence_detection_switch
     name: "Presence Detection"
