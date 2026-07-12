@@ -187,13 +187,22 @@ packages:
   core_infra: !include ../../../common/device/core_infra.yaml
 
 # ---------------------------------------------------------------------------
-# Power management (LDO channel for DSI PHY)
+# Power management (internal LDO channel 3 = the 2.5V MIPI D-PHY rail).
+#
+# On the ESP32-P4 the MIPI-DSI (display) and MIPI-CSI (camera) PHYs share this
+# one internal LDO. It MUST be acquired as a FIXED channel, not adjustable: an
+# adjustable channel is exclusive to a single owner, so with adjustable: true
+# the camera's CSI PHY cannot bring the rail up and esp_video fails with
+# "esp_ldo_acquire_channel: already in use by others or not adjustable". A
+# fixed channel is reference-counted and shareable, and esp_video's csi driver
+# acquires the same channel 3 @ 2500mV as fixed, so both PHYs coexist. The
+# display only needs a stable 2.5V here, so fixed costs nothing.
 # ---------------------------------------------------------------------------
 esp_ldo:
   - channel: 3
     id: dsi_phy_enable
     voltage: 2.5V
-    adjustable: True
+    adjustable: False
 
 # ---------------------------------------------------------------------------
 # Backlight (LEDC PWM output + monochromatic light entity)
