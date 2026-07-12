@@ -694,7 +694,7 @@ def firmware_cover_art_stale_image_errors(path: Path, root: Path) -> list[str]:
     body = script_match.group("body")
     if "lvgl.widget.hide: cover_art_image_widget" not in body:
         errors.append(f"{rel}: hide stale cover art image when the black fallback is shown")
-    if "id(cover_art_loaded_url).empty()" in body:
+    if "id(cover_art_runtime).loaded_url.empty()" in body:
         errors.append(f"{rel}: hide stale cover art image even after previous artwork loaded")
     if "cover_art_error_label" in text or 'text: "Artwork unavailable"' in text:
         errors.append(f"{rel}: do not show an unavailable cover art message")
@@ -709,8 +709,9 @@ def firmware_cover_art_refresh_errors(path: Path, root: Path) -> list[str]:
     errors: list[str] = []
 
     required_state = (
-        ("cover_art_refresh_needed", "track/source metadata changes as stale artwork"),
-        ("cover_art_download_url", "keep source artwork URLs separate from downloader URLs"),
+        ("cover_art_runtime).refresh_needed", "track/source metadata changes as stale artwork"),
+        ("cover_art_runtime).effective_download_url", "keep source artwork URLs separate from downloader URLs"),
+        ("espcontrol::cover_art::RuntimeState", "own cover art lifecycle state in one controller"),
         ("cover_art_album", "track album names for artwork refresh decisions"),
     )
     for token, message in required_state:
@@ -725,17 +726,17 @@ def firmware_cover_art_refresh_errors(path: Path, root: Path) -> list[str]:
             errors.append(f"{rel}: only cache-bust Home Assistant media proxy artwork URLs")
         if "?time=" not in download_body or "&time=" not in download_body:
             errors.append(f"{rel}: add a refresh marker that preserves existing artwork query strings")
-        if "request_update_url(id(cover_art_download_url))" not in download_body:
+        if "request_update_url(id(cover_art_runtime).effective_download_url)" not in download_body:
             errors.append(f"{rel}: download through the refresh-aware artwork URL")
         if (
             "needs_artwork_refresh" not in download_body
-            or "id(cover_art_refresh_needed) || !id(cover_art_image_available)" not in download_body
+            or "id(cover_art_runtime).refresh_needed || !id(cover_art_runtime).image_available" not in download_body
         ):
             errors.append(f"{rel}: refresh Home Assistant media proxy artwork when no image is currently available")
         replacement_match = re.search(
             r"(?ms)id\(cover_art_screensaver_active\).*?"
-            r"id\(cover_art_image_available\).*?"
-            r"id\(cover_art_refresh_needed\).*?"
+            r"id\(cover_art_runtime\)\.image_available.*?"
+            r"id\(cover_art_runtime\)\.refresh_needed.*?"
             r"!\$\{cover_art_live_image_updates\}.*?"
             r"then:\n(?P<body>.*?)(?=^\s+- lambda: |\Z)",
             download_body,
@@ -752,14 +753,14 @@ def firmware_cover_art_refresh_errors(path: Path, root: Path) -> list[str]:
                 errors.append(f"{rel}: do not detach visible artwork before replacement artwork is ready")
             if "artwork_image.release: cover_art_downloaded_image" in replacement_body:
                 errors.append(f"{rel}: do not release visible artwork before replacement artwork is ready")
-            if "id(cover_art_loaded_url).clear()" in replacement_body:
+            if "id(cover_art_runtime).loaded_url.clear()" in replacement_body:
                 errors.append(f"{rel}: keep the previous loaded artwork marker until replacement artwork applies")
 
     for script_id in ("cover_art_deferred_download", "cover_art_prepare_download"):
         body = yaml_script_body(text, script_id)
         if not body:
             errors.append(f"{rel}: missing {script_id} script")
-        elif "id(cover_art_refresh_needed)" not in body:
+        elif "id(cover_art_runtime).refresh_needed" not in body:
             errors.append(f"{rel}: let {script_id} refresh unchanged artwork URLs after metadata changes")
 
     for script_id in ("cover_art_use_cached_artwork", "cover_art_request_artwork"):
@@ -767,27 +768,27 @@ def firmware_cover_art_refresh_errors(path: Path, root: Path) -> list[str]:
         if not body:
             errors.append(f"{rel}: missing {script_id} script")
         elif (
-            "chosen == id(cover_art_url)" not in body
-            or "!id(cover_art_image_available) || id(cover_art_refresh_needed)" not in body
+            "chosen == id(cover_art_runtime).source_url" not in body
+            or "!id(cover_art_runtime).image_available || id(cover_art_runtime).refresh_needed" not in body
         ):
             errors.append(f"{rel}: do not exit early from {script_id} when stale artwork needs refresh")
 
     cached_body = yaml_script_body(text, "cover_art_use_cached_artwork")
-    if cached_body and cached_body.count("id(cover_art_refresh_needed) = true;") < 2:
+    if cached_body and "id(cover_art_runtime).select_source(chosen);" not in cached_body:
         errors.append(f"{rel}: mark changed cached artwork URLs as stale before downloading")
     resubscribe_body = yaml_script_body(text, "cover_art_resubscribe")
-    if resubscribe_body and "if (!url.empty() && url != id(cover_art_url))" not in resubscribe_body:
+    if resubscribe_body and "if (!url.empty() && url != id(cover_art_runtime).source_url)" not in resubscribe_body:
         errors.append(f"{rel}: mark changed Home Assistant artwork attributes as stale")
 
     apply_body = yaml_script_body(text, "cover_art_apply_downloaded_image")
     if not apply_body:
         errors.append(f"{rel}: missing cover_art_apply_downloaded_image script")
     else:
-        if "expected_url" not in apply_body or "id(cover_art_download_url)" not in apply_body:
+        if "expected_url" not in apply_body or "id(cover_art_runtime).effective_download_url" not in apply_body:
             errors.append(f"{rel}: accept the refresh-aware downloader URL when artwork finishes")
-        if "id(cover_art_loaded_url) = id(cover_art_url)" not in apply_body:
+        if "id(cover_art_runtime).apply_download(completed_url)" not in apply_body:
             errors.append(f"{rel}: remember the clean source artwork URL after a download")
-        if "id(cover_art_refresh_needed) = false" not in apply_body:
+        if "id(cover_art_runtime).apply_download(completed_url)" not in apply_body:
             errors.append(f"{rel}: clear stale artwork state only after a replacement image applies")
         if (
             "script.execute: cover_art_clear_image_source" not in apply_body
@@ -799,15 +800,15 @@ def firmware_cover_art_refresh_errors(path: Path, root: Path) -> list[str]:
         errors.append(f"{rel}: mark title, artist, album, and source changes as artwork refresh triggers")
     if 'std::string("media_album_name"), handle_media_album' not in text:
         errors.append(f"{rel}: subscribe to and refresh the media_album_name attribute")
-    if "id(cover_art_refresh_needed) = true" not in text:
+    if "id(cover_art_runtime).refresh_needed = true" not in text:
         errors.append(f"{rel}: set stale artwork state when track/source metadata changes")
     playback_started_body = yaml_script_body(text, "cover_art_playback_started")
     if not playback_started_body:
         errors.append(f"{rel}: missing cover_art_playback_started script")
     elif (
-        "!id(cover_art_image_available)" not in playback_started_body
-        or "id(cover_art_retry_count) = 0" not in playback_started_body
-        or "id(cover_art_retry_url).clear()" not in playback_started_body
+        "!id(cover_art_runtime).image_available" not in playback_started_body
+        or "id(cover_art_runtime).retry_count = 0" not in playback_started_body
+        or "id(cover_art_runtime).retry_url.clear()" not in playback_started_body
     ):
         errors.append(f"{rel}: reset artwork retry state when playback resumes without a visible image")
     return errors
@@ -3377,7 +3378,7 @@ def run_self_test() -> int:
         "    then:\n"
         "      - if:\n"
         "          condition:\n"
-        "            lambda: 'return id(cover_art_loaded_url).empty();'\n"
+        "            lambda: 'return id(cover_art_runtime).loaded_url.empty();'\n"
         "          then:\n"
         "            - lvgl.widget.hide: cover_art_image_widget\n",
         ("hide stale cover art image even after previous artwork loaded",),
@@ -3410,7 +3411,7 @@ def run_self_test() -> int:
         "  - id: cover_art_download\n"
         "    then:\n"
         "      - lambda: |-\n"
-        "          id(cover_art_url);\n",
+        "          id(cover_art_runtime).source_url;\n",
         (
             "track/source metadata changes as stale artwork",
             "subscribe to and refresh the media_album_name attribute",
@@ -3419,8 +3420,10 @@ def run_self_test() -> int:
     expect_cover_art_refresh_errors(
         "stale cover refresh guard present",
         "globals:\n"
-        "  - id: cover_art_refresh_needed\n"
-        "  - id: cover_art_download_url\n"
+        "  - id: cover_art_runtime\n"
+        "    type: espcontrol::cover_art::RuntimeState\n"
+        "# cover_art_runtime).refresh_needed\n"
+        "# cover_art_runtime).effective_download_url\n"
         "  - id: cover_art_album\n"
         "script:\n"
         "  - id: cover_art_download\n"
@@ -3429,8 +3432,8 @@ def run_self_test() -> int:
         "          condition:\n"
         "            lambda: |-\n"
         "              return id(cover_art_screensaver_active) &&\n"
-        "                     id(cover_art_image_available) &&\n"
-        "                     id(cover_art_refresh_needed) &&\n"
+        "                     id(cover_art_runtime).image_available &&\n"
+        "                     id(cover_art_runtime).refresh_needed &&\n"
         "                     !${cover_art_live_image_updates};\n"
         "          then:\n"
         "            - script.execute: cover_art_show_track_overlay\n"
@@ -3438,58 +3441,56 @@ def run_self_test() -> int:
         "          if (url.find(\"/api/media_player_proxy/\") != std::string::npos) {\n"
         "            url += url.find('?') == std::string::npos ? \"?time=\" : \"&time=\";\n"
         "          }\n"
-        "          const bool needs_artwork_refresh = id(cover_art_refresh_needed) || !id(cover_art_image_available);\n"
-        "          id(cover_art_download_url) = id(cover_art_downloaded_image)->request_update_url(id(cover_art_download_url));\n"
+        "          const bool needs_artwork_refresh = id(cover_art_runtime).refresh_needed || !id(cover_art_runtime).image_available;\n"
+        "          id(cover_art_runtime).effective_download_url = id(cover_art_downloaded_image)->request_update_url(id(cover_art_runtime).effective_download_url);\n"
         "  - id: cover_art_deferred_download\n"
         "    then:\n"
         "      - lambda: |-\n"
-        "          id(cover_art_refresh_needed);\n"
+        "          id(cover_art_runtime).refresh_needed;\n"
         "  - id: cover_art_prepare_download\n"
         "    then:\n"
         "      - lambda: |-\n"
-        "          id(cover_art_refresh_needed);\n"
+        "          id(cover_art_runtime).refresh_needed;\n"
         "  - id: cover_art_use_cached_artwork\n"
         "    then:\n"
         "      - lambda: |-\n"
-        "          if (chosen != id(cover_art_url)) {\n"
-        "            id(cover_art_refresh_needed) = true;\n"
+        "          id(cover_art_runtime).select_source(chosen);\n"
+        "          if (chosen == id(cover_art_runtime).source_url) {\n"
+        "            if (!id(cover_art_runtime).image_available || id(cover_art_runtime).refresh_needed) {}\n"
         "          }\n"
-        "          if (chosen == id(cover_art_url)) {\n"
-        "            if (!id(cover_art_image_available) || id(cover_art_refresh_needed)) {}\n"
-        "          }\n"
-        "          id(cover_art_url) = chosen;\n"
-        "          id(cover_art_refresh_needed) = true;\n"
+        "          id(cover_art_runtime).source_url = chosen;\n"
+        "          id(cover_art_runtime).refresh_needed = true;\n"
         "  - id: cover_art_request_artwork\n"
         "    then:\n"
         "      - lambda: |-\n"
-        "          if (chosen == id(cover_art_url)) {\n"
-        "            if (!id(cover_art_image_available) || id(cover_art_refresh_needed)) {}\n"
+        "          if (chosen == id(cover_art_runtime).source_url) {\n"
+        "            if (!id(cover_art_runtime).image_available || id(cover_art_runtime).refresh_needed) {}\n"
         "          }\n"
         "  - id: cover_art_apply_downloaded_image\n"
         "    then:\n"
         "      - script.execute: cover_art_clear_image_source\n"
         "      - script.wait: cover_art_clear_image_source\n"
         "      - lambda: |-\n"
-        "          std::string expected_url = id(cover_art_download_url);\n"
-        "          id(cover_art_loaded_url) = id(cover_art_url);\n"
-        "          id(cover_art_refresh_needed) = false;\n"
+        "          std::string expected_url = id(cover_art_runtime).effective_download_url;\n"
+        "          std::string completed_url;\n"
+        "          id(cover_art_runtime).apply_download(completed_url);\n"
         "  - id: cover_art_playback_started\n"
         "    then:\n"
         "      - lambda: |-\n"
-        "          if (!id(cover_art_image_available)) {\n"
-        "            id(cover_art_retry_url).clear();\n"
-        "            id(cover_art_retry_count) = 0;\n"
+        "          if (!id(cover_art_runtime).image_available) {\n"
+        "            id(cover_art_runtime).retry_url.clear();\n"
+        "            id(cover_art_runtime).retry_count = 0;\n"
         "          }\n"
         "  - id: cover_art_resubscribe\n"
         "    then:\n"
         "      - lambda: |-\n"
-        "          id(cover_art_refresh_needed) = true;\n"
+        "          id(cover_art_runtime).refresh_needed = true;\n"
         "          mark_artwork_refresh_needed();\n"
         "          mark_artwork_refresh_needed();\n"
         "          mark_artwork_refresh_needed();\n"
         "          mark_artwork_refresh_needed();\n"
-        "          if (!url.empty() && url != id(cover_art_url)) {\n"
-        "            id(cover_art_refresh_needed) = true;\n"
+        "          if (!url.empty() && url != id(cover_art_runtime).source_url) {\n"
+        "            id(cover_art_runtime).refresh_needed = true;\n"
         "          }\n"
         "          ha_subscribe_attribute(cover_entity, std::string(\"media_album_name\"), handle_media_album);\n"
         "          ha_get_attribute(cover_entity, std::string(\"media_album_name\"), handle_media_album);\n",
