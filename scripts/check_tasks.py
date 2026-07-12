@@ -125,6 +125,14 @@ def self_test() -> None:
         if firmware_order.index("device-slots") > firmware_order.index(consumer):
             raise AssertionError(f"device slot outputs are not checked before {consumer} consumes them")
 
+    registry = validate_registry()
+    if registry["types"].commands != (("npm", "exec", "--", "tsc", "--noEmit"),):
+        raise AssertionError("TypeScript checks do not use the project-managed compiler")
+    if "icon-groups" not in {item.id for item in plan("fast", "docs")}:
+        raise AssertionError("docs plans do not validate icon gallery groups")
+    if "docs/.vitepress/theme/components/IconGallery.vue" not in registry["icon-groups"].inputs:
+        raise AssertionError("icon gallery changes do not invalidate icon-group checks")
+
     def expect_invalid(tasks: tuple[Task, ...], description: str) -> None:
         try:
             validate_registry(tasks)
