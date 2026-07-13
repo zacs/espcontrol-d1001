@@ -4,8 +4,10 @@
 // =============================================================================
 
 const SAVED_CONFIG_VACUUM_SENSOR_VALUES = new Set<string>(["status", "start_stop", "dock", "pause_resume", "clean_spot", "locate", "clean_area"]);
+const SAVED_CONFIG_VACUUM_SENSOR_ALIASES: Readonly<Record<string, string>> = {"vacuum.start": "start_stop", "vacuum.return_to_base": "dock"};
 
 export function normalizeSavedConfigVacuumSensor(sensor: string): string {
+  sensor = SAVED_CONFIG_VACUUM_SENSOR_ALIASES[sensor] || sensor;
   return SAVED_CONFIG_VACUUM_SENSOR_VALUES.has(sensor) ? sensor : "start_stop";
 }
 

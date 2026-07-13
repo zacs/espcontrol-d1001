@@ -8,6 +8,8 @@
 #include <string>
 
 inline std::string normalize_saved_config_vacuum_sensor(const std::string &sensor) {
+  if (sensor == "vacuum.start") return "start_stop";
+  if (sensor == "vacuum.return_to_base") return "dock";
   return sensor == "status" || sensor == "start_stop" || sensor == "dock" || sensor == "pause_resume" || sensor == "clean_spot" || sensor == "locate" || sensor == "clean_area" ? sensor : "start_stop";
 }
 
