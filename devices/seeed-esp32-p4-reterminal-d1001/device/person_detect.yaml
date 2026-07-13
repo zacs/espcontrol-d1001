@@ -24,7 +24,7 @@
 # =============================================================================
 
 external_components:
-  - source: github://zacs/esphome-person_detector@v0.3.1
+  - source: github://zacs/esphome-person_detector@v0.4.0
     components: [person_detect, esp_video_camera]
 
 # ---------------------------------------------------------------------------
@@ -75,6 +75,17 @@ sensor:
     type: confidence
     name: "Presence Confidence"
     entity_category: diagnostic
+  # Ambient light from the camera's whole-frame average. Relative 0-100%, not
+  # calibrated lux (a bright lamp in view skews it, clips toward 100% in very
+  # bright scenes); reads unknown while the privacy switch idles the camera.
+  - platform: person_detect
+    person_detect_id: presence
+    type: illuminance
+    name: "Ambient Light"
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    state_class: measurement
+    icon: mdi:brightness-percent
 
 # Privacy: off releases the camera and stops all inference (hard cut).
 switch:
