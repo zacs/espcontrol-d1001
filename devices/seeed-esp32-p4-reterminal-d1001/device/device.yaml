@@ -345,7 +345,11 @@ touchscreen:
       swap_xy: false
       mirror_x: true
       mirror_y: true
+    # Restart the cover-art "Show After" delay on every touch (upstream
+    # requirement) before waking, so cover art doesn't immediately reappear.
     on_touch:
+      - script.execute: cover_art_pause_after_touch
+      - script.wait: cover_art_pause_after_touch
       - script.execute: screensaver_wake
 
 # ---------------------------------------------------------------------------
