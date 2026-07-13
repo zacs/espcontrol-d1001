@@ -141,6 +141,8 @@ TASKS = (
          domains=("product", "web"), inputs=("src/webserver/model/**", "src/webserver/contracts/**", "src/webserver/generated/card_contract.ts", "compatibility/fixtures/product_compatibility.json", "scripts/check_model_contract.js", "scripts/load_typescript_module.js"), parallel_safe=True),
     task("state-contract", ("node", "scripts/check_state_contract.js"), dependencies=("generated",), profiles=PRODUCT,
          domains=("product", "web"), inputs=("src/webserver/state/**", "tests/web/state_contract.test.ts", "scripts/check_state_contract.js", "scripts/load_typescript_module.js"), parallel_safe=True),
+    task("device-api", ("node", "scripts/check_device_api.js"), dependencies=("generated",), profiles=PRODUCT,
+         domains=("product", "web"), inputs=("src/webserver/api/**", "tests/web/device_api.test.ts", "scripts/check_device_api.js", "scripts/load_typescript_module.js"), parallel_safe=True),
     task("memory-monitor", ("python3", "scripts/monitor_display_memory.py", "--self-test"), profiles=FAST,
          domains=("firmware",), inputs=("scripts/monitor_display_memory.py",), parallel_safe=True),
     task("cover-art-contract", ("python3", "scripts/check_cover_art_contract.py"), profiles=FAST,

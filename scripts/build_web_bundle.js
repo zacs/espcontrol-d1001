@@ -20,6 +20,8 @@ function replaceDeviceConfig(source) {
   const replacement = "  var DEVICE_ID = deviceId;\n  var CFG = deviceConfig;\n  var defaultTimezoneOptions = function () { return defaultTimezoneOptionsForDevice(deviceConfig); };\n";
   const directImports = `import { deviceId, deviceConfig } from "./src/webserver/device_config.ts";
 import * as EspControlModel from "./src/webserver/model/index.ts";
+import { createDeviceApi } from "./src/webserver/api/device_api.ts";
+import { requestFailureInfo } from "./src/webserver/api/request_failure.ts";
 import {
   normalizeClockBrightness,
   normalizeHexColor,
