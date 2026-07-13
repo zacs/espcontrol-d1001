@@ -1,0 +1,94 @@
+# =============================================================================
+# PERSON DETECT - on-device human presence via the MIPI-CSI camera
+# =============================================================================
+# Uses zacs/esphome-person_detector (ESP-DL pedestrian_detect, INT8, 224x224) on
+# the reTerminal D1001's SC2356 MIPI-CSI camera. Everything runs on-device; no
+# frame leaves the panel. Exposes an occupancy binary_sensor to Home Assistant.
+#
+# SCCB bus: the camera's sensor I2C is physically on GPIO37/38 - the SAME wires
+# as the touch controller (bus_touch). The ESP32-P4 has only two I2C controllers
+# and this firmware already uses both (bus_touch + bus_expander), so we share the
+# existing touch bus via `i2c_id: bus_touch` instead of installing a second SCCB
+# master (the sensor keeps its own per-device clock). See the component README
+# "SCCB bus" note.
+#
+# Expander lines: camera enable/powerdown/reset are on the XL9535, at the pins
+# Seeed's BSP defines as BSP_CAM_EN (bit 1 -> pin 1), BSP_CAM_PWDN (bit 3 ->
+# pin 3) and BSP_CAM_RST (bit 9 -> xl9535 pin 11, port-1 bits 8..15 map to pins
+# 10..17). These are distinct from the touch reset (bit 12 -> pin 14) wired in
+# device.yaml, so touch and camera bring-up on the shared bus don't collide.
+#
+# If no camera module is attached, esp_video_camera mark_failed()s at boot (a log
+# error, no boot loop) and these entities read unavailable - the rest of the
+# panel is unaffected.
+# =============================================================================
+
+external_components:
+  - source: github://zacs/esphome-person_detector@v0.4.0
+    components: [person_detect, esp_video_camera]
+
+# ---------------------------------------------------------------------------
+# MIPI-CSI capture backend (CSI + ISP + PPA -> upright RGB888).
+# Power/reset lines are on the XL9535 expander (BSP_CAM_EN/PWDN/RST).
+# ---------------------------------------------------------------------------
+esp_video_camera:
+  id: d1001_cam
+  i2c_id: bus_touch # share the touch bus (SCCB is on GPIO37/38)
+  resolution: 1280x720
+  rotation: auto # IMU-picked at boot (keeps a standing person upright); pin 0/90/180/270 for a fixed mount
+  imu:
+    i2c_id: bus_expander
+    address: 0x6A # on-board LSM6DS3TR
+  enable_pin: # CAM_EN (BSP bit 1)
+    xl9535: xl9535_hub
+    number: 1
+  powerdown_pin: # CAM_PWDN (BSP bit 3)
+    xl9535: xl9535_hub
+    number: 3
+  reset_pin: # CAM_RST (BSP bit 9 -> pin 11; driver pulses low->high, not inverted)
+    xl9535: xl9535_hub
+    number: 11
+
+# ---------------------------------------------------------------------------
+# Detector. Runs on its own low-priority pinned task so it stays out of the way
+# of the LVGL UI; publishes from the main loop.
+# ---------------------------------------------------------------------------
+person_detect:
+  id: presence
+  frame_source_id: d1001_cam
+  interval: 1500ms
+  confidence_threshold: 60%
+  clear_after: 3
+  model: pedestrian
+
+binary_sensor:
+  - platform: person_detect
+    person_detect_id: presence
+    name: "Occupancy"
+    device_class: occupancy
+    filters:
+      - delayed_off: 15s # occupancy-style hold on top of clear_after
+
+sensor:
+  - platform: person_detect
+    person_detect_id: presence
+    type: confidence
+    name: "Presence Confidence"
+    entity_category: diagnostic
+  # Ambient light from the camera's whole-frame average. Relative 0-100%, not
+  # calibrated lux (a bright lamp in view skews it, clips toward 100% in very
+  # bright scenes); reads unknown while the privacy switch idles the camera.
+  - platform: person_detect
+    person_detect_id: presence
+    type: illuminance
+    name: "Ambient Light"
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    state_class: measurement
+    icon: mdi:brightness-percent
+
+# Privacy: off releases the camera and stops all inference (hard cut).
+switch:
+  - platform: person_detect
+    person_detect_id: presence
+    name: "Presence Detection"

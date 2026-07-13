@@ -10,7 +10,7 @@
 # =============================================================================
 
 substitutions:
-  espcontrol_component_url: "https://github.com/jtenniswood/espcontrol"
+  espcontrol_component_url: "https://github.com/zacs/espcontrol-d1001"
   espcontrol_component_ref: "main"
   mdi_font_file: "https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/fonts/materialdesignicons-webfont.ttf"
 
@@ -187,13 +187,22 @@ packages:
   core_infra: !include ../../../common/device/core_infra.yaml
 
 # ---------------------------------------------------------------------------
-# Power management (LDO channel for DSI PHY)
+# Power management (internal LDO channel 3 = the 2.5V MIPI D-PHY rail).
+#
+# On the ESP32-P4 the MIPI-DSI (display) and MIPI-CSI (camera) PHYs share this
+# one internal LDO. It MUST be acquired as a FIXED channel, not adjustable: an
+# adjustable channel is exclusive to a single owner, so with adjustable: true
+# the camera's CSI PHY cannot bring the rail up and esp_video fails with
+# "esp_ldo_acquire_channel: already in use by others or not adjustable". A
+# fixed channel is reference-counted and shareable, and esp_video's csi driver
+# acquires the same channel 3 @ 2500mV as fixed, so both PHYs coexist. The
+# display only needs a stable 2.5V here, so fixed costs nothing.
 # ---------------------------------------------------------------------------
 esp_ldo:
   - channel: 3
     id: dsi_phy_enable
     voltage: 2.5V
-    adjustable: True
+    adjustable: False
 
 # ---------------------------------------------------------------------------
 # Backlight (LEDC PWM output + monochromatic light entity)
@@ -253,9 +262,11 @@ light:
                     - script.execute: screen_schedule_manual_sleep
 
 # ---------------------------------------------------------------------------
-# I2C buses
-#   bus_touch    - GSL3670 touch controller (I2C0 on the BSP)
-#   bus_expander - XL9535/PCA9535 GPIO expander (I2C1 on the BSP)
+# I2C buses (per the reTerminal D1001 I2C tree in the schematic)
+#   bus_touch    - I2C0 (GPIO37/38): GSL3670 touch (0x40) + camera SCCB (0x26)
+#   bus_expander - I2C1 (GPIO20/21): XL9535 GPIO expander (0x20), ES8311 codec
+#                  (0x18), ES7210 ADC (0x40), RTC (0x51), 6DoF (0x6A), charger
+#                  (0x6B)
 # ---------------------------------------------------------------------------
 i2c:
   - id: bus_touch
@@ -308,14 +319,28 @@ binary_sensor:
         pulldown: true
 
 # ---------------------------------------------------------------------------
-# Touchscreen (GSL3670 capacitive, wakes screensaver on touch). Touch reset is
-# on expander pin 12 but the BSP leaves it unused, so no reset_pin is wired.
+# Touchscreen (GSL3670 capacitive, wakes screensaver on touch).
+#
+# The GSL3670 shares I2C0 (bus_touch, GPIO37/38) with the camera SCCB, per the
+# reTerminal D1001 I2C tree (touch 0x40, camera 0x26). Its reset line, TP_RST,
+# is on the XL9535 expander. Seeed's BSP defines BSP_LCD_TOUCH_RST = 1<<12
+# (expander bit 12); ESPHome numbers the second port 10-17, so expander bit 12
+# is xl9535 pin 14 (bit 9 CAM_RST -> pin 11, bit 8 PWR_HOLD -> pin 10 confirm
+# the +2 offset). The BSP leaves this line's reset call commented out, so it
+# normally floats; on this panel it settles low, holding the GSL3670 in reset
+# so it never ACKs and setup fails with "I2C Error: 2" (absent from the bus
+# scan). Drive it high here to bring the controller out of reset. This also
+# keeps touch deterministic once the camera (person detection) is brought up on
+# the shared bus and drives the neighbouring expander pins.
 # ---------------------------------------------------------------------------
 touchscreen:
   - platform: gsl3670
     id: my_touchscreen
     i2c_id: bus_touch
     interrupt_pin: GPIO16
+    reset_pin:
+      xl9535: xl9535_hub
+      number: 14
     transform:
       swap_xy: false
       mirror_x: true

@@ -915,7 +915,8 @@
           "extraPackages": {
             "power": "!include device/power.yaml",
             "audio": "!include device/audio.yaml",
-            "microphone": "!include device/microphone.yaml"
+            "microphone": "!include device/microphone.yaml",
+            "person_detect": "!include device/person_detect.yaml"
           }
         }
       },

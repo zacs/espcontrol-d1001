@@ -21,6 +21,18 @@ on:
       - "docs/public/webserver/seeed-esp32-p4-reterminal-d1001/**"
       - ".github/esphome.env"
       - ".github/workflows/build-d1001.yml"
+  # Also build pull requests into main so firmware changes are compiled before
+  # they land (feature branches otherwise never trigger the main-only push).
+  pull_request:
+    branches: [main]
+    paths:
+      - "devices/**"
+      - "components/**"
+      - "common/**"
+      - "builds/seeed-esp32-p4-reterminal-d1001*.yaml"
+      - "docs/public/webserver/seeed-esp32-p4-reterminal-d1001/**"
+      - ".github/esphome.env"
+      - ".github/workflows/build-d1001.yml"
   workflow_dispatch:
 
 # Newer pushes cancel an in-flight build for the same ref.
