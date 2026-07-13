@@ -57,6 +57,11 @@ function shadowCases() {
       expected: config({ label: "Küche 🤖", icon: "Robot Vacuum Variant", sensor: "dock" }),
     },
     {
+      name: "compact vacuum decodes valid escapes beside malformed text",
+      input: "~vacuum.robot,a%3Ab%ZZ,Auto,Auto,status,,vacuum,,",
+      expected: config({ label: "a:b%ZZ", sensor: "status" }),
+    },
+    {
       name: "vacuum preserves a 255 byte label",
       input: `vacuum.robot;${"x".repeat(255)};Auto;Auto;status;ignored;vacuum;2;unknown=1`,
       expected: config({ label: "x".repeat(255), sensor: "status" }),
@@ -68,6 +73,14 @@ function shadowCases() {
     },
   ]);
   const sensor = JSON.parse(fs.readFileSync(path.join(ROOT, "common/config/sensor_card_normalization_fixtures.json"), "utf8"));
+  sensor.push({
+    name: "short sensor config receives default icons",
+    input: "sensor.x;;;;sensor.x;;sensor;1;large_numbers",
+    expected: {
+      entity: "sensor.x", label: "", icon: "Auto", icon_on: "Auto", sensor: "sensor.x",
+      unit: "", type: "sensor", precision: "1", options: "large_numbers",
+    },
+  });
   const sensorAliases = JSON.parse(fs.readFileSync(path.join(ROOT, "common/config/baseline_card_normalization_fixtures.json"), "utf8"))
     .filter((fixture) => fixture.expected.type === "sensor");
   const confirmation = JSON.parse(fs.readFileSync(path.join(ROOT, "common/config/confirmation_card_normalization_fixtures.json"), "utf8"))

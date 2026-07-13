@@ -100,6 +100,8 @@ inline bool normalize_saved_config_sensor_shadow(Config &config) {
   if (config.type == "text_sensor") { config.type = "sensor"; config.precision = "text"; config.entity.clear(); config.label.clear(); config.unit.clear(); config.icon_on = "Auto"; if (config.icon.empty()) config.icon = "Auto"; }
   if (config.type == "local_sensor") { config.type = "sensor"; config.sensor = "local"; config.icon_on = "Auto"; config.options.clear(); }
   if (config.type != "sensor") return false;
+  if (config.icon.empty()) config.icon = "Auto";
+  if (config.icon_on.empty()) config.icon_on = "Auto";
   if (config.sensor == "local") { config.icon_on = "Auto"; config.options.clear(); if (config.precision != "text" && config.precision != "1" && config.precision != "2") config.precision.clear(); if (config.precision != "text" && (config.icon.empty() || config.icon == "Auto")) config.icon = "Auto"; return true; }
   const std::string source = config.options; std::string out;
   if (config.precision != "icon" && config.precision != "text") append_large_numbers_option(out, source);
