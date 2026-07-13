@@ -148,6 +148,14 @@ int main() {
   assert(light_switch.sensor.empty() && light_switch.unit.empty());
   assert(light_switch.precision.empty() && light_switch.options.empty());
   assert(light_switch.entity == "light.kitchen" && light_switch.icon == "Custom");
+  Config slider{"slider", "stale", "%", "2", "unknown=1", "Auto", "number.level", "Level", "Tune"};
+  assert(normalize_saved_config_static(slider));
+  assert(slider.sensor.empty() && slider.options.empty());
+  assert(slider.unit == "%" && slider.precision == "2");
+  Config light_temperature{"light_temperature", "sensor.temp", "K", "2", "unknown=1", "Auto", "light.kitchen", "Kitchen", "Thermometer"};
+  assert(normalize_saved_config_static(light_temperature));
+  assert(light_temperature.sensor == "sensor.temp" && light_temperature.unit == "K");
+  assert(light_temperature.precision == "2" && light_temperature.options.empty());
   assert(!normalize_saved_config_static(unrelated));
 }
 `);
@@ -280,6 +288,12 @@ function main() {
   const internal = { type: "internal", entity: "relay_1", sensor: "push", options: "unknown=1" };
   assert.strictEqual(generatedStatic.normalizeSavedConfigStatic(internal), true);
   assert.deepStrictEqual(internal, { type: "internal", entity: "relay_1", sensor: "push", options: "" });
+  const slider = { type: "slider", sensor: "stale", unit: "%", precision: "2", options: "unknown=1" };
+  assert.strictEqual(generatedStatic.normalizeSavedConfigStatic(slider), true);
+  assert.deepStrictEqual(slider, { type: "slider", sensor: "", unit: "%", precision: "2", options: "" });
+  const lightTemperature = { type: "light_temperature", sensor: "sensor.temp", unit: "K", precision: "2", options: "unknown=1" };
+  assert.strictEqual(generatedStatic.normalizeSavedConfigStatic(lightTemperature), true);
+  assert.deepStrictEqual(lightTemperature, { type: "light_temperature", sensor: "sensor.temp", unit: "K", precision: "2", options: "" });
   assert.strictEqual(generatedStatic.normalizeSavedConfigStatic({ type: "sensor", options: "keep" }), false);
 
   const browser = fs.readFileSync(path.join(ROOT, "src/webserver/application/config_codec.ts"), "utf8");
@@ -310,6 +324,7 @@ function main() {
   assert.match(browser, /normalizeSavedConfigStatic\(b\)/);
   assert.doesNotMatch(browser, /if \(b && b\.type === "screen_lock"\)/);
   assert.doesNotMatch(browser, /if \(b && b\.type === "light_switch"\)/);
+  assert.doesNotMatch(browser, /if \(b && isBrightnessSliderType\(b\.type\) && b\.sensor\)/);
 
   const vacuumCard = fs.readFileSync(path.join(ROOT, "src/webserver/cards/vacuum.ts"), "utf8");
   assert.match(vacuumCard, /normalizeSavedConfigVacuumSensor\(String\(b\.sensor \|\| ""\)\)/);
@@ -349,6 +364,7 @@ function main() {
   assert.match(firmware, /normalize_saved_config_static\(p\)/);
   assert.doesNotMatch(firmware, /if \(p\.type == "screen_lock"\)/);
   assert.doesNotMatch(firmware, /if \(p\.type == "light_switch"\)/);
+  assert.doesNotMatch(firmware, /brightness_slider_type\(p\.type\) && !p\.sensor\.empty\(\)/);
 
   checkCompiledHelper();
   console.log("Saved-config production check passed: Action, Media, Sensor, Vacuum, and static card normalization use generated browser and compiled firmware helpers.");

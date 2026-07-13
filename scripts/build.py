@@ -1008,7 +1008,15 @@ def gen_saved_config_media_h(data):
     )
 
 
-SAVED_CONFIG_STATIC_CARD_TYPES = ("internal", "light_switch", "push", "screen_lock")
+SAVED_CONFIG_STATIC_CARD_TYPES = (
+    "internal",
+    "light_brightness",
+    "light_switch",
+    "light_temperature",
+    "push",
+    "screen_lock",
+    "slider",
+)
 
 
 def saved_config_static_normalizations(data):

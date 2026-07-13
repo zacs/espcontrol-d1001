@@ -71,9 +71,10 @@ Media routine orchestration is generated for browser and firmware. The
 generated routine invokes the reviewed `normalize_media_fields` hook before
 `normalize_media_options`.
 
-Trigger, Internal, Screen Lock, and basic Light Switch cards use the shared
-static-card generator. Their rules are entirely declarative, so these families
-need no custom normalization hooks in either browser or firmware.
+Trigger, Internal, Screen Lock, basic Light Switch, Slider, Light Brightness,
+and Light Temperature cards use the shared static-card generator. Their rules
+are entirely declarative, so these families need no custom normalization hooks
+in either browser or firmware.
 
 An `allowed` field policy may declare `aliases` whose targets are in its
 allowed-value list. This preserves renamed legacy values before applying the
@@ -337,6 +338,6 @@ Shadow helpers are deliberately not included by production firmware yet, so this
 Production rollout proceeds in focused card-family groups. Vacuum, Sensor,
 Action, and Media now use generated production routing, with reviewed hooks
 retained for their genuinely card-specific decisions. Trigger, Internal,
-Screen Lock, and basic Light Switch are the first fully declarative group; the
-remaining card families stay on their established production paths until their
-focused migration steps.
+Screen Lock, basic Light Switch, Slider, Light Brightness, and Light Temperature
+form the fully declarative static group; the remaining card families stay on
+their established production paths until their focused migration steps.

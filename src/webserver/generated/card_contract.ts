@@ -1365,6 +1365,40 @@ export const CARD_CONTRACT_CARDS: Readonly<Record<string, CardTypeSpec>> = {
     "domains": [
       "light"
     ],
+    "normalization": {
+      "fields": {
+        "entity": {
+          "policy": "keep"
+        },
+        "label": {
+          "policy": "keep"
+        },
+        "icon": {
+          "policy": "keep"
+        },
+        "icon_on": {
+          "policy": "keep"
+        },
+        "sensor": {
+          "policy": "clear"
+        },
+        "unit": {
+          "policy": "keep"
+        },
+        "type": {
+          "policy": "default",
+          "value": "light_brightness"
+        },
+        "precision": {
+          "policy": "keep"
+        },
+        "options": {
+          "policy": "clear"
+        }
+      },
+      "unknownOptions": "drop",
+      "canonicalOptionOrder": []
+    },
     "default": {
       "entity": "",
       "label": "",
@@ -1448,6 +1482,40 @@ export const CARD_CONTRACT_CARDS: Readonly<Record<string, CardTypeSpec>> = {
           "kelvin"
         ]
       }
+    },
+    "normalization": {
+      "fields": {
+        "entity": {
+          "policy": "keep"
+        },
+        "label": {
+          "policy": "keep"
+        },
+        "icon": {
+          "policy": "keep"
+        },
+        "icon_on": {
+          "policy": "keep"
+        },
+        "sensor": {
+          "policy": "keep"
+        },
+        "unit": {
+          "policy": "keep"
+        },
+        "type": {
+          "policy": "default",
+          "value": "light_temperature"
+        },
+        "precision": {
+          "policy": "keep"
+        },
+        "options": {
+          "policy": "clear"
+        }
+      },
+      "unknownOptions": "drop",
+      "canonicalOptionOrder": []
     },
     "default": {
       "entity": "",
@@ -2202,6 +2270,40 @@ export const CARD_CONTRACT_CARDS: Readonly<Record<string, CardTypeSpec>> = {
       "light",
       "fan"
     ],
+    "normalization": {
+      "fields": {
+        "entity": {
+          "policy": "keep"
+        },
+        "label": {
+          "policy": "keep"
+        },
+        "icon": {
+          "policy": "keep"
+        },
+        "icon_on": {
+          "policy": "keep"
+        },
+        "sensor": {
+          "policy": "clear"
+        },
+        "unit": {
+          "policy": "keep"
+        },
+        "type": {
+          "policy": "default",
+          "value": "slider"
+        },
+        "precision": {
+          "policy": "keep"
+        },
+        "options": {
+          "policy": "clear"
+        }
+      },
+      "unknownOptions": "drop",
+      "canonicalOptionOrder": []
+    },
     "default": {
       "entity": "",
       "label": "",

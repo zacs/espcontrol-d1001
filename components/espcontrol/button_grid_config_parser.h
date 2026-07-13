@@ -1002,9 +1002,6 @@ inline ParsedCfg normalize_parsed_cfg(ParsedCfg p) {
   migrate_saved_config_action_legacy(p);
   const bool was_legacy_text_sensor = p.type == "text_sensor";
   migrate_saved_config_sensor_legacy(p);
-  // Slider cards used to store "h" here for horizontal layout. Sliders are
-  // now always vertical, so treat any saved slider sensor value as legacy.
-  if (brightness_slider_type(p.type) && !p.sensor.empty()) p.sensor.clear();
   if (fan_card_type(p.type)) {
     p.sensor.clear();
     p.unit.clear();

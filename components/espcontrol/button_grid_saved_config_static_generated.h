@@ -12,11 +12,22 @@ inline bool normalize_saved_config_static(Config &config) {
     config.options.clear();
     return true;
   }
+  if (config.type == "light_brightness") {
+    config.sensor.clear();
+    config.type = "light_brightness";
+    config.options.clear();
+    return true;
+  }
   if (config.type == "light_switch") {
     config.sensor.clear();
     config.unit.clear();
     config.type = "light_switch";
     config.precision.clear();
+    config.options.clear();
+    return true;
+  }
+  if (config.type == "light_temperature") {
+    config.type = "light_temperature";
     config.options.clear();
     return true;
   }
@@ -34,6 +45,12 @@ inline bool normalize_saved_config_static(Config &config) {
     config.unit.clear();
     config.type = "screen_lock";
     config.precision.clear();
+    config.options.clear();
+    return true;
+  }
+  if (config.type == "slider") {
+    config.sensor.clear();
+    config.type = "slider";
     config.options.clear();
     return true;
   }

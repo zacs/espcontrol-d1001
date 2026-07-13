@@ -82,9 +82,6 @@ export function installConfigCodecModule(): GlobalDescriptors {
             if (!b.icon || b.icon === "Auto")
                 b.icon = vacuumModeDefaultIcon(b.sensor);
         }
-        if (b && isBrightnessSliderType(b.type) && b.sensor) {
-            b.sensor = "";
-        }
         if (b && isFanCardType(b.type)) {
             b.sensor = "";
             b.unit = "";

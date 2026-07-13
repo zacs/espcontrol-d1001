@@ -10,11 +10,22 @@ export function normalizeSavedConfigStatic(config: CardConfig): boolean {
     config.options = "";
     return true;
   }
+  if (config.type === "light_brightness") {
+    config.sensor = "";
+    config.type = "light_brightness";
+    config.options = "";
+    return true;
+  }
   if (config.type === "light_switch") {
     config.sensor = "";
     config.unit = "";
     config.type = "light_switch";
     config.precision = "";
+    config.options = "";
+    return true;
+  }
+  if (config.type === "light_temperature") {
+    config.type = "light_temperature";
     config.options = "";
     return true;
   }
@@ -32,6 +43,12 @@ export function normalizeSavedConfigStatic(config: CardConfig): boolean {
     config.unit = "";
     config.type = "screen_lock";
     config.precision = "";
+    config.options = "";
+    return true;
+  }
+  if (config.type === "slider") {
+    config.sensor = "";
+    config.type = "slider";
     config.options = "";
     return true;
   }
