@@ -29,6 +29,7 @@ function checkCompiledHelper() {
 #include "button_grid_saved_config_date_time_generated.h"
 #include "button_grid_saved_config_fan_generated.h"
 #include "button_grid_saved_config_media_generated.h"
+#include "button_grid_saved_config_mower_generated.h"
 #include "button_grid_saved_config_sensor_generated.h"
 #include "button_grid_saved_config_static_generated.h"
 #include "button_grid_saved_config_vacuum_generated.h"
@@ -221,6 +222,19 @@ int main() {
   assert(!normalize_saved_config_date_time(
     unrelated, [](Config &) {}, [](const std::string &options, const Config &) { return options; }
   ));
+  Config mower{"lawn_mower", "bad_mode", "unit", "2", "unknown=1", "Custom", "lawn_mower.backyard", "Backyard", "Auto"};
+  bool mower_fields_called = false;
+  assert(normalize_saved_config_mower(mower, [&](Config &config) {
+    mower_fields_called = true;
+    config.sensor = "start_mowing";
+    config.icon = "Robot Mower";
+  }));
+  assert(mower_fields_called);
+  assert(mower.entity == "lawn_mower.backyard" && mower.label == "Backyard");
+  assert(mower.sensor == "start_mowing" && mower.icon == "Robot Mower");
+  assert(mower.icon_on == "Auto" && mower.unit.empty());
+  assert(mower.precision.empty() && mower.options.empty());
+  assert(!normalize_saved_config_mower(unrelated, [](Config &) {}));
 }
 `);
     childProcess.execFileSync(compiler(), [
@@ -400,6 +414,18 @@ function main() {
   assert.deepStrictEqual(clock, { type: "clock", entity: "", label: "", icon: "Auto", icon_on: "Auto", sensor: "", unit: "", precision: "", options: "large_numbers" });
   assert.strictEqual(generatedDateTime.normalizeSavedConfigDateTime({ type: "sensor", options: "keep" }, () => {}, (options) => options), false);
 
+  const generatedMower = loadTypeScriptModule(path.join(ROOT, "src/webserver/generated/saved_config_mower.ts"));
+  const mower = { type: "lawn_mower", entity: "lawn_mower.backyard", label: "Backyard", icon: "Auto", icon_on: "Custom", sensor: "bad_mode", unit: "unit", precision: "2", options: "unknown=1" };
+  let mowerFieldsCalled = false;
+  assert.strictEqual(generatedMower.normalizeSavedConfigMower(mower, (config) => {
+    mowerFieldsCalled = true;
+    config.sensor = "start_mowing";
+    config.icon = "Robot Mower";
+  }), true);
+  assert.strictEqual(mowerFieldsCalled, true);
+  assert.deepStrictEqual(mower, { type: "lawn_mower", entity: "lawn_mower.backyard", label: "Backyard", icon: "Robot Mower", icon_on: "Auto", sensor: "start_mowing", unit: "", precision: "", options: "" });
+  assert.strictEqual(generatedMower.normalizeSavedConfigMower({ type: "sensor", options: "keep" }, () => {}), false);
+
   const browser = fs.readFileSync(path.join(ROOT, "src/webserver/application/config_codec.ts"), "utf8");
   assert.match(browser, /from "\.\.\/generated\/saved_config_vacuum";/);
   assert.match(browser, /migrateSavedConfigVacuumLegacy\(b\)/);
@@ -438,6 +464,9 @@ function main() {
   assert.doesNotMatch(browser, /if \(b && b\.type === "calendar"\)/);
   assert.doesNotMatch(browser, /if \(b && b\.type === "clock"\)/);
   assert.doesNotMatch(browser, /if \(b && b\.type === "timezone"\)/);
+  assert.match(browser, /from "\.\.\/generated\/saved_config_mower";/);
+  assert.match(browser, /normalizeSavedConfigMower\(b, normalizeSavedConfigMowerFields\)/);
+  assert.match(browser, /b\.type === "action" \|\| b\.type === "lawn_mower"/);
 
   const vacuumCard = fs.readFileSync(path.join(ROOT, "src/webserver/cards/vacuum.ts"), "utf8");
   assert.match(vacuumCard, /normalizeSavedConfigVacuumSensor\(String\(b\.sensor \|\| ""\)\)/);
@@ -449,9 +478,9 @@ function main() {
   const firmware = fs.readFileSync(path.join(ROOT, "components/espcontrol/button_grid_config_parser.h"), "utf8");
   assert.match(firmware, /#include "button_grid_saved_config_vacuum_generated\.h"/);
   const vacuumStart = firmware.indexOf('if (p.type == "vacuum")');
-  const mowerStart = firmware.indexOf('if (p.type == "lawn_mower")', vacuumStart);
-  assert(vacuumStart >= 0 && mowerStart > vacuumStart, "Vacuum production normalization block not found");
-  const vacuumBlock = firmware.slice(vacuumStart, mowerStart);
+  const vacuumEnd = firmware.indexOf('if (p.type.empty())', vacuumStart);
+  assert(vacuumStart >= 0 && vacuumEnd > vacuumStart, "Vacuum production normalization block not found");
+  const vacuumBlock = firmware.slice(vacuumStart, vacuumEnd);
   assert.match(firmware, /migrate_saved_config_vacuum_legacy\(p\)/);
   assert.doesNotMatch(firmware, /p\.type == "action" && p\.sensor == "vacuum\.(?:start|return_to_base)"/);
   assert.match(vacuumBlock, /p\.sensor = normalize_saved_config_vacuum_sensor\(p\.sensor\);/);
@@ -486,9 +515,12 @@ function main() {
   assert.doesNotMatch(firmware, /if \(p\.type == "calendar"\) \{/);
   assert.doesNotMatch(firmware, /if \(p\.type == "clock"\) \{/);
   assert.doesNotMatch(firmware, /if \(p\.type == "timezone"\) \{/);
+  assert.match(firmware, /#include "button_grid_saved_config_mower_generated\.h"/);
+  assert.match(firmware, /normalize_saved_config_mower\(p, normalize_saved_config_mower_fields\)/);
+  assert.doesNotMatch(firmware, /if \(p\.type == "lawn_mower"\) \{/);
 
   checkCompiledHelper();
-  console.log("Saved-config production check passed: Action, Date/Time, Fan, Media, Sensor, Vacuum, and static card normalization use generated browser and compiled firmware helpers.");
+  console.log("Saved-config production check passed: Action, Date/Time, Fan, Lawn Mower, Media, Sensor, Vacuum, and static card normalization use generated browser and compiled firmware helpers.");
 }
 
 main();
