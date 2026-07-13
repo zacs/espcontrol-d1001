@@ -195,6 +195,8 @@ inline int saved_config_shadow_media_volume(const std::string &value) {
 template<typename Config>
 inline bool normalize_saved_config_media_shadow(Config &config) {
   if (config.type != "media") return false;
+  if (config.icon.empty()) config.icon = "Auto";
+  if (config.icon_on.empty()) config.icon_on = "Auto";
   const std::string raw_mode = config.sensor;
   config.sensor = saved_config_shadow_media_mode(raw_mode);
   if (raw_mode == "controls" && (config.icon.empty() || config.icon == "Speaker")) config.icon = "Auto";

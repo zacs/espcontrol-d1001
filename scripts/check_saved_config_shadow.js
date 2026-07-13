@@ -122,6 +122,11 @@ function shadowCases() {
       input: "media_player.office;Media Control;Auto;Auto;control_modal;;media;;label_display=%20label%20,number_display=%20volume%20",
       expected: config({ entity: "media_player.office", label: "Media Control", icon: "Auto", sensor: "control_modal", type: "media", options: "label_display=label,number_display=volume" }),
     },
+    {
+      name: "short media config receives default icons",
+      input: "media_player.x;;;;play_pause;;media",
+      expected: config({ entity: "media_player.x", label: "", icon: "Auto", sensor: "play_pause", type: "media" }),
+    },
   ]);
   return vacuum.concat(sensor, sensorAliases, action, media);
 }

@@ -937,6 +937,8 @@ def gen_saved_config_shadow_h(data):
         "}\n\n",
         "template<typename Config>\ninline bool normalize_saved_config_media_shadow(Config &config) {\n",
         "  if (config.type != \"media\") return false;\n",
+        "  if (config.icon.empty()) config.icon = \"Auto\";\n",
+        "  if (config.icon_on.empty()) config.icon_on = \"Auto\";\n",
         "  const std::string raw_mode = config.sensor;\n",
         "  config.sensor = saved_config_shadow_media_mode(raw_mode);\n",
         "  if (raw_mode == \"controls\" && (config.icon.empty() || config.icon == \"Speaker\")) config.icon = \"Auto\";\n",
