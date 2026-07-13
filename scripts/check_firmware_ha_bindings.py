@@ -26,6 +26,7 @@ S3_PACKAGES_PATH = ROOT / "devices" / "guition-esp32-s3-4848s040" / "packages.ya
 DEVICE_DEVICE_PATHS = tuple(sorted((ROOT / "devices").glob("*/device/device.yaml")))
 DEVICE_SENSOR_PATHS = tuple(sorted((ROOT / "devices").glob("*/device/sensors.yaml")))
 DEVICE_PACKAGE_PATHS = tuple(sorted((ROOT / "devices").glob("*/packages.yaml")))
+DEVICE_TOUCH_PATHS = tuple(sorted((ROOT / "devices").glob("*/device/*.yaml")))
 CONNECTIVITY_PATHS = (
     ROOT / "common" / "addon" / "connectivity.yaml",
     ROOT / "common" / "addon" / "connectivity_deployed.yaml",
@@ -53,6 +54,23 @@ def package_api_navigate_enabled(package_path: Path, root: Path) -> bool:
     device = manifest.get("devices", {}).get(slug, {})
     package = device.get("firmware", {}).get("package", {})
     return bool(package.get("apiNavigateAction", True))
+
+
+def package_local_voice_services_enabled(package_path: Path, root: Path) -> bool:
+    manifest_path = root / "devices" / "manifest.json"
+    if not manifest_path.exists():
+        return False
+    try:
+        slug = package_path.relative_to(root / "devices").parts[0]
+    except (ValueError, IndexError):
+        return False
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return False
+    device = manifest.get("devices", {}).get(slug, {})
+    package = device.get("firmware", {}).get("package", {})
+    return bool(package.get("localVoiceServices"))
 
 
 HA_BOUNDARY_ALLOWLIST = {
@@ -118,6 +136,9 @@ def firmware_ha_boundary_errors(firmware_dir: Path, root: Path) -> list[str]:
         return []
     rel = path.relative_to(root)
     text = path.read_text(encoding="utf-8")
+    coordinator_path = firmware_dir / "ha_read_coordinator.h"
+    coordinator_text = coordinator_path.read_text(encoding="utf-8") if coordinator_path.exists() else ""
+    read_boundary_text = text + "\n" + coordinator_text
     errors: list[str] = []
 
     state_helper = STATE_HELPER_PATTERN.search(text)
@@ -156,19 +177,23 @@ def firmware_ha_boundary_errors(firmware_dir: Path, root: Path) -> list[str]:
         errors.append(f"{rel}: send Home Assistant actions only after state subscription is ready")
     elif "HA_ACTION_INTERNAL_FREE_MIN_BYTES" not in action_send_match.group("body"):
         errors.append(f"{rel}: defer Home Assistant actions when S3 internal heap is critically low")
-    if "Home Assistant attribute request" not in text:
+    if (
+        "ha_read_coordinator().get(" not in text
+        or "HA_READ_INTERNAL_FREE_MIN_BYTES" not in text
+        or 'heap_probe_.available("Home Assistant state request"' not in coordinator_text
+    ):
         errors.append(f"{rel}: defer one-off Home Assistant attribute reads when S3 internal heap is critically low")
-    if text.count("ha_state_callback_depth() != 0 || !ha_api_state_connected()") < 2:
+    if "callback_depth_ != 0 || !state_connected()" not in coordinator_text:
         errors.append(f"{rel}: queue one-off Home Assistant reads until state subscription is ready")
     if (
-        "request.callbacks.push_back(std::move(callback))" not in text
-        or "request.entity_id == entity_id" not in text
-        or "for (const auto &callback : *callbacks)" not in text
+        "request.callbacks.push_back(std::move(callback))" not in read_boundary_text
+        or "request.entity_id == entity_id" not in read_boundary_text
+        or "for (const auto &callback : *callback_refs)" not in read_boundary_text
     ):
         errors.append(f"{rel}: fan out duplicate deferred Home Assistant reads")
-    if text.count("ha_track_subscription_callback(callback_ref") < 2:
+    if "subscriptions_.push_back({callback_ref, scope})" not in coordinator_text:
         errors.append(f"{rel}: track Home Assistant subscription callbacks for generation cleanup")
-    if "ha_release_subscription_callbacks_now" not in text or "*ref.callback = nullptr" not in text:
+    if "release_subscriptions" not in coordinator_text or "*ref.callback = nullptr" not in coordinator_text:
         errors.append(f"{rel}: release retired Home Assistant subscription callback bodies")
 
     return errors
@@ -694,7 +719,7 @@ def firmware_cover_art_stale_image_errors(path: Path, root: Path) -> list[str]:
     body = script_match.group("body")
     if "lvgl.widget.hide: cover_art_image_widget" not in body:
         errors.append(f"{rel}: hide stale cover art image when the black fallback is shown")
-    if "id(cover_art_loaded_url).empty()" in body:
+    if "id(cover_art_runtime).loaded_url.empty()" in body:
         errors.append(f"{rel}: hide stale cover art image even after previous artwork loaded")
     if "cover_art_error_label" in text or 'text: "Artwork unavailable"' in text:
         errors.append(f"{rel}: do not show an unavailable cover art message")
@@ -709,8 +734,9 @@ def firmware_cover_art_refresh_errors(path: Path, root: Path) -> list[str]:
     errors: list[str] = []
 
     required_state = (
-        ("cover_art_refresh_needed", "track/source metadata changes as stale artwork"),
-        ("cover_art_download_url", "keep source artwork URLs separate from downloader URLs"),
+        ("cover_art_runtime).refresh_needed", "track/source metadata changes as stale artwork"),
+        ("cover_art_runtime).effective_download_url", "keep source artwork URLs separate from downloader URLs"),
+        ("espcontrol::cover_art::RuntimeState", "own cover art lifecycle state in one controller"),
         ("cover_art_album", "track album names for artwork refresh decisions"),
     )
     for token, message in required_state:
@@ -725,17 +751,17 @@ def firmware_cover_art_refresh_errors(path: Path, root: Path) -> list[str]:
             errors.append(f"{rel}: only cache-bust Home Assistant media proxy artwork URLs")
         if "?time=" not in download_body or "&time=" not in download_body:
             errors.append(f"{rel}: add a refresh marker that preserves existing artwork query strings")
-        if "request_update_url(id(cover_art_download_url))" not in download_body:
+        if "request_update_url(id(cover_art_runtime).effective_download_url)" not in download_body:
             errors.append(f"{rel}: download through the refresh-aware artwork URL")
         if (
             "needs_artwork_refresh" not in download_body
-            or "id(cover_art_refresh_needed) || !id(cover_art_image_available)" not in download_body
+            or "id(cover_art_runtime).refresh_needed || !id(cover_art_runtime).image_available" not in download_body
         ):
             errors.append(f"{rel}: refresh Home Assistant media proxy artwork when no image is currently available")
         replacement_match = re.search(
             r"(?ms)id\(cover_art_screensaver_active\).*?"
-            r"id\(cover_art_image_available\).*?"
-            r"id\(cover_art_refresh_needed\).*?"
+            r"id\(cover_art_runtime\)\.image_available.*?"
+            r"id\(cover_art_runtime\)\.refresh_needed.*?"
             r"!\$\{cover_art_live_image_updates\}.*?"
             r"then:\n(?P<body>.*?)(?=^\s+- lambda: |\Z)",
             download_body,
@@ -752,14 +778,14 @@ def firmware_cover_art_refresh_errors(path: Path, root: Path) -> list[str]:
                 errors.append(f"{rel}: do not detach visible artwork before replacement artwork is ready")
             if "artwork_image.release: cover_art_downloaded_image" in replacement_body:
                 errors.append(f"{rel}: do not release visible artwork before replacement artwork is ready")
-            if "id(cover_art_loaded_url).clear()" in replacement_body:
+            if "id(cover_art_runtime).loaded_url.clear()" in replacement_body:
                 errors.append(f"{rel}: keep the previous loaded artwork marker until replacement artwork applies")
 
     for script_id in ("cover_art_deferred_download", "cover_art_prepare_download"):
         body = yaml_script_body(text, script_id)
         if not body:
             errors.append(f"{rel}: missing {script_id} script")
-        elif "id(cover_art_refresh_needed)" not in body:
+        elif "id(cover_art_runtime).refresh_needed" not in body:
             errors.append(f"{rel}: let {script_id} refresh unchanged artwork URLs after metadata changes")
 
     for script_id in ("cover_art_use_cached_artwork", "cover_art_request_artwork"):
@@ -767,27 +793,27 @@ def firmware_cover_art_refresh_errors(path: Path, root: Path) -> list[str]:
         if not body:
             errors.append(f"{rel}: missing {script_id} script")
         elif (
-            "chosen == id(cover_art_url)" not in body
-            or "!id(cover_art_image_available) || id(cover_art_refresh_needed)" not in body
+            "chosen == id(cover_art_runtime).source_url" not in body
+            or "!id(cover_art_runtime).image_available || id(cover_art_runtime).refresh_needed" not in body
         ):
             errors.append(f"{rel}: do not exit early from {script_id} when stale artwork needs refresh")
 
     cached_body = yaml_script_body(text, "cover_art_use_cached_artwork")
-    if cached_body and cached_body.count("id(cover_art_refresh_needed) = true;") < 2:
+    if cached_body and "id(cover_art_runtime).select_source(chosen);" not in cached_body:
         errors.append(f"{rel}: mark changed cached artwork URLs as stale before downloading")
     resubscribe_body = yaml_script_body(text, "cover_art_resubscribe")
-    if resubscribe_body and "if (!url.empty() && url != id(cover_art_url))" not in resubscribe_body:
+    if resubscribe_body and "if (!url.empty() && url != id(cover_art_runtime).source_url)" not in resubscribe_body:
         errors.append(f"{rel}: mark changed Home Assistant artwork attributes as stale")
 
     apply_body = yaml_script_body(text, "cover_art_apply_downloaded_image")
     if not apply_body:
         errors.append(f"{rel}: missing cover_art_apply_downloaded_image script")
     else:
-        if "expected_url" not in apply_body or "id(cover_art_download_url)" not in apply_body:
+        if "expected_url" not in apply_body or "id(cover_art_runtime).effective_download_url" not in apply_body:
             errors.append(f"{rel}: accept the refresh-aware downloader URL when artwork finishes")
-        if "id(cover_art_loaded_url) = id(cover_art_url)" not in apply_body:
+        if "id(cover_art_runtime).apply_download(completed_url)" not in apply_body:
             errors.append(f"{rel}: remember the clean source artwork URL after a download")
-        if "id(cover_art_refresh_needed) = false" not in apply_body:
+        if "id(cover_art_runtime).apply_download(completed_url)" not in apply_body:
             errors.append(f"{rel}: clear stale artwork state only after a replacement image applies")
         if (
             "script.execute: cover_art_clear_image_source" not in apply_body
@@ -799,17 +825,30 @@ def firmware_cover_art_refresh_errors(path: Path, root: Path) -> list[str]:
         errors.append(f"{rel}: mark title, artist, album, and source changes as artwork refresh triggers")
     if 'std::string("media_album_name"), handle_media_album' not in text:
         errors.append(f"{rel}: subscribe to and refresh the media_album_name attribute")
-    if "id(cover_art_refresh_needed) = true" not in text:
+    if "id(cover_art_runtime).refresh_needed = true" not in text:
         errors.append(f"{rel}: set stale artwork state when track/source metadata changes")
     playback_started_body = yaml_script_body(text, "cover_art_playback_started")
     if not playback_started_body:
         errors.append(f"{rel}: missing cover_art_playback_started script")
     elif (
-        "!id(cover_art_image_available)" not in playback_started_body
-        or "id(cover_art_retry_count) = 0" not in playback_started_body
-        or "id(cover_art_retry_url).clear()" not in playback_started_body
+        "!id(cover_art_runtime).image_available" not in playback_started_body
+        or "id(cover_art_runtime).retry_count = 0" not in playback_started_body
+        or "id(cover_art_runtime).retry_url.clear()" not in playback_started_body
     ):
         errors.append(f"{rel}: reset artwork retry state when playback resumes without a visible image")
+    if playback_started_body and "espcontrol::cover_art::display_allowed(" in playback_started_body:
+        errors.append(f"{rel}: let the playback-start event activate cover art before mirrored playback state settles")
+    if (
+        "cover_art_artist_label" in text
+        and "if (!id(cover_art_artist).empty()) return id(cover_art_artist);" not in text
+    ):
+        errors.append(f"{rel}: prefer a real artist name over the external-source fallback label")
+    pause_body = yaml_script_body(text, "cover_art_pause_after_touch")
+    if pause_body is not None and (
+        "return id(cover_art_screensaver_active);" not in pause_body
+        or "id(cover_art_manual_pause_until_ms) = 1;" not in pause_body
+    ):
+        errors.append(f"{rel}: only arm cover art return after an active cover-art dismissal")
     return errors
 
 
@@ -862,6 +901,23 @@ def firmware_media_sleep_prevention_errors(
             )
             if cover_art_sleep_match and cover_art_sleep_match.group(1) != "show_cover_art_view":
                 errors.append(f"{rel}: start cover art directly after the normal screensaver timeout")
+        if (
+            "cover_art_touch_return_pending" in text
+            and "id(cover_art_delay).state <= 0.0f" not in text
+        ):
+            errors.append(f"{rel}: re-arm cover art after touch when Show After is immediate")
+        if (
+            "const bool cover_art_immediate_return" in text
+            and "id(cover_art_manual_pause_until_ms) != 0 &&" not in text
+        ):
+            errors.append(f"{rel}: gate immediate cover art return to an actual dismissal")
+        if "const bool cover_art_immediate_return" in text and (
+            "const bool cover_art_disabled_mode_delay" not in text
+            or 'id(screensaver_mode).state != "timer"' not in text
+            or 'id(screensaver_mode).state != "sensor"' not in text
+            or "show_after_seconds > 0.0f" not in text
+        ):
+            errors.append(f"{rel}: restart positive Show After delay after touches in disabled screensaver mode")
 
     if display_path.exists():
         rel = display_path.relative_to(root)
@@ -879,11 +935,32 @@ def firmware_media_sleep_prevention_errors(
             "script.execute: cover_art_delay_timer" in playback_started_body
             and (
                 "id(media_player_sleep_prevention_enabled).state" not in playback_started_body
+                or 'id(screensaver_mode).state != "timer"' not in playback_started_body
+                or 'id(screensaver_mode).state != "sensor"' not in playback_started_body
                 or "script.execute: screensaver_idle_check" not in playback_started_body
             )
         ):
-            errors.append(f"{rel}: do not start cover art immediately unless media sleep prevention or screensaver is active")
+            errors.append(f"{rel}: let cover art use its own delay when the normal screensaver is disabled")
 
+    return errors
+
+
+def firmware_touch_cover_art_delay_errors(paths: tuple[Path, ...], root: Path) -> list[str]:
+    errors: list[str] = []
+    required_sequence = (
+        "on_touch:\n"
+        "      - script.execute: cover_art_pause_after_touch\n"
+        "      - script.wait: cover_art_pause_after_touch\n"
+        "      - script.execute: screensaver_wake"
+    )
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        if "on_touch:" not in text or "script.execute: screensaver_wake" not in text:
+            continue
+        if required_sequence not in text:
+            errors.append(
+                f"{path.relative_to(root)}: restart the cover art Show After delay before every touchscreen wake"
+            )
     return errors
 
 
@@ -1586,16 +1663,16 @@ def firmware_navigation_target_errors(
         package_text = package_path.read_text(encoding="utf-8")
         if "navigate_voice_target_code" not in package_text:
             errors.append(f"{package_rel}: define a voice-target navigate hook")
-        if package_path.parts[-2] == "esp32-p4-86":
+        if package_local_voice_services_enabled(package_path, root):
             voice_package_found = True
             if "id(open_device_volume_control).execute();" not in package_text:
-                errors.append(f"{package_rel}: open the 86-P4 voice volume modal for voice navigation aliases")
+                errors.append(f"{package_rel}: open the local voice volume modal for voice navigation aliases")
             if "id(voice_services_enabled).state" not in package_text:
                 errors.append(f"{package_rel}: only open the voice volume modal when Voice Services are enabled")
         elif "open_device_volume_control" in package_text:
-            errors.append(f"{package_rel}: keep the voice volume modal hook limited to the 86-P4 package")
+            errors.append(f"{package_rel}: keep the voice volume modal hook limited to local voice service packages")
     if not voice_package_found:
-        errors.append("devices/esp32-p4-86/packages.yaml: define the voice volume navigate hook")
+        errors.append("devices/manifest.json: define a voice volume navigate hook for a local voice service package")
     return errors
 
 
@@ -1713,6 +1790,7 @@ def run_scan() -> int:
     errors.extend(firmware_cover_art_refresh_errors(COVER_ART_PATH, ROOT))
     errors.extend(firmware_cover_art_disable_errors(COVER_ART_PATH, ROOT))
     errors.extend(firmware_media_sleep_prevention_errors(BACKLIGHT_PATH, DISPLAY_CONFIG_PATH, COVER_ART_PATH, ROOT))
+    errors.extend(firmware_touch_cover_art_delay_errors(DEVICE_TOUCH_PATHS, ROOT))
     errors.extend(firmware_media_sleep_prevention_subscription_errors(DEVICE_SENSOR_PATHS, ROOT))
     errors.extend(firmware_media_control_low_heap_metadata_errors(FIRMWARE_DIR, ROOT))
     errors.extend(firmware_cover_art_low_heap_progress_errors(FIRMWARE_DIR, COVER_ART_PATH, ROOT))
@@ -2324,6 +2402,7 @@ def expect_navigation_target_errors(
     grid_text: str,
     api_text: str,
     package_texts: dict[str, str],
+    local_voice_slugs: tuple[str, ...],
     expected: tuple[str, ...],
 ) -> None:
     with TemporaryDirectory() as tmp:
@@ -2335,6 +2414,19 @@ def expect_navigation_target_errors(
         (firmware_dir / "button_grid_navigation.h").write_text(navigation_text, encoding="utf-8")
         (firmware_dir / "button_grid_grid.h").write_text(grid_text, encoding="utf-8")
         api_path.write_text(api_text, encoding="utf-8")
+        manifest_path = root / "devices" / "manifest.json"
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "devices": {
+                        slug: {"firmware": {"package": {"localVoiceServices": slug in local_voice_slugs}}}
+                        for slug in package_texts
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
         package_paths: list[Path] = []
         for slug, package_text in package_texts.items():
             package_path = root / "devices" / slug / "packages.yaml"
@@ -3377,7 +3469,7 @@ def run_self_test() -> int:
         "    then:\n"
         "      - if:\n"
         "          condition:\n"
-        "            lambda: 'return id(cover_art_loaded_url).empty();'\n"
+        "            lambda: 'return id(cover_art_runtime).loaded_url.empty();'\n"
         "          then:\n"
         "            - lvgl.widget.hide: cover_art_image_widget\n",
         ("hide stale cover art image even after previous artwork loaded",),
@@ -3410,7 +3502,7 @@ def run_self_test() -> int:
         "  - id: cover_art_download\n"
         "    then:\n"
         "      - lambda: |-\n"
-        "          id(cover_art_url);\n",
+        "          id(cover_art_runtime).source_url;\n",
         (
             "track/source metadata changes as stale artwork",
             "subscribe to and refresh the media_album_name attribute",
@@ -3419,8 +3511,10 @@ def run_self_test() -> int:
     expect_cover_art_refresh_errors(
         "stale cover refresh guard present",
         "globals:\n"
-        "  - id: cover_art_refresh_needed\n"
-        "  - id: cover_art_download_url\n"
+        "  - id: cover_art_runtime\n"
+        "    type: espcontrol::cover_art::RuntimeState\n"
+        "# cover_art_runtime).refresh_needed\n"
+        "# cover_art_runtime).effective_download_url\n"
         "  - id: cover_art_album\n"
         "script:\n"
         "  - id: cover_art_download\n"
@@ -3429,8 +3523,8 @@ def run_self_test() -> int:
         "          condition:\n"
         "            lambda: |-\n"
         "              return id(cover_art_screensaver_active) &&\n"
-        "                     id(cover_art_image_available) &&\n"
-        "                     id(cover_art_refresh_needed) &&\n"
+        "                     id(cover_art_runtime).image_available &&\n"
+        "                     id(cover_art_runtime).refresh_needed &&\n"
         "                     !${cover_art_live_image_updates};\n"
         "          then:\n"
         "            - script.execute: cover_art_show_track_overlay\n"
@@ -3438,58 +3532,56 @@ def run_self_test() -> int:
         "          if (url.find(\"/api/media_player_proxy/\") != std::string::npos) {\n"
         "            url += url.find('?') == std::string::npos ? \"?time=\" : \"&time=\";\n"
         "          }\n"
-        "          const bool needs_artwork_refresh = id(cover_art_refresh_needed) || !id(cover_art_image_available);\n"
-        "          id(cover_art_download_url) = id(cover_art_downloaded_image)->request_update_url(id(cover_art_download_url));\n"
+        "          const bool needs_artwork_refresh = id(cover_art_runtime).refresh_needed || !id(cover_art_runtime).image_available;\n"
+        "          id(cover_art_runtime).effective_download_url = id(cover_art_downloaded_image)->request_update_url(id(cover_art_runtime).effective_download_url);\n"
         "  - id: cover_art_deferred_download\n"
         "    then:\n"
         "      - lambda: |-\n"
-        "          id(cover_art_refresh_needed);\n"
+        "          id(cover_art_runtime).refresh_needed;\n"
         "  - id: cover_art_prepare_download\n"
         "    then:\n"
         "      - lambda: |-\n"
-        "          id(cover_art_refresh_needed);\n"
+        "          id(cover_art_runtime).refresh_needed;\n"
         "  - id: cover_art_use_cached_artwork\n"
         "    then:\n"
         "      - lambda: |-\n"
-        "          if (chosen != id(cover_art_url)) {\n"
-        "            id(cover_art_refresh_needed) = true;\n"
+        "          id(cover_art_runtime).select_source(chosen);\n"
+        "          if (chosen == id(cover_art_runtime).source_url) {\n"
+        "            if (!id(cover_art_runtime).image_available || id(cover_art_runtime).refresh_needed) {}\n"
         "          }\n"
-        "          if (chosen == id(cover_art_url)) {\n"
-        "            if (!id(cover_art_image_available) || id(cover_art_refresh_needed)) {}\n"
-        "          }\n"
-        "          id(cover_art_url) = chosen;\n"
-        "          id(cover_art_refresh_needed) = true;\n"
+        "          id(cover_art_runtime).source_url = chosen;\n"
+        "          id(cover_art_runtime).refresh_needed = true;\n"
         "  - id: cover_art_request_artwork\n"
         "    then:\n"
         "      - lambda: |-\n"
-        "          if (chosen == id(cover_art_url)) {\n"
-        "            if (!id(cover_art_image_available) || id(cover_art_refresh_needed)) {}\n"
+        "          if (chosen == id(cover_art_runtime).source_url) {\n"
+        "            if (!id(cover_art_runtime).image_available || id(cover_art_runtime).refresh_needed) {}\n"
         "          }\n"
         "  - id: cover_art_apply_downloaded_image\n"
         "    then:\n"
         "      - script.execute: cover_art_clear_image_source\n"
         "      - script.wait: cover_art_clear_image_source\n"
         "      - lambda: |-\n"
-        "          std::string expected_url = id(cover_art_download_url);\n"
-        "          id(cover_art_loaded_url) = id(cover_art_url);\n"
-        "          id(cover_art_refresh_needed) = false;\n"
+        "          std::string expected_url = id(cover_art_runtime).effective_download_url;\n"
+        "          std::string completed_url;\n"
+        "          id(cover_art_runtime).apply_download(completed_url);\n"
         "  - id: cover_art_playback_started\n"
         "    then:\n"
         "      - lambda: |-\n"
-        "          if (!id(cover_art_image_available)) {\n"
-        "            id(cover_art_retry_url).clear();\n"
-        "            id(cover_art_retry_count) = 0;\n"
+        "          if (!id(cover_art_runtime).image_available) {\n"
+        "            id(cover_art_runtime).retry_url.clear();\n"
+        "            id(cover_art_runtime).retry_count = 0;\n"
         "          }\n"
         "  - id: cover_art_resubscribe\n"
         "    then:\n"
         "      - lambda: |-\n"
-        "          id(cover_art_refresh_needed) = true;\n"
+        "          id(cover_art_runtime).refresh_needed = true;\n"
         "          mark_artwork_refresh_needed();\n"
         "          mark_artwork_refresh_needed();\n"
         "          mark_artwork_refresh_needed();\n"
         "          mark_artwork_refresh_needed();\n"
-        "          if (!url.empty() && url != id(cover_art_url)) {\n"
-        "            id(cover_art_refresh_needed) = true;\n"
+        "          if (!url.empty() && url != id(cover_art_runtime).source_url) {\n"
+        "            id(cover_art_runtime).refresh_needed = true;\n"
         "          }\n"
         "          ha_subscribe_attribute(cover_entity, std::string(\"media_album_name\"), handle_media_album);\n"
         "          ha_get_attribute(cover_entity, std::string(\"media_album_name\"), handle_media_album);\n",
@@ -3535,7 +3627,7 @@ def run_self_test() -> int:
         (
             "do not let cover art alone keep the idle timer awake",
             "do not turn on media sleep prevention",
-            "do not start cover art immediately",
+            "let cover art use its own delay",
         ),
     )
     expect_media_sleep_prevention_errors(
@@ -3548,7 +3640,19 @@ def run_self_test() -> int:
         "            lambda: |-\n"
         "              return id(cover_art_screensaver_active) ||\n"
         "                     (id(media_player_sleep_prevention_enabled).state &&\n"
-        "                      id(media_player_playing));\n",
+        "                      id(media_player_playing));\n"
+        "  - id: screensaver_wake\n"
+        "    then:\n"
+        "      - if:\n"
+        "          condition:\n"
+        "            lambda: |-\n"
+        "              const bool cover_art_immediate_return =\n"
+        "                id(cover_art_manual_pause_until_ms) != 0 &&\n"
+        "                id(cover_art_delay).state <= 0.0f;\n"
+        "              const bool cover_art_disabled_mode_delay =\n"
+        "                id(screensaver_mode).state != \"timer\" &&\n"
+        "                id(screensaver_mode).state != \"sensor\" &&\n"
+        "                show_after_seconds > 0.0f;\n",
         "switch:\n"
         "  - platform: template\n"
         "    id: cover_art_screensaver_enabled\n"
@@ -3561,6 +3665,8 @@ def run_self_test() -> int:
         "          condition:\n"
         "            lambda: |-\n"
         "              return id(media_player_sleep_prevention_enabled).state ||\n"
+        "                     (id(screensaver_mode).state != \"timer\" &&\n"
+        "                      id(screensaver_mode).state != \"sensor\") ||\n"
         "                     id(display_asleep);\n"
         "          then:\n"
         "            - script.execute: cover_art_delay_timer\n"
@@ -3599,6 +3705,8 @@ def run_self_test() -> int:
         "          condition:\n"
         "            lambda: |-\n"
         "              return id(media_player_sleep_prevention_enabled).state ||\n"
+        "                     (id(screensaver_mode).state != \"timer\" &&\n"
+        "                      id(screensaver_mode).state != \"sensor\") ||\n"
         "                     id(display_asleep);\n"
         "          then:\n"
         "            - script.execute: cover_art_delay_timer\n"
@@ -3637,6 +3745,8 @@ def run_self_test() -> int:
         "          condition:\n"
         "            lambda: |-\n"
         "              return id(media_player_sleep_prevention_enabled).state ||\n"
+        "                     (id(screensaver_mode).state != \"timer\" &&\n"
+        "                      id(screensaver_mode).state != \"sensor\") ||\n"
         "                     id(display_asleep);\n"
         "          then:\n"
         "            - script.execute: cover_art_delay_timer\n"
@@ -4438,8 +4548,10 @@ def run_self_test() -> int:
         "if (navigation_is_voice_target(target) && !navigation_has_home_label_target(target)) { ${navigate_voice_target_code} } else { espcontrol_navigate(target, id(main_page)->obj); }\n",
         {
             "esp32-p4-86": "navigate_voice_target_code: |-\n  if (id(voice_services_enabled).state) { id(open_device_volume_control).execute(); }\n",
+            "future-voice-panel": "navigate_voice_target_code: |-\n  if (id(voice_services_enabled).state) { id(open_device_volume_control).execute(); }\n",
             "other-p4": "navigate_voice_target_code: |-\n  ESP_LOGW(\"navigation\", \"Voice volume target is not available on this device\");\n",
         },
+        ("esp32-p4-86", "future-voice-panel"),
         (),
     )
     expect_connectivity_api_errors(
