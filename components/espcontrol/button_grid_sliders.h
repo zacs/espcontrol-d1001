@@ -683,6 +683,18 @@ inline void light_control_style_slider(lv_obj_t *slider, uint32_t accent_color) 
   lv_obj_set_style_height(slider, 0, LV_PART_KNOB);
 }
 
+inline void light_control_toggle_modal_power() {
+  LightControlModalUi &ui = light_control_modal_ui();
+  if (!ui.active || !ui.active->available) return;
+  bool turn_on = !ui.active->on;
+  ui.active->on = turn_on;
+  light_control_apply_card_visual(ui.active);
+  light_control_set_modal_value(ui.active, light_control_display_pct(ui.active));
+  light_control_apply_modal_power(ui.active);
+  if (turn_on) send_turn_on_action(ui.active->entity_id);
+  else send_turn_off_action(ui.active->entity_id);
+}
+
 inline lv_obj_t *light_control_create_power_button(lv_obj_t *parent, const lv_font_t *font,
                                                    int width_compensation_percent,
                                                    bool turn_on) {
@@ -693,7 +705,7 @@ inline lv_obj_t *light_control_create_power_button(lv_obj_t *parent, const lv_fo
   lv_obj_set_style_border_width(btn, 0, LV_PART_MAIN);
   lv_obj_set_style_shadow_width(btn, 0, LV_PART_MAIN);
   lv_obj_set_style_pad_all(btn, 0, LV_PART_MAIN);
-  control_modal_apply_pressed_fill(btn);
+  lv_obj_clear_flag(btn, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_t *label = lv_label_create(btn);
   if (label) {
@@ -703,17 +715,6 @@ inline lv_obj_t *light_control_create_power_button(lv_obj_t *parent, const lv_fo
     lv_obj_set_style_transform_zoom(label, turn_on ? 230 : 180, LV_PART_MAIN);
     light_control_center_icon_label(label);
   }
-  lv_obj_add_event_cb(btn, [](lv_event_t *e) {
-    bool turn_on = static_cast<bool>(reinterpret_cast<uintptr_t>(lv_event_get_user_data(e)));
-    LightControlModalUi &ui = light_control_modal_ui();
-    if (!ui.active || !ui.active->available) return;
-    ui.active->on = turn_on;
-    light_control_apply_card_visual(ui.active);
-    light_control_set_modal_value(ui.active, light_control_display_pct(ui.active));
-    light_control_apply_modal_power(ui.active);
-    if (turn_on) send_turn_on_action(ui.active->entity_id);
-    else send_turn_off_action(ui.active->entity_id);
-  }, LV_EVENT_CLICKED, reinterpret_cast<void *>(static_cast<uintptr_t>(turn_on)));
   return btn;
 }
 
@@ -912,7 +913,12 @@ inline void light_control_open_modal(LightControlCtx *ctx) {
   lv_obj_set_style_border_width(ui.power_group, 0, LV_PART_MAIN);
   lv_obj_set_style_shadow_width(ui.power_group, 0, LV_PART_MAIN);
   lv_obj_set_style_pad_all(ui.power_group, 0, LV_PART_MAIN);
+  control_modal_apply_pressed_fill(ui.power_group);
+  lv_obj_add_flag(ui.power_group, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_clear_flag(ui.power_group, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_add_event_cb(ui.power_group, [](lv_event_t *) {
+    light_control_toggle_modal_power();
+  }, LV_EVENT_CLICKED, nullptr);
   ui.power_on_btn = light_control_create_power_button(
     ui.power_group, ctx->icon_font, ctx->width_compensation_percent, true);
   ui.power_off_btn = light_control_create_power_button(

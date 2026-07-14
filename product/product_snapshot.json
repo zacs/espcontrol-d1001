@@ -11,7 +11,7 @@
   "summary": {
     "deviceProfiles": 7,
     "cardTypes": 40,
-    "entityNames": 82,
+    "entityNames": 81,
     "icons": 319,
     "structuralIcons": 16,
     "compatibilityFixtureGroups": 2
@@ -1097,6 +1097,7 @@
           },
           "deviceFontPackageKey": "fonts_device",
           "touchscreenPackage": true,
+          "localVoiceServices": true,
           "networkCoprocessor": true,
           "esp32C6FirmwareUpdate": true,
           "ethernetSelectable": true,
@@ -3360,19 +3361,6 @@
           "screen_saver__cover_art_delay",
           "screen_saver_cover_art_delay",
           "cover_art_delay"
-        ],
-        "groups": [
-          "settings"
-        ]
-      },
-      {
-        "key": "screen_saver_cover_art_touch_pause",
-        "domain": "number",
-        "name": "Screen Saver: Cover Art Touch Pause",
-        "objectIds": [
-          "screen_saver__cover_art_touch_pause",
-          "screen_saver_cover_art_touch_pause",
-          "cover_art_touch_pause"
         ],
         "groups": [
           "settings"

@@ -63,7 +63,7 @@ or upstream project instead.
 
 - The hard ownership map is [Source of Truth Contract](source-of-truth.md):
   edit authored sources, never generated outputs.
-- Product metadata starts in `devices/manifest.json`.
+- Product metadata starts in `devices/catalog.json`; `devices/manifest.json` is generated for compatibility.
 - Card behavior starts in `common/config/card_contract.json`.
 - Shared Home Assistant entity names start in `common/config/entity_names.json`.
 - Web setup code lives under `src/webserver/`.
@@ -79,7 +79,7 @@ or upstream project instead.
 | `common/` | Shared ESPHome YAML, theme, screens, addons, config, assets, icon lists, and glyph sets. |
 | `common/config/card_contract.json` | Source of truth for card metadata, options, defaults, generated web constants, and generated firmware constants. |
 | `components/espcontrol/*.h` | Header-only C++ for the on-device LVGL UI, grid, card faces, modals, parser, and Home Assistant bindings. |
-| `src/webserver/` | Web configurator source. `types/<card>.js` holds card-specific panels; `modules/` holds shared setup-page logic. |
+| `src/webserver/` | TypeScript web configurator source. `cards/<card>.ts` holds card-specific registrations; `application/` holds shared setup-page logic. |
 | `devices/<slug>/` | Per-device ESPHome entry points, package manifests, fonts, display drivers, pins, and local development config. |
 | `docs/public/webserver/<slug>/www.js` | Generated configurator bundles served to devices at runtime. |
 | `scripts/` | Build scripts, generators, validators, smoke checks, and release helpers. |
@@ -119,6 +119,8 @@ start in the contract and flow outward from there.
   served by the device.
 - [Firmware](firmware.md) - the on-device LVGL grid, card runtime, modals, fonts,
   and parser notes.
+- [Cover Art Mode](cover-art-mode.md) - ownership, presentation, memory budgets,
+  and behavioural checks for the now-playing takeover.
 - [Font Guidelines](font-guidelines.md) - how to reuse existing firmware font
   roles and avoid unnecessary new font sizes.
 - [Devices and Builds](devices-and-builds.md) - device profiles, generated
