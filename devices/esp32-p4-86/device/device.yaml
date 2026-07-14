@@ -44,12 +44,8 @@ esp32:
       # Keep the ESP32 task watchdog long enough for display startup while
       # remaining compatible with ESPHome 2026.4 and newer.
       CONFIG_ESP_TASK_WDT_TIMEOUT_S: "30"
-      # ESPHome 2026.5 / ESP-IDF 5.5.2 can make ESP-Hosted preallocate a
-      # large internal DMA buffer pool before ESPHome starts. On P4 display
-      # builds this can fail with "HS_MP: mempool create failed: no mem" and
-      # trigger OTA rollback, so use dynamic buffers and keep hosted task
-      # stacks in PSRAM.
-      CONFIG_ESP_HOSTED_USE_MEMPOOL: "n"
+      # Keep hosted task stacks in PSRAM so the display and audio paths retain
+      # enough internal memory for DMA-capable allocations.
       CONFIG_ESP_HOSTED_DFLT_TASK_FROM_SPIRAM: "y"
       # The ESP32-C6 hosted WiFi link shares scarce internal/DMA memory with
       # the full-duplex TDM audio path. Keep network bursts small while testing
