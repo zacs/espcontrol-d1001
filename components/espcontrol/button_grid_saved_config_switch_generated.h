@@ -9,6 +9,8 @@ template<typename Config, typename OptionHook>
 inline bool normalize_saved_config_switch(Config &config,
                                          OptionHook normalize_options) {
   if (!config.type.empty()) return false;
+    if (config.icon.empty()) config.icon = "Auto";
+    if (config.icon_on.empty()) config.icon_on = "Auto";
     config.type = "";
   config.options = normalize_options(config.options);
   return true;

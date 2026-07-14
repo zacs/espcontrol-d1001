@@ -260,10 +260,12 @@ export const CARD_CONTRACT_CARDS: Readonly<Record<string, CardTypeSpec>> = {
           "policy": "keep"
         },
         "icon": {
-          "policy": "keep"
+          "policy": "default_if_empty",
+          "value": "Auto"
         },
         "icon_on": {
-          "policy": "keep"
+          "policy": "default_if_empty",
+          "value": "Auto"
         },
         "sensor": {
           "policy": "keep"

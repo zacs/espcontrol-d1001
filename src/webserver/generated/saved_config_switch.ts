@@ -11,6 +11,8 @@ export function normalizeSavedConfigSwitch(
   normalizeOptions: SavedConfigSwitchOptionHook,
 ): boolean {
   if (config.type !== "") return false;
+    if (!config.icon) config.icon = "Auto";
+    if (!config.icon_on) config.icon_on = "Auto";
     config.type = "";
   config.options = normalizeOptions(config.options || "", config);
   return true;

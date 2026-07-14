@@ -492,6 +492,11 @@ int main() {
   assert(switch_card.icon == "Printer 3D" && switch_card.icon_on == "Power");
   assert(switch_card.sensor == "sensor.power" && switch_card.unit == "W" && switch_card.precision == "1");
   assert(switch_card.options == "large_numbers,confirm_off");
+  Config empty_switch{"", "", "", "", "", "", "", "", ""};
+  assert(normalize_saved_config_switch(
+    empty_switch, [](const std::string &options) { return options; }
+  ));
+  assert(empty_switch.icon == "Auto" && empty_switch.icon_on == "Auto");
   assert(!normalize_saved_config_switch(
     unrelated, [](const std::string &options) { return options; }
   ));
@@ -812,6 +817,9 @@ function main() {
   ), true);
   assert(switchOptionsCalled);
   assert.deepStrictEqual(switchCard, { type: "", entity: "switch.printer", label: "Printer", icon: "Printer 3D", icon_on: "Power", sensor: "sensor.power", unit: "W", precision: "1", options: "large_numbers,confirm_off" });
+  const emptySwitch = { type: "", icon: "", icon_on: "", options: "" };
+  assert.strictEqual(generatedSwitch.normalizeSavedConfigSwitch(emptySwitch, (options) => options), true);
+  assert.deepStrictEqual(emptySwitch, { type: "", icon: "Auto", icon_on: "Auto", options: "" });
   assert.strictEqual(generatedSwitch.normalizeSavedConfigSwitch({ type: "sensor" }, (options) => options), false);
 
   const browser = fs.readFileSync(path.join(ROOT, "src/webserver/application/config_codec.ts"), "utf8");

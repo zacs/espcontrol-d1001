@@ -1072,6 +1072,11 @@ def saved_config_declarative_field_lines(field, rule, language):
         return [f"    {target} = \"\";\n"] if language == "ts" else [f"    {target}.clear();\n"]
     if policy == "default":
         return [f"    {target} = {json.dumps(rule['value'], ensure_ascii=False)};\n"]
+    if policy == "default_if_empty":
+        value = json.dumps(rule["value"], ensure_ascii=False)
+        if language == "ts":
+            return [f"    if (!{target}) {target} = {value};\n"]
+        return [f"    if ({target}.empty()) {target} = {value};\n"]
     if policy in ("alias", "allowed"):
         lines = []
         for alias, value in rule.get("aliases", {}).items():
