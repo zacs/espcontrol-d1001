@@ -89,6 +89,9 @@ globals:
     initial_value: 'false'
   - id: display_mode_shadow_observer
     type: espcontrol::DisplayModeShadowObserver
+  - id: setup_screen_dimmed_shadow_active
+    type: bool
+    initial_value: 'false'
 
 esphome:
   on_boot:
@@ -574,6 +577,9 @@ script:
   - id: setup_screen_dim
     mode: restart
     then:
+      - globals.set:
+          id: setup_screen_dimmed_shadow_active
+          value: 'false'
       - delay: 120s
       - if:
           condition:
@@ -587,6 +593,9 @@ script:
           then:
             - script.execute: backlight_force_display_off
           else:
+            - globals.set:
+                id: setup_screen_dimmed_shadow_active
+                value: 'true'
             - globals.set:
                 id: display_asleep
                 value: 'true'
@@ -1081,6 +1090,13 @@ interval:
           legacy.cover_art_active = id(cover_art_screensaver_active);
           legacy.interactive_takeover = id(display_takeover_suspended);
           legacy.critical_takeover = alarm_display_takeover_active();
+          const bool setup_dim_shape = legacy.display_asleep &&
+              !legacy.screen_schedule_asleep && !legacy.backlight_manual_off &&
+              !legacy.display_off_active && !legacy.dimmed_active &&
+              !legacy.clock_showing && !legacy.cover_art_active &&
+              !legacy.interactive_takeover && !legacy.critical_takeover;
+          if (!setup_dim_shape) id(setup_screen_dimmed_shadow_active) = false;
+          legacy.setup_screen = setup_dim_shape && id(setup_screen_dimmed_shadow_active);
 
           auto now = panel_time_or_fallback(id(panel_time).now(), id(homeassistant_time).now());
           const bool boot_guard_active = screen_schedule_waiting_for_time(
