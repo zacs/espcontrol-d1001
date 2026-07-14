@@ -84,6 +84,18 @@ def run_self_test() -> int:
     normalized_card["normalization"]["fields"]["icon"] = {"policy": "hook", "hook": "run_arbitrary_code"}
     expect_error(validate_card_contract(invalid_hook), "must name an allow-listed normalization hook")
 
+    invalid_hook_data = copy.deepcopy(card_contract)
+    invalid_hook_data["cards"]["vacuum"]["normalization"]["hookData"]["unlisted_hook"] = {}
+    expect_error(validate_card_contract(invalid_hook_data), "contains hooks outside the allow-list")
+
+    missing_vacuum_default_icon = copy.deepcopy(card_contract)
+    del missing_vacuum_default_icon["cards"]["vacuum"]["normalization"]["hookData"]["normalize_vacuum_fields"]["defaultIcons"]["default"]
+    expect_error(validate_card_contract(missing_vacuum_default_icon), "must include default")
+
+    invalid_allowed_alias = copy.deepcopy(card_contract)
+    invalid_allowed_alias["cards"]["vacuum"]["normalization"]["fields"]["sensor"]["aliases"]["vacuum.old"] = "missing_mode"
+    expect_error(validate_card_contract(invalid_allowed_alias), "must map to an allowed value")
+
     invalid_condition = copy.deepcopy(card_contract)
     invalid_condition["cards"]["sensor"]["options"][0]["applicability"][0]["operator"] = "matches"
     expect_error(validate_card_contract(invalid_condition), "must be equals, in, or present")

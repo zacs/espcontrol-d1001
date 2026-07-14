@@ -22,7 +22,8 @@ export interface NormalizationCondition {
 export type FieldNormalizationPolicy =
   | { policy: "keep" | "clear" }
   | { policy: "default"; value: string }
-  | { policy: "allowed"; values: readonly string[]; fallback: string }
+  | { policy: "default_if_empty"; value: string }
+  | { policy: "allowed"; values: readonly string[]; aliases?: Readonly<Record<string, string>>; fallback: string }
   | { policy: "alias"; aliases: Readonly<Record<string, string>> }
   | { policy: "hook"; hook: string };
 
@@ -32,6 +33,7 @@ export interface CardNormalizationSpec {
   canonicalOptionOrder: readonly string[];
   optionHook?: string;
   migrationActions?: readonly string[];
+  hookData?: Readonly<Record<string, unknown>>;
 }
 
 export interface MigrationActionSpec {

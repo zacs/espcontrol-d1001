@@ -41,7 +41,7 @@ SAVED_CONFIG_FIELDS = [
     "precision",
     "options",
 ]
-NORMALIZATION_FIELD_POLICIES = {"keep", "clear", "default", "allowed", "alias", "hook"}
+NORMALIZATION_FIELD_POLICIES = {"keep", "clear", "default", "default_if_empty", "allowed", "alias", "hook"}
 NORMALIZATION_CONDITION_OPERATORS = {"equals", "in", "present"}
 
 
@@ -463,16 +463,24 @@ def validate_card_normalization(
                 continue
             policy = rule.get("policy")
             if policy not in NORMALIZATION_FIELD_POLICIES:
-                errors.append(path_error(f"{rule_path}.policy", "must be keep, clear, default, allowed, alias, or hook"))
+                errors.append(path_error(f"{rule_path}.policy", "must be keep, clear, default, default_if_empty, allowed, alias, or hook"))
                 continue
-            if policy == "default" and not isinstance(rule.get("value"), str):
-                errors.append(path_error(f"{rule_path}.value", "must be a string for default"))
+            if policy in {"default", "default_if_empty"} and not isinstance(rule.get("value"), str):
+                errors.append(path_error(f"{rule_path}.value", f"must be a string for {policy}"))
             if policy == "allowed":
                 values = rule.get("values")
                 if not isinstance(values, list) or not values or not all(isinstance(item, str) for item in values):
                     errors.append(path_error(f"{rule_path}.values", "must be a non-empty list of strings for allowed"))
                 if not isinstance(rule.get("fallback"), str):
                     errors.append(path_error(f"{rule_path}.fallback", "must be a string for allowed"))
+                aliases = rule.get("aliases")
+                if aliases is not None:
+                    if not isinstance(aliases, dict) or not aliases or not all(
+                        isinstance(key, str) and isinstance(value, str) for key, value in aliases.items()
+                    ):
+                        errors.append(path_error(f"{rule_path}.aliases", "must be a non-empty object of strings for allowed"))
+                    elif isinstance(values, list) and any(target not in values for target in aliases.values()):
+                        errors.append(path_error(f"{rule_path}.aliases", "must map to an allowed value"))
             if policy == "alias":
                 aliases = rule.get("aliases")
                 if not isinstance(aliases, dict) or not aliases or not all(
@@ -523,6 +531,27 @@ def validate_card_normalization(
         for name in actions:
             if name not in migration_actions:
                 errors.append(path_error(f"{path}.migrationActions", f"references missing action {name!r}"))
+
+    hook_data = normalization.get("hookData", {})
+    if not isinstance(hook_data, dict):
+        errors.append(path_error(f"{path}.hookData", "must be an object"))
+    else:
+        unknown_hook_data = sorted(set(hook_data) - hook_names)
+        if unknown_hook_data:
+            errors.append(path_error(f"{path}.hookData", f"contains hooks outside the allow-list: {', '.join(unknown_hook_data)}"))
+        vacuum = hook_data.get("normalize_vacuum_fields")
+        if vacuum is not None:
+            if not isinstance(vacuum, dict):
+                errors.append(path_error(f"{path}.hookData.normalize_vacuum_fields", "must be an object"))
+            else:
+                modes = vacuum.get("preserveUnitForModes")
+                icons = vacuum.get("defaultIcons")
+                if not isinstance(modes, list) or not all(isinstance(mode, str) and mode for mode in modes):
+                    errors.append(path_error(f"{path}.hookData.normalize_vacuum_fields.preserveUnitForModes", "must be a list of non-empty strings"))
+                if not isinstance(icons, dict) or not all(isinstance(mode, str) and isinstance(icon, str) and icon for mode, icon in icons.items()):
+                    errors.append(path_error(f"{path}.hookData.normalize_vacuum_fields.defaultIcons", "must be an object of non-empty strings"))
+                elif "default" not in icons:
+                    errors.append(path_error(f"{path}.hookData.normalize_vacuum_fields.defaultIcons", "must include default"))
 
 
 def validate_migration_actions(
