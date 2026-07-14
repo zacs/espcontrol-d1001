@@ -1352,13 +1352,22 @@ def firmware_clock_screensaver_overlay_errors(backlight_path: Path, root: Path) 
     rel = backlight_path.relative_to(root)
     text = backlight_path.read_text(encoding="utf-8")
     sleep_body = yaml_script_body(text, "screensaver_sleep_timer")
+    adapter_body = yaml_script_body(text, "display_mode_apply_transition")
     show_body = yaml_script_body(text, "show_clock_view")
     keep_on_top_body = yaml_script_body(text, "clock_screensaver_keep_on_top")
 
     if sleep_body is None:
         errors.append(f"{rel}: missing screensaver_sleep_timer script")
     else:
-        show_index = sleep_body.find("script.execute: show_clock_view")
+        activation_markers = (
+            "script.execute: show_clock_view",
+            "espcontrol::DisplayMode::CLOCK",
+        )
+        activation_indexes = [
+            sleep_body.find(marker) for marker in activation_markers
+            if sleep_body.find(marker) != -1
+        ]
+        show_index = min(activation_indexes) if activation_indexes else -1
         if show_index == -1:
             errors.append(f"{rel}: keep clock screensaver activation explicit")
         else:
@@ -1374,6 +1383,11 @@ def firmware_clock_screensaver_overlay_errors(backlight_path: Path, root: Path) 
             )
             if any(token in pre_clock_show for token in cleanup_tokens):
                 errors.append(f"{rel}: let the clock screensaver overlay the existing UI without closing it")
+
+        if "espcontrol::DisplayMode::CLOCK" in sleep_body and (
+            adapter_body is None or "id: show_clock_view" not in adapter_body
+        ):
+            errors.append(f"{rel}: route controller clock decisions through show_clock_view")
 
     if show_body is None:
         errors.append(f"{rel}: missing show_clock_view script")
