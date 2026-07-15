@@ -51,7 +51,7 @@ struct GridConfig {
   std::function<void(espcontrol::DisplayTakeoverKind)> begin_display_takeover;
   std::function<void(espcontrol::DisplayTakeoverKind)> end_display_takeover;
   esphome::artwork_image::ArtworkImage **image_card_images = nullptr;
-  esphome::artwork_image::ArtworkImage **image_card_modal_images = nullptr;
+  esphome::artwork_image::ArtworkImage *image_card_modal_image = nullptr;
   int image_card_image_count = 0;
   bool image_card_diagnostics = false;
   std::function<std::string()> home_assistant_base_url;
@@ -302,8 +302,6 @@ inline void setup_media_cover_art(BtnSlot &s, const ParsedCfg &p,
   art->base_url_provider = cfg.home_assistant_base_url;
   art->begin_display_takeover = cfg.begin_display_takeover;
   art->end_display_takeover = cfg.end_display_takeover;
-  art->refresh_interval_ms = 0;
-  art->timer_only = false;
   art->modal_fit = false;
   art->media_artwork = true;
   art->media_overlay = overlay;

@@ -91,8 +91,6 @@ declare global {
   var IMAGE_ICON_OPTION: any;
   var IMAGE_LABEL_OPTION: any;
   var IMAGE_MODAL_MODE_OPTION: any;
-  var IMAGE_REFRESH_MODE_OPTION: any;
-  var IMAGE_REFRESH_OPTION: any;
   var INTERNAL_CARD_METADATA: any;
   var LANGUAGE_LABELS: any;
   var LAWN_MOWER_CARD_METADATA: any;
@@ -562,10 +560,6 @@ declare global {
   var imageModalMode: any;
   var imageModalModeOptions: any;
   var imageModalModeValues: any;
-  var imageRefreshInterval: any;
-  var imageRefreshIntervalValues: any;
-  var imageRefreshMode: any;
-  var imageRefreshModeValues: any;
   var importConfig: any;
   var infoOnlyCardVisible: any;
   var infoPanel: any;
@@ -727,8 +721,6 @@ declare global {
   var normalizeHour: any;
   var normalizeImageModalMode: any;
   var normalizeImageOptions: any;
-  var normalizeImageRefreshInterval: any;
-  var normalizeImageRefreshMode: any;
   var normalizeInternalRelayMode: any;
   var normalizeLanguage: any;
   var normalizeLawnMowerConfig: any;
@@ -1017,8 +1009,6 @@ declare global {
   var setImageIconEnabled: any;
   var setImageLabelEnabled: any;
   var setImageModalMode: any;
-  var setImageRefreshInterval: any;
-  var setImageRefreshMode: any;
   var setLightControlTabs: any;
   var setLightControlType: any;
   var setMediaLabelDisplayMode: any;

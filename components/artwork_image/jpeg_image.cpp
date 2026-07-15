@@ -8,12 +8,17 @@
 #include "esphome/core/log.h"
 #include "esp_heap_caps.h"
 
+#include <algorithm>
 #include <climits>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 
 #include "artwork_image.h"
+#if defined(USE_ESP_IDF) && defined(CONFIG_IDF_TARGET_ESP32P4)
+#include "driver/jpeg_decode.h"
+#include "driver/ppa.h"
+#endif
 static const char *const TAG = "artwork_image.jpeg";
 
 namespace esphome {
@@ -28,6 +33,127 @@ static void jpeg_error_exit(j_common_ptr cinfo) {
 static constexpr size_t MAX_JPEG_DOWNLOAD_SIZE = 2 * 1024 * 1024;  // 2 MB
 static constexpr uint32_t JPEG_DECODE_BUDGET_MS = 12;
 static constexpr int JPEG_SCANLINE_BATCH = 8;
+
+#if defined(USE_ESP_IDF) && defined(CONFIG_IDF_TARGET_ESP32P4)
+static jpeg_decoder_handle_t p4_jpeg_decoder() {
+  static jpeg_decoder_handle_t decoder = nullptr;
+  static bool attempted = false;
+  if (!attempted) {
+    attempted = true;
+    jpeg_decode_engine_cfg_t config{};
+    config.intr_priority = 0;
+    config.timeout_ms = 100;
+    esp_err_t err = jpeg_new_decoder_engine(&config, &decoder);
+    if (err != ESP_OK) {
+      ESP_LOGW(TAG, "Could not initialize ESP32-P4 JPEG hardware (error %d); using software decoder", err);
+      decoder = nullptr;
+    }
+  }
+  return decoder;
+}
+
+static uint32_t align_up(uint32_t value, uint32_t alignment) {
+  return (value + alignment - 1) / alignment * alignment;
+}
+
+struct P4JpegWorkspace {
+  uint8_t *input{nullptr};
+  size_t input_capacity{0};
+  uint8_t *output{nullptr};
+  size_t output_capacity{0};
+  uint8_t *scaled{nullptr};
+  size_t scaled_capacity{0};
+};
+
+static P4JpegWorkspace &p4_jpeg_workspace() {
+  static P4JpegWorkspace workspace;
+  return workspace;
+}
+
+static bool p4_ensure_jpeg_buffer(uint8_t *&buffer, size_t &capacity, size_t required,
+                                  jpeg_dec_buffer_alloc_direction_t direction) {
+  if (buffer != nullptr && capacity >= required) return true;
+  free(buffer);
+  buffer = nullptr;
+  capacity = 0;
+  jpeg_decode_memory_alloc_cfg_t config{};
+  config.buffer_direction = direction;
+  buffer = static_cast<uint8_t *>(jpeg_alloc_decoder_mem(required, &config, &capacity));
+  return buffer != nullptr && capacity >= required;
+}
+
+static ppa_client_handle_t p4_ppa_scaler() {
+  static ppa_client_handle_t client = nullptr;
+  static bool attempted = false;
+  if (!attempted) {
+    attempted = true;
+    ppa_client_config_t config{};
+    config.oper_type = PPA_OPERATION_SRM;
+    config.max_pending_trans_num = 1;
+    if (ppa_register_client(&config, &client) != ESP_OK) client = nullptr;
+  }
+  return client;
+}
+
+static bool p4_scale_rgb565(const uint8_t *source, uint32_t source_stride_pixels,
+                            uint32_t source_width, uint32_t source_height,
+                            uint32_t target_width, uint32_t target_height,
+                            uint8_t *&scaled, size_t &scaled_capacity) {
+  ppa_client_handle_t client = p4_ppa_scaler();
+  if (client == nullptr || source == nullptr || target_width == 0 || target_height == 0) return false;
+  size_t target_size = static_cast<size_t>(target_width) * target_height * 2;
+  static constexpr size_t PPA_BUFFER_ALIGNMENT = 64;
+  size_t required_capacity =
+      (target_size + PPA_BUFFER_ALIGNMENT - 1) & ~(PPA_BUFFER_ALIGNMENT - 1);
+  if (scaled == nullptr || scaled_capacity < required_capacity) {
+    heap_caps_free(scaled);
+    scaled = static_cast<uint8_t *>(heap_caps_aligned_alloc(
+        PPA_BUFFER_ALIGNMENT, required_capacity, MALLOC_CAP_DMA | MALLOC_CAP_SPIRAM));
+    scaled_capacity = scaled != nullptr ? required_capacity : 0;
+  }
+  if (scaled == nullptr) return false;
+
+  uint32_t crop_width = source_width;
+  uint32_t crop_height = source_height;
+  if (static_cast<uint64_t>(source_width) * target_height >
+      static_cast<uint64_t>(source_height) * target_width) {
+    crop_width = std::max<uint32_t>(
+        1, static_cast<uint64_t>(source_height) * target_width / target_height);
+  } else {
+    crop_height = std::max<uint32_t>(
+        1, static_cast<uint64_t>(source_width) * target_height / target_width);
+  }
+  uint32_t crop_x = (source_width - crop_width) / 2;
+  uint32_t crop_y = (source_height - crop_height) / 2;
+
+  ppa_srm_oper_config_t config{};
+  config.in.buffer = source;
+  config.in.pic_w = source_stride_pixels;
+  config.in.pic_h = source_height;
+  config.in.block_w = crop_width;
+  config.in.block_h = crop_height;
+  config.in.block_offset_x = crop_x;
+  config.in.block_offset_y = crop_y;
+  config.in.srm_cm = PPA_SRM_COLOR_MODE_RGB565;
+  config.out.buffer = scaled;
+  config.out.buffer_size = scaled_capacity;
+  config.out.pic_w = target_width;
+  config.out.pic_h = target_height;
+  config.out.block_offset_x = 0;
+  config.out.block_offset_y = 0;
+  config.out.srm_cm = PPA_SRM_COLOR_MODE_RGB565;
+  config.rotation_angle = PPA_SRM_ROTATION_ANGLE_0;
+  config.scale_x = static_cast<float>(target_width) / crop_width;
+  config.scale_y = static_cast<float>(target_height) / crop_height;
+  config.mode = PPA_TRANS_MODE_BLOCKING;
+  esp_err_t err = ppa_do_scale_rotate_mirror(client, &config);
+  if (err != ESP_OK) {
+    ESP_LOGW(TAG, "ESP32-P4 PPA scaling failed (error %d); using CPU scaling", err);
+    return false;
+  }
+  return true;
+}
+#endif
 
 JpegDecoder::~JpegDecoder() { this->cleanup_(); }
 
@@ -55,6 +181,13 @@ int HOT JpegDecoder::decode(uint8_t *buffer, size_t size) {
     ESP_LOGV(TAG, "Download not complete. Size: %zu/%zu", size, this->download_size_);
     return 0;
   }
+#if defined(USE_ESP_IDF) && defined(CONFIG_IDF_TARGET_ESP32P4)
+  if (!this->decode_started_) {
+    int hardware_result = this->decode_hardware_(buffer, size);
+    if (hardware_result != 0) return hardware_result;
+    ESP_LOGD(TAG, "Using software JPEG fallback on ESP32-P4");
+  }
+#endif
   if (!this->decode_started_) {
     int ret = this->start_decode_(buffer, size);
     if (ret < 0) {
@@ -63,6 +196,77 @@ int HOT JpegDecoder::decode(uint8_t *buffer, size_t size) {
   }
   return this->decode_scanlines_();
 }
+
+#if defined(USE_ESP_IDF) && defined(CONFIG_IDF_TARGET_ESP32P4)
+int JpegDecoder::decode_hardware_(uint8_t *buffer, size_t size) {
+  jpeg_decoder_handle_t decoder = p4_jpeg_decoder();
+  if (decoder == nullptr) return 0;
+
+  jpeg_decode_picture_info_t info{};
+  if (jpeg_decoder_get_info(buffer, size, &info) != ESP_OK || info.width == 0 || info.height == 0 ||
+      info.sample_method == JPEG_DOWN_SAMPLING_GRAY) {
+    return 0;
+  }
+
+  uint32_t mcu_width = info.sample_method == JPEG_DOWN_SAMPLING_YUV444 ? 8 : 16;
+  uint32_t mcu_height = info.sample_method == JPEG_DOWN_SAMPLING_YUV420 ? 16 : 8;
+  uint32_t padded_width = align_up(info.width, mcu_width);
+  uint32_t padded_height = align_up(info.height, mcu_height);
+  size_t requested_output_size = static_cast<size_t>(padded_width) * padded_height * 2;
+
+  P4JpegWorkspace &workspace = p4_jpeg_workspace();
+  if (!p4_ensure_jpeg_buffer(workspace.input, workspace.input_capacity, size,
+                             JPEG_DEC_ALLOC_INPUT_BUFFER) ||
+      !p4_ensure_jpeg_buffer(workspace.output, workspace.output_capacity, requested_output_size,
+                             JPEG_DEC_ALLOC_OUTPUT_BUFFER)) {
+    ESP_LOGW(TAG, "ESP32-P4 JPEG workspace allocation failed; using software decoder");
+    return 0;
+  }
+  memcpy(workspace.input, buffer, size);
+
+  jpeg_decode_cfg_t decode_config{};
+  decode_config.output_format = JPEG_DECODE_OUT_FORMAT_RGB565;
+  decode_config.rgb_order = this->image_->is_big_endian() ? JPEG_DEC_RGB_ELEMENT_ORDER_RGB
+                                                           : JPEG_DEC_RGB_ELEMENT_ORDER_BGR;
+  decode_config.conv_std = JPEG_YUV_RGB_CONV_STD_BT601;
+
+  uint32_t output_size = 0;
+  uint32_t started_at = millis();
+  esp_err_t err = jpeg_decoder_process(decoder, &decode_config, workspace.input, size,
+                                       workspace.output, workspace.output_capacity, &output_size);
+  if (err != ESP_OK || output_size < requested_output_size) {
+    ESP_LOGW(TAG, "ESP32-P4 JPEG hardware rejected image (error %d); using software decoder", err);
+    return 0;
+  }
+
+  int target_width = this->image_->get_fixed_width();
+  int target_height = this->image_->get_fixed_height();
+  bool ppa_scaled = false;
+  if (target_width > 0 && target_height > 0 &&
+      this->image_->get_resize_mode() == ImageResizeMode::COVER &&
+      (target_width != static_cast<int>(info.width) ||
+       target_height != static_cast<int>(info.height))) {
+    ppa_scaled = p4_scale_rgb565(workspace.output, padded_width, info.width, info.height,
+                                 target_width, target_height, workspace.scaled,
+                                 workspace.scaled_capacity);
+  }
+  if (ppa_scaled) {
+    if (!this->set_size(target_width, target_height)) return DECODE_ERROR_OUT_OF_MEMORY;
+    this->draw_rgb565_frame(target_width, target_height,
+                            static_cast<size_t>(target_width) * 2, workspace.scaled);
+  } else {
+    if (!this->set_size(info.width, info.height)) return DECODE_ERROR_OUT_OF_MEMORY;
+    this->draw_rgb565_frame(info.width, info.height,
+                            static_cast<size_t>(padded_width) * 2, workspace.output);
+  }
+
+  this->decoded_bytes_ = size;
+  ESP_LOGI(TAG, "ESP32-P4 hardware JPEG decoded %ux%u in %lu ms (PPA scale: %s)",
+           info.width, info.height, static_cast<unsigned long>(millis() - started_at),
+           ppa_scaled ? "yes" : "no");
+  return static_cast<int>(size);
+}
+#endif
 
 int JpegDecoder::start_decode_(uint8_t *buffer, size_t size) {
   ESP_LOGD(TAG, "JPEG decode start: %zu bytes", size);
