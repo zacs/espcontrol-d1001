@@ -4,6 +4,7 @@
 
 using esphome::artwork_image::p4_pipeline_candidate_precedes;
 using esphome::artwork_image::p4_pipeline_result_is_current;
+using esphome::artwork_image::image_pipeline_should_requeue_preempted_tile;
 
 int main() {
   // Modal work preempts queued tile work.
@@ -18,4 +19,10 @@ int main() {
   assert(p4_pipeline_result_is_current(4, 4, false));
   assert(!p4_pipeline_result_is_current(4, 3, false));
   assert(!p4_pipeline_result_is_current(4, 4, true));
+
+  // Preemption must requeue the selected card's own first tile, not only tiles
+  // belonging to other cards. Inactive or source-less work stays discarded.
+  assert(image_pipeline_should_requeue_preempted_tile(true, true));
+  assert(!image_pipeline_should_requeue_preempted_tile(false, true));
+  assert(!image_pipeline_should_requeue_preempted_tile(true, false));
 }

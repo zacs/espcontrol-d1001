@@ -11,6 +11,7 @@
 
 #include "esphome/core/version.h"
 #include "artwork_controller.h"
+#include "../artwork_image/image_pipeline_policy.h"
 #include <cstring>
 
 constexpr uint32_t IMAGE_CARD_STARTUP_RETRY_MS = 45000;
@@ -131,16 +132,21 @@ inline void image_card_release_download_slot(ImageCardCtx *ctx, bool start_next 
 inline void image_card_prioritize_modal_download(ImageCardCtx *ctx) {
   ImageCardCtx *active = image_card_active_download_context();
   if (active && active->image) {
+    bool requeue_preempted_tile =
+      esphome::artwork_image::image_pipeline_should_requeue_preempted_tile(
+        active->active, !active->source_url.empty());
     active->image->cancel_update();
     image_card_release_download_slot(active, false);
-    if (active != ctx && active->active && !active->source_url.empty()) {
+    if (requeue_preempted_tile) {
       active->download_queued = true;
       active->next_download_retry_ms =
           esphome::millis() + IMAGE_CARD_MODAL_REFRESH_DELAY_MS;
     }
   }
-  if (ctx && ctx->image) ctx->image->cancel_update();
-  image_card_release_download_slot(ctx, false);
+  if (ctx && ctx != active) {
+    if (ctx->image) ctx->image->cancel_update();
+    image_card_release_download_slot(ctx, false);
+  }
 }
 
 inline ImageCardModalUi &image_card_modal_ui() {
