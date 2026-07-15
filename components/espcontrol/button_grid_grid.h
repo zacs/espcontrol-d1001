@@ -334,7 +334,6 @@ inline void subscribe_media_cover_art(MediaNowPlayingCtx *ctx,
       })
   );
   subscribe_image_card_access_token(art, entity_id);
-  subscribe_image_card_entity_state(art, entity_id);
   image_card_request_media_artwork(art);
 }
 

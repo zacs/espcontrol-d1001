@@ -118,4 +118,23 @@ if 'state->entity_id, std::string("media_artist")' in metadata:
     raise SystemExit("Media track changes must not retain duplicate one-shot metadata reads")
 if "state->artist.clear()" in metadata:
     raise SystemExit("Media title updates must preserve an unchanged subscribed artist")
+
+grid = (ROOT / "components" / "espcontrol" / "button_grid_grid.h").read_text(encoding="utf-8")
+media_art_start = grid.find("inline void subscribe_media_cover_art(")
+media_art_end = grid.find("\ninline void setup_card_visual(", media_art_start)
+if media_art_start < 0 or media_art_end < 0:
+    raise SystemExit("Media card cover art subscription contract missing")
+media_art = grid[media_art_start:media_art_end]
+for required in (
+    'std::string("entity_picture")',
+    'std::string("entity_picture_local")',
+    "image_card_request_media_artwork(art)",
+):
+    if required not in media_art:
+        raise SystemExit(f"Media card cover art subscription contract missing: {required}")
+if "subscribe_image_card_entity_state" in media_art:
+    raise SystemExit(
+        "Media card cover art must not add a general entity-state subscription "
+        "on top of its picture subscriptions"
+    )
 print("Cover art policy, layout, and state contract checks passed.")

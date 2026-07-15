@@ -1517,10 +1517,6 @@ inline void subscribe_image_card_entity_state(ImageCardCtx *ctx,
     std::function<void(esphome::StringRef)>(
       [ctx, entity_id, generation](esphome::StringRef) {
         if (!image_card_context_current(ctx, entity_id, generation)) return;
-        if (ctx->media_artwork) {
-          image_card_request_media_artwork(ctx);
-          return;
-        }
         image_card_request_picture(ctx);
       })
   );
