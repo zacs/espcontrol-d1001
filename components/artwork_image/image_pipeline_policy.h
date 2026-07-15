@@ -47,6 +47,12 @@ constexpr bool image_pipeline_modal_cache_matches(bool ready, bool same_image,
   return ready && same_image && same_entity && same_source;
 }
 
+// A modal needs either a usable tile preview or a source it can request. With
+// neither, opening it would leave an unfinishable loading state on screen.
+constexpr bool image_pipeline_modal_can_open(bool tile_ready, bool has_source_url) {
+  return tile_ready || has_source_url;
+}
+
 // Camera cards share one modal-quality image buffer. A delayed cleanup from a
 // previously closed card must not cancel that buffer after another card starts
 // using it.

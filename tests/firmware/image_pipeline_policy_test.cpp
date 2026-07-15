@@ -6,6 +6,7 @@ using esphome::artwork_image::p4_pipeline_candidate_precedes;
 using esphome::artwork_image::p4_pipeline_http_status_is_success;
 using esphome::artwork_image::p4_pipeline_result_is_current;
 using esphome::artwork_image::image_pipeline_should_requeue_interrupted_tile;
+using esphome::artwork_image::image_pipeline_modal_can_open;
 using esphome::artwork_image::image_pipeline_modal_cache_matches;
 using esphome::artwork_image::image_pipeline_should_cancel_modal_cleanup;
 using esphome::artwork_image::p4_cover_scale_plan;
@@ -43,6 +44,11 @@ int main() {
   assert(image_pipeline_modal_cache_matches(true, true, true, true));
   assert(!image_pipeline_modal_cache_matches(true, true, true, false));
   assert(!image_pipeline_modal_cache_matches(false, true, true, true));
+
+  // A card without a tile or a source cannot progress beyond modal loading.
+  assert(image_pipeline_modal_can_open(true, false));
+  assert(image_pipeline_modal_can_open(false, true));
+  assert(!image_pipeline_modal_can_open(false, false));
 
   // A stale card cleanup must leave the shared modal request alone while a
   // newly opened card is using it. An otherwise idle separate buffer is safe
