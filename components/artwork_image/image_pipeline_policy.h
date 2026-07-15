@@ -40,6 +40,14 @@ constexpr bool image_pipeline_modal_cache_matches(bool ready, bool same_image,
   return ready && same_image && same_entity && same_source;
 }
 
+// Camera cards share one modal-quality image buffer. A delayed cleanup from a
+// previously closed card must not cancel that buffer after another card starts
+// using it.
+constexpr bool image_pipeline_should_cancel_modal_cleanup(bool has_separate_modal_image,
+                                                           bool shared_modal_in_use) {
+  return has_separate_modal_image && !shared_modal_in_use;
+}
+
 // The P4 decoder emits packed RGB565 pixels. Other configured target formats
 // must stay on the software path, which performs the required conversion.
 constexpr bool p4_jpeg_hardware_target_supported(bool target_is_rgb565) {

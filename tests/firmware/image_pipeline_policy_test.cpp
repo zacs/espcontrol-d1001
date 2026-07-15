@@ -6,6 +6,7 @@ using esphome::artwork_image::p4_pipeline_candidate_precedes;
 using esphome::artwork_image::p4_pipeline_result_is_current;
 using esphome::artwork_image::image_pipeline_should_requeue_interrupted_tile;
 using esphome::artwork_image::image_pipeline_modal_cache_matches;
+using esphome::artwork_image::image_pipeline_should_cancel_modal_cleanup;
 using esphome::artwork_image::p4_jpeg_hardware_target_supported;
 
 int main() {
@@ -33,6 +34,13 @@ int main() {
   assert(image_pipeline_modal_cache_matches(true, true, true, true));
   assert(!image_pipeline_modal_cache_matches(true, true, true, false));
   assert(!image_pipeline_modal_cache_matches(false, true, true, true));
+
+  // A stale card cleanup must leave the shared modal request alone while a
+  // newly opened card is using it. An otherwise idle separate buffer is safe
+  // to cancel.
+  assert(image_pipeline_should_cancel_modal_cleanup(true, false));
+  assert(!image_pipeline_should_cancel_modal_cleanup(true, true));
+  assert(!image_pipeline_should_cancel_modal_cleanup(false, false));
 
   // Packed RGB565 output is safe only for RGB565 image targets. Every other
   // configured type must fall back to the format-aware software decoder.

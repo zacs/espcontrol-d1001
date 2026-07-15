@@ -1650,7 +1650,10 @@ inline void image_card_schedule_source_refresh(ImageCardCtx *ctx, uint32_t delay
 inline void image_card_finish_modal_cleanup(ImageCardCtx *ctx) {
   if (!ctx || !ctx->active || !ctx->image || image_card_modal_active_for(ctx)) return;
   image_card_log_diagnostics(ctx, "modal-cleanup");
-  if (image_card_has_separate_modal_image(ctx)) {
+  ImageCardCtx *active_modal = image_card_modal_ui().active;
+  bool shared_modal_in_use = active_modal && active_modal->modal_image == ctx->modal_image;
+  if (esphome::artwork_image::image_pipeline_should_cancel_modal_cleanup(
+        image_card_has_separate_modal_image(ctx), shared_modal_in_use)) {
     ctx->modal_image->cancel_update();
   }
   image_card_apply_context_widget_geometry(ctx);
