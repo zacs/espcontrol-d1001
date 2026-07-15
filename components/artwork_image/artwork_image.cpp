@@ -170,6 +170,13 @@ struct P4PipelineTransfer {
   uint32_t first_byte_ms{0};
 };
 
+struct P4PipelineAllocationFailure {
+  ArtworkImage *owner{nullptr};
+  uint32_t generation{0};
+};
+
+static constexpr size_t P4_PIPELINE_ALLOCATION_FAILURE_SLOTS = 16;
+
 class P4ImagePipeline {
  public:
   static P4ImagePipeline &instance() {
@@ -204,10 +211,19 @@ class P4ImagePipeline {
     this->unlock_();
   }
 
-  P4PipelineResult *take(ArtworkImage *owner, uint32_t generation) {
+  P4PipelineResult *take(ArtworkImage *owner, uint32_t generation,
+                         bool *allocation_failed) {
     if (!this->ready_ || !owner) return nullptr;
+    if (allocation_failed) *allocation_failed = false;
     P4PipelineResult *match = nullptr;
     this->lock_();
+    for (auto &failure : this->allocation_failures_) {
+      if (failure.owner != owner) continue;
+      if (allocation_failed && failure.generation == generation) {
+        *allocation_failed = true;
+      }
+      failure = P4PipelineAllocationFailure{};
+    }
     auto it = this->completed_.begin();
     while (it != this->completed_.end()) {
       P4PipelineResult *candidate = *it;
@@ -260,6 +276,8 @@ class P4ImagePipeline {
             }
           }
           this->completed_.push_back(result);
+        } else if (!job->cancelled.load()) {
+          this->record_allocation_failure_locked_(job.get());
         }
         this->unlock_();
       }
@@ -413,6 +431,20 @@ class P4ImagePipeline {
         ++it;
       }
     }
+    for (auto &failure : this->allocation_failures_) {
+      if (failure.owner == owner) failure = P4PipelineAllocationFailure{};
+    }
+  }
+
+  void record_allocation_failure_locked_(const P4PipelineJob *job) {
+    if (!job) return;
+    for (auto &failure : this->allocation_failures_) {
+      if (failure.owner && failure.owner != job->owner) continue;
+      failure.owner = job->owner;
+      failure.generation = job->generation;
+      return;
+    }
+    ESP_LOGE(TAG, "No slot available to report ESP32-P4 pipeline allocation failure");
   }
 
   void reset_client_() {
@@ -431,6 +463,7 @@ class P4ImagePipeline {
   std::vector<std::shared_ptr<P4PipelineJob>> pending_;
   std::shared_ptr<P4PipelineJob> active_;
   std::vector<P4PipelineResult *> completed_;
+  P4PipelineAllocationFailure allocation_failures_[P4_PIPELINE_ALLOCATION_FAILURE_SLOTS]{};
   uint64_t next_sequence_{0};
   esp_http_client_handle_t client_{nullptr};
   std::vector<std::string> header_names_;
@@ -1025,8 +1058,16 @@ bool ArtworkImage::start_p4_pipeline_(const std::vector<http_request::Header> &h
 
 bool ArtworkImage::consume_p4_pipeline_result_() {
 #if defined(USE_ESP_IDF) && defined(CONFIG_IDF_TARGET_ESP32P4)
+  bool allocation_failed = false;
   P4PipelineResult *result =
-      P4ImagePipeline::instance().take(this, this->p4_pipeline_generation_);
+      P4ImagePipeline::instance().take(this, this->p4_pipeline_generation_,
+                                       &allocation_failed);
+  if (allocation_failed) {
+    this->p4_pipeline_pending_ = false;
+    ESP_LOGE(TAG, "ESP32-P4 image pipeline could not allocate its result");
+    this->fail_download_();
+    return true;
+  }
   if (!result) return false;
 
   this->p4_pipeline_pending_ = false;

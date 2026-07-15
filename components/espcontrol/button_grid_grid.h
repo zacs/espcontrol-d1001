@@ -305,6 +305,7 @@ inline void setup_media_cover_art(BtnSlot &s, const ParsedCfg &p,
   media_ctx->cover_art = art;
   media_ctx->cover_overlay = overlay;
   if (image_only && media_ctx->btn) lv_obj_set_user_data(media_ctx->btn, art);
+  if (art->image_ready) image_card_set_widget_source(img, art->image);
   media_cover_art_refresh_geometry(media_ctx);
   image_card_log_diagnostics(art, "bind-media-artwork");
 }
