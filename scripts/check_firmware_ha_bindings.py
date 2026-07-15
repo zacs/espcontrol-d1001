@@ -1605,6 +1605,24 @@ def firmware_image_card_quality_errors(firmware_dir: Path, root: Path) -> list[s
         or "image_card_queue_modal_source_request(ctx)" not in text
     ):
         errors.append(f"{rel}: show the cached image-card tile while modal-quality image loads")
+    modal_failure = re.search(
+        r"inline\s+void\s+image_card_show_modal_download_failure[^\{]*\{(?P<body>.*?)\n\}",
+        text,
+        re.S,
+    )
+    modal_failure_body = modal_failure.group("body") if modal_failure else ""
+    modal_error_handler = re.search(
+        r"inline\s+void\s+image_card_handle_modal_download_error[^\{]*\{(?P<body>.*?)\n\}",
+        text,
+        re.S,
+    )
+    modal_error_body = modal_error_handler.group("body") if modal_error_handler else ""
+    if (
+        "image_card_modal_has_preview(ctx)" not in modal_failure_body
+        or 'image_card_show_modal_loading(ctx, "Unavailable")' not in modal_failure_body
+        or "image_card_show_modal_download_failure(ctx)" not in modal_error_body
+    ):
+        errors.append(f"{rel}: keep an error state when image-card modals have no preview")
     if "lv_obj_set_style_clip_corner(ui.panel, true, LV_PART_MAIN)" not in text:
         errors.append(f"{rel}: clip image card modal content to rounded panel corners")
     if "image_card_apply_corner_clip" not in text:
@@ -5017,6 +5035,7 @@ def run_self_test() -> int:
             "clean up partially-created image card modals",
             "keep image-card modal loading overlay centered",
             "show the cached image-card tile while modal-quality image loads",
+            "keep an error state when image-card modals have no preview",
             "clip image card modal content to rounded panel corners",
             "preserve image card rounded corners while pressed",
             "apply image card corner clipping to the pressed state",
@@ -5065,6 +5084,16 @@ def run_self_test() -> int:
         "}\n"
         "inline void image_card_request_modal_source_url(ImageCardCtx *ctx) {\n"
         "  ctx->modal_image->request_update_url(ctx->modal_url, max_source_dim);\n"
+        "}\n"
+        "inline void image_card_show_modal_download_failure(ImageCardCtx *ctx) {\n"
+        "  if (image_card_modal_has_preview(ctx)) {\n"
+        "    image_card_hide_modal_loading(ctx);\n"
+        "  } else {\n"
+        "    image_card_show_modal_loading(ctx, \"Unavailable\");\n"
+        "  }\n"
+        "}\n"
+        "inline void image_card_handle_modal_download_error(ImageCardCtx *ctx) {\n"
+        "  image_card_show_modal_download_failure(ctx);\n"
         "}\n"
         "inline void image_card_abort_modal_open(ImageCardCtx *ctx, const char *reason) {\n"
         "  ESP_LOGW(\"image_card\", \"modal shell setup failed\");\n"

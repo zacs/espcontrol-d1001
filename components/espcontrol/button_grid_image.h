@@ -640,6 +640,16 @@ inline bool image_card_has_separate_modal_image(ImageCardCtx *ctx) {
   return ctx && ctx->modal_image && ctx->modal_image != ctx->image;
 }
 
+inline bool image_card_modal_has_preview(ImageCardCtx *ctx);
+
+inline void image_card_show_modal_download_failure(ImageCardCtx *ctx) {
+  if (image_card_modal_has_preview(ctx)) {
+    image_card_hide_modal_loading(ctx);
+  } else {
+    image_card_show_modal_loading(ctx, "Unavailable");
+  }
+}
+
 inline void image_card_apply_modal_downloaded(ImageCardCtx *ctx) {
   if (!ctx || !ctx->active || !image_card_has_separate_modal_image(ctx)) return;
   if (!image_card_modal_active_for(ctx)) return;
@@ -671,7 +681,7 @@ inline void image_card_handle_modal_download_error(ImageCardCtx *ctx) {
   image_card_log_diagnostics(ctx, "modal-download-error");
   if (image_card_modal_active_for(ctx)) {
     ImageCardModalUi &ui = image_card_modal_ui();
-    image_card_hide_modal_loading(ctx);
+    image_card_show_modal_download_failure(ctx);
     if (ui.back_btn) lv_obj_move_foreground(ui.back_btn);
   }
 }
@@ -1589,13 +1599,8 @@ inline bool image_card_request_modal_source_url(ImageCardCtx *ctx) {
   image_card_log_diagnostics(ctx, "modal-download-start", width, height);
   int max_source_dim = width > height ? width : height;
   std::string effective_url = ctx->modal_image->request_update_url(ctx->modal_url, max_source_dim);
-  if (effective_url.empty()) {
-    image_card_hide_modal_loading(ctx);
-    return false;
-  }
-  if (!effective_url.empty()) {
-    ctx->modal_url = effective_url;
-  }
+  if (effective_url.empty()) return false;
+  ctx->modal_url = effective_url;
   return true;
 }
 
@@ -1606,7 +1611,7 @@ inline void image_card_modal_request_timer_cb(lv_timer_t *timer) {
   lv_timer_del(timer);
   if (!ctx || !image_card_modal_active_for(ctx)) return;
   if (!image_card_request_modal_source_url(ctx)) {
-    image_card_hide_modal_loading(ctx);
+    image_card_show_modal_download_failure(ctx);
   }
 }
 
@@ -1631,7 +1636,7 @@ inline bool image_card_queue_modal_source_request(ImageCardCtx *ctx) {
   if (!ui.request_timer) {
     image_card_log_diagnostics(ctx, "modal-request-immediate");
     bool requested = image_card_request_modal_source_url(ctx);
-    if (!requested) image_card_hide_modal_loading(ctx);
+    if (!requested) image_card_show_modal_download_failure(ctx);
     return requested;
   }
   image_card_log_diagnostics(ctx, "modal-request-timer-created");
