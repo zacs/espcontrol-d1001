@@ -1476,6 +1476,7 @@ def firmware_cover_art_low_heap_progress_errors(
         if any(
             token not in cover_cleanup_body
             for token in (
+                "ha_reset_subscription_callbacks(HA_SUBSCRIPTION_SCOPE_COVER_ART_PROGRESS)",
                 "HA_SUBSCRIPTION_SCOPE_COVER_ART_PROGRESS",
                 "state->progress_subscribed = false",
                 "state->progress_subscription_scope = 0",
@@ -1484,6 +1485,10 @@ def firmware_cover_art_low_heap_progress_errors(
             )
         ):
             errors.append(f"{rel}: release cover-art-owned progress and preserve active card consumers")
+        elif cover_cleanup_body.find(
+            "ha_reset_subscription_callbacks(HA_SUBSCRIPTION_SCOPE_COVER_ART_PROGRESS)"
+        ) > cover_cleanup_body.find("state->progress_subscribed = false"):
+            errors.append(f"{rel}: release cover-art progress callbacks before clearing local state")
     else:
         errors.append(f"{media_path.relative_to(root)}: missing media card helpers")
 
@@ -5011,6 +5016,7 @@ def run_self_test() -> int:
         "  media_playback_apply_progress_consumers(state);\n"
         "}\n"
         "inline void media_playback_reset_cover_art_progress_subscriptions() {\n"
+        "  ha_reset_subscription_callbacks(HA_SUBSCRIPTION_SCOPE_COVER_ART_PROGRESS);\n"
         "  if ((state->progress_subscription_scope & HA_SUBSCRIPTION_SCOPE_COVER_ART_PROGRESS) == 0) return;\n"
         "  state->progress_subscribed = false;\n"
         "  state->progress_subscription_scope = 0;\n"
