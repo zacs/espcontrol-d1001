@@ -200,7 +200,9 @@ inline MediaPlaybackState *media_playback_ensure_state(const std::string &entity
 inline void media_playback_attach_control(MediaPlaybackState *state, MediaControlCtx *ctx);
 inline void media_playback_subscribe_playback_state(MediaPlaybackState *state);
 inline void media_playback_subscribe_metadata(MediaPlaybackState *state);
-inline void media_playback_subscribe_progress(MediaPlaybackState *state);
+inline void media_playback_subscribe_progress(
+  MediaPlaybackState *state,
+  uint32_t scope = HA_SUBSCRIPTION_SCOPE_DEFAULT);
 inline void media_playback_subscribe_volume(MediaPlaybackState *state);
 inline void media_playback_subscribe_friendly_name(MediaPlaybackState *state);
 inline void media_playback_refresh_progress_timer(MediaPlaybackState *state);
@@ -435,6 +437,7 @@ struct MediaPlaybackState {
   bool state_subscribed = false;
   bool metadata_subscribed = false;
   bool progress_subscribed = false;
+  uint32_t progress_subscription_scope = 0;
   bool volume_subscribed = false;
   bool content_subscribed = false;
   bool friendly_name_subscribed = false;
@@ -484,6 +487,7 @@ inline void media_playback_reset_state(MediaPlaybackState *state,
   state->state_subscribed = false;
   state->metadata_subscribed = false;
   state->progress_subscribed = false;
+  state->progress_subscription_scope = 0;
   state->volume_subscribed = false;
   state->content_subscribed = false;
   state->friendly_name_subscribed = false;
@@ -619,6 +623,12 @@ inline void media_playback_invalidate_stale_progress(
   if (duration_callback_is_fresh) return;
   state->duration = 0.0f;
   state->has_duration = false;
+  state->last_duration_callback_ms = 0;
+  state->position_seconds = 0.0f;
+  state->position_updated_ms = 0;
+  state->position_updated_at_known = false;
+  state->position_updated_at_ms = 0;
+  state->has_position = false;
   media_playback_apply_progress_consumers(state);
   media_playback_refresh_progress_timer(state);
 }
@@ -1068,9 +1078,11 @@ inline void media_playback_subscribe_metadata(MediaPlaybackState *state) {
   ha_get_attribute(entity_id, std::string("source"), handle_media_source);
 }
 
-inline void media_playback_subscribe_progress(MediaPlaybackState *state) {
+inline void media_playback_subscribe_progress(MediaPlaybackState *state,
+                                              uint32_t scope) {
   if (!state || state->progress_subscribed || state->entity_id.empty()) return;
   state->progress_subscribed = true;
+  state->progress_subscription_scope = scope;
   const std::string entity_id = state->entity_id;
   const uint32_t generation = state->generation;
 
@@ -1086,7 +1098,8 @@ inline void media_playback_subscribe_progress(MediaPlaybackState *state) {
         state->has_duration = duration > 0.0f;
         media_playback_apply_progress_consumers(state);
         media_playback_refresh_progress_timer(state);
-      })
+      }),
+    scope
   );
 
   ha_subscribe_attribute(
@@ -1103,7 +1116,8 @@ inline void media_playback_subscribe_progress(MediaPlaybackState *state) {
         state->has_position = true;
         media_playback_apply_progress_consumers(state);
         media_playback_refresh_progress_timer(state);
-      })
+      }),
+    scope
   );
 
   ha_subscribe_attribute(
@@ -1123,7 +1137,8 @@ inline void media_playback_subscribe_progress(MediaPlaybackState *state) {
         }
         media_playback_apply_progress_consumers(state);
         media_playback_refresh_progress_timer(state);
-      })
+      }),
+    scope
   );
   media_playback_refresh_progress_timer(state);
 }
@@ -1205,13 +1220,37 @@ inline void media_playback_subscribe_state(MediaPlaybackState *state) {
   media_playback_subscribe_progress(state);
 }
 
+inline void media_playback_reset_cover_art_progress_subscriptions() {
+  for (MediaPlaybackState *state : media_playback_states()) {
+    if (!state || !state->used || !state->progress_subscribed ||
+        state->progress_subscription_scope != HA_SUBSCRIPTION_SCOPE_COVER_ART) {
+      continue;
+    }
+    state->progress_subscribed = false;
+    state->progress_subscription_scope = 0;
+    state->duration = 0.0f;
+    state->has_duration = false;
+    state->last_duration_callback_ms = 0;
+    state->position_seconds = 0.0f;
+    state->position_updated_ms = 0;
+    state->position_updated_at_known = false;
+    state->position_updated_at_ms = 0;
+    state->has_position = false;
+    if (state->progress_timer) lv_timer_pause(state->progress_timer);
+    media_playback_apply_progress_consumers(state);
+    if (!state->sliders.empty() || !state->controls.empty()) {
+      media_playback_subscribe_progress(state);
+    }
+  }
+}
+
 inline MediaPlaybackState *media_playback_prepare_cover_art_progress(
     const std::string &entity_id, bool playing) {
   if (entity_id.empty() || !ha_api_available()) return nullptr;
   MediaPlaybackState *state = media_playback_ensure_state(entity_id);
   if (!state) return nullptr;
   media_playback_set_playing_hint(state, playing);
-  media_playback_subscribe_progress(state);
+  media_playback_subscribe_progress(state, HA_SUBSCRIPTION_SCOPE_COVER_ART);
   return state;
 }
 

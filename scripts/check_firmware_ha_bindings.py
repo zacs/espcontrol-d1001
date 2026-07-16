@@ -1371,7 +1371,7 @@ def firmware_cover_art_low_heap_progress_errors(
             for token in (
                 "media_playback_ensure_state(entity_id)",
                 "media_playback_set_playing_hint(state, playing)",
-                "media_playback_subscribe_progress(state)",
+                "media_playback_subscribe_progress(state, HA_SUBSCRIPTION_SCOPE_COVER_ART)",
             )
         ) or "media_playback_subscribe_playback_state" in prepare_body:
             errors.append(f"{rel}: prepare S3 progress idempotently without another playback-state subscription")
@@ -1383,7 +1383,11 @@ def firmware_cover_art_low_heap_progress_errors(
             re.DOTALL,
         )
         progress_body = progress_match.group("body") if progress_match else ""
-        if "state->progress_subscribed" not in progress_body:
+        if (
+            "state->progress_subscribed" not in progress_body
+            or "state->progress_subscription_scope = scope" not in progress_body
+            or progress_body.count("scope") < 4
+        ):
             errors.append(f"{rel}: subscribe to shared progress only once per dashboard generation")
         for attr in ("media_duration", "media_position", "media_position_updated_at"):
             if f'std::string("{attr}")' not in progress_body:
@@ -1449,10 +1453,34 @@ def firmware_cover_art_low_heap_progress_errors(
                 "last_duration_callback_ms",
                 "state->duration = 0.0f",
                 "state->has_duration = false",
+                "state->position_seconds = 0.0f",
+                "state->position_updated_ms = 0",
+                "state->position_updated_at_known = false",
+                "state->position_updated_at_ms = 0",
+                "state->has_position = false",
                 "media_playback_apply_progress_consumers(state)",
             )
         ):
             errors.append(f"{rel}: hide stale shared progress while preserving fresh track callbacks")
+
+        cover_cleanup_match = re.search(
+            r"inline\s+void\s+media_playback_reset_cover_art_progress_subscriptions\s*\([^)]*\)\s*\{"
+            r"(?P<body>.*?)\n\}",
+            media_text,
+            re.DOTALL,
+        )
+        cover_cleanup_body = cover_cleanup_match.group("body") if cover_cleanup_match else ""
+        if any(
+            token not in cover_cleanup_body
+            for token in (
+                "HA_SUBSCRIPTION_SCOPE_COVER_ART",
+                "state->progress_subscribed = false",
+                "state->progress_subscription_scope = 0",
+                "state->has_position = false",
+                "media_playback_subscribe_progress(state)",
+            )
+        ):
+            errors.append(f"{rel}: release cover-art-owned progress and preserve active card consumers")
     else:
         errors.append(f"{media_path.relative_to(root)}: missing media card helpers")
 
@@ -1491,9 +1519,14 @@ def firmware_cover_art_low_heap_progress_errors(
             "#ifdef ESPCONTROL_LOW_HEAP_COVER_ART",
             "media_playback_prepare_cover_art_progress",
             "media_playback_invalidate_stale_progress(cover_entity)",
+            "media_playback_reset_cover_art_progress_subscriptions()",
         )
     ):
         errors.append(f"{rel}: prepare and invalidate S3 shared cover art progress")
+
+    disable_body = yaml_script_body(text, "cover_art_disable")
+    if not disable_body or "script.execute: cover_art_resubscribe" not in disable_body:
+        errors.append(f"{rel}: release cover art subscriptions when the feature is disabled")
 
     prepared_visibility = re.search(
         r"media_playback_prepare_cover_art_progress\(.*?"
@@ -4906,11 +4939,12 @@ def run_self_test() -> int:
         "  if (state->generation != ha_subscription_generation()) media_playback_reset_state(state, entity_id);\n"
         "  return state;\n"
         "}\n"
-        "inline void media_playback_subscribe_progress(MediaPlaybackState *state) {\n"
+        "inline void media_playback_subscribe_progress(MediaPlaybackState *state, uint32_t scope) {\n"
         "  if (!state || state->progress_subscribed) return;\n"
-        "  ha_subscribe_attribute(entity_id, std::string(\"media_duration\"), cb);\n"
-        "  ha_subscribe_attribute(entity_id, std::string(\"media_position\"), cb);\n"
-        "  ha_subscribe_attribute(entity_id, std::string(\"media_position_updated_at\"), cb);\n"
+        "  state->progress_subscription_scope = scope;\n"
+        "  ha_subscribe_attribute(entity_id, std::string(\"media_duration\"), cb, scope);\n"
+        "  ha_subscribe_attribute(entity_id, std::string(\"media_position\"), cb, scope);\n"
+        "  ha_subscribe_attribute(entity_id, std::string(\"media_position_updated_at\"), cb, scope);\n"
         "}\n"
         "inline bool media_control_progress_supported(MediaControlCtx *ctx) {\n"
         "  #ifdef ESPCONTROL_LOW_HEAP_MEDIA_CONTROL\n"
@@ -4926,12 +4960,24 @@ def run_self_test() -> int:
         "  uint32_t last_duration_callback_ms = state->last_duration_callback_ms;\n"
         "  state->duration = 0.0f;\n"
         "  state->has_duration = false;\n"
+        "  state->position_seconds = 0.0f;\n"
+        "  state->position_updated_ms = 0;\n"
+        "  state->position_updated_at_known = false;\n"
+        "  state->position_updated_at_ms = 0;\n"
+        "  state->has_position = false;\n"
         "  media_playback_apply_progress_consumers(state);\n"
+        "}\n"
+        "inline void media_playback_reset_cover_art_progress_subscriptions() {\n"
+        "  if (state->progress_subscription_scope != HA_SUBSCRIPTION_SCOPE_COVER_ART) return;\n"
+        "  state->progress_subscribed = false;\n"
+        "  state->progress_subscription_scope = 0;\n"
+        "  state->has_position = false;\n"
+        "  media_playback_subscribe_progress(state);\n"
         "}\n"
         "inline MediaPlaybackState *media_playback_prepare_cover_art_progress(const std::string &entity_id, bool playing) {\n"
         "  MediaPlaybackState *state = media_playback_ensure_state(entity_id);\n"
         "  media_playback_set_playing_hint(state, playing);\n"
-        "  media_playback_subscribe_progress(state);\n"
+        "  media_playback_subscribe_progress(state, HA_SUBSCRIPTION_SCOPE_COVER_ART);\n"
         "  return state;\n"
         "}\n"
         "inline void subscribe_media_slider_state(lv_obj_t *btn_ptr, lv_obj_t *slider, const std::string &entity_id) {\n"
@@ -4966,7 +5012,11 @@ def run_self_test() -> int:
         "          #ifdef ESPCONTROL_LOW_HEAP_COVER_ART\n"
         "          media_playback_prepare_cover_art_progress(cover_entity, id(cover_art_media_playing));\n"
         "          media_playback_invalidate_stale_progress(cover_entity);\n"
+        "          media_playback_reset_cover_art_progress_subscriptions();\n"
         "          #endif\n"
+        "  - id: cover_art_disable\n"
+        "    then:\n"
+        "      - script.execute: cover_art_resubscribe\n"
         "#ifndef ESPCONTROL_LOW_HEAP_COVER_ART\n"
         "ha_subscribe_attribute(cover_entity, std::string(\"media_duration\"), cb);\n"
         "ha_subscribe_attribute(cover_entity, std::string(\"media_position\"), cb);\n"
