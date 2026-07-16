@@ -1700,6 +1700,12 @@ inline bool is_entity_on_ref(esphome::StringRef state) {
          value == "unlocked" || value == "unlocking" || value == "jammed";
 }
 
+inline bool sensor_active_color_state_ref(esphome::StringRef state,
+                                          bool numeric_mode) {
+  return is_entity_on_ref(state) ||
+         (numeric_mode && numeric_state_positive_ref(state));
+}
+
 inline bool presence_detected_ref(esphome::StringRef state) {
   std::string value = normalized_state_text(state);
   return value == "detected" || is_entity_on_ref(state);

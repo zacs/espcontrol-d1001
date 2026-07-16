@@ -38,9 +38,12 @@ inline void apply_toggle_text_sensor_label(ToggleTextSensorCtx *ctx) {
 inline void apply_sensor_active_color(lv_obj_t *btn, bool active_color,
                                       esphome::StringRef state,
                                       uint32_t on_color, uint32_t sensor_color,
-                                      bool unavailable) {
+                                      bool unavailable,
+                                      bool numeric_mode = false) {
   if (!btn || !active_color) return;
-  uint32_t next_color = (!unavailable && is_entity_on_ref(state)) ? on_color : sensor_color;
+  uint32_t next_color =
+    (!unavailable && sensor_active_color_state_ref(state, numeric_mode))
+      ? on_color : sensor_color;
   lv_obj_set_style_bg_color(btn, lv_color_hex(next_color),
     static_cast<lv_style_selector_t>(LV_PART_MAIN) | static_cast<lv_style_selector_t>(LV_STATE_DEFAULT));
 }
@@ -95,7 +98,7 @@ inline void subscribe_sensor_value(lv_obj_t *sensor_lbl, const std::string &sens
        active_color, on_color, sensor_color](esphome::StringRef state) {
       bool unavailable = ha_state_unavailable_ref(state);
       apply_sensor_active_color(availability_obj, active_color, state,
-        on_color, sensor_color, unavailable);
+        on_color, sensor_color, unavailable, true);
 
       float val = 0.0f;
       if (!unavailable && parse_float_ref(state, val) && std::isfinite(val)) {

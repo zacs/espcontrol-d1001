@@ -64,7 +64,7 @@ For **Numeric**, **Text**, or **Icon** mode, turn on **Lit When Active** if you 
 ## How It Works on the Panel
 
 - Icon mode treats active Home Assistant states such as `on`, `true`, `home`, `playing`, `open`, or `unlocked` as active and uses the on icon when configured.
-- When **Lit When Active** is enabled, Numeric, Text, and Icon cards use the active/on background colour for those active states. They return to the Sensor card colour when the state is inactive, unknown, or unavailable.
+- When **Lit When Active** is enabled, Text and Icon cards use the active/on background colour for those active states. Numeric cards treat any positive value as active. All three return to the Sensor card colour when the state is inactive, zero, unknown, or unavailable.
 - Numeric mode displays the current value in large text, with the unit beside it and the label underneath.
 - Time mode listens for both the value and its Home Assistant unit when **Input Unit** is Auto. A change to either one updates the card. Missing or unsupported unit metadata leaves the value blank rather than guessing.
 - Numeric mode normally uses the fixed **tertiary** background colour, so it remains visually distinct from Switch and Trigger cards.
