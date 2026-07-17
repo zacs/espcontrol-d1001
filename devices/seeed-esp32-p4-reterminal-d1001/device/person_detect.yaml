@@ -36,6 +36,14 @@ esp_video_camera:
   i2c_id: bus_touch # share the touch bus (SCCB is on GPIO37/38)
   resolution: 1280x720
   rotation: auto # IMU-picked at boot (keeps a standing person upright); pin 0/90/180/270 for a fixed mount
+  # The SC2356 powers up near-black and its "auto" default under-exposes an
+  # ordinary indoor room (boot log showed exposure=811/1244, gain=63/255 ->
+  # luma mean ~15, light ~6%, so the pedestrian model never cleared 60%).
+  # Pin exposure to the top of the sensor range and push gain well up so a
+  # standing person is actually lit. Dial these back if the frame blows out /
+  # gets too noisy in your lighting; raise gain toward 255 for a darker room.
+  exposure: 1244 # raw sensor units, max of the 8..1244 range
+  gain: 200 # raw sensor units, ~0.78 of the 0..255 range
   imu:
     i2c_id: bus_expander
     address: 0x6A # on-board LSM6DS3TR
