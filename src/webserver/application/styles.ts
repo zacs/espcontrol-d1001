@@ -112,6 +112,13 @@ export function installStylesModule(): GlobalDescriptors {
         ".sp-media-now-title{font-size:calc(var(--btn-label)*1.75);line-height:1.08;color:#fff;font-weight:300;z-index:1;" +
         "display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;word-break:break-word}" +
         ".sp-media-now-artist{font-size:var(--btn-label);line-height:1.2;color:#fff}" +
+        ".sp-btn-big .sp-media-cover-details-title,.sp-btn-extra-large .sp-media-cover-details-title{font-size:var(--media-cover-title)}" +
+        ".sp-btn-big .sp-media-cover-details-row .sp-media-now-artist,.sp-btn-extra-large .sp-media-cover-details-row .sp-media-now-artist{font-size:var(--media-cover-artist)}" +
+        ".sp-btn-big.sp-media-cover-details-card,.sp-btn-extra-large.sp-media-cover-details-card{justify-content:flex-start}" +
+        ".sp-media-cover-artwork{background-image:radial-gradient(circle at 68% 28%,#ea80fc 0 13%,transparent 34%),linear-gradient(135deg,#3949ab 0%,#00897b 48%,#ff7043 100%)}" +
+        ".sp-media-cover-tint{position:absolute;inset:-2px;background:rgba(49,49,49,.5);z-index:0}" +
+        ".sp-media-cover-details-title{margin:var(--btn-pad) var(--btn-pad) 0}" +
+        ".sp-btn-label-row.sp-media-cover-details-row{width:auto;margin:0 var(--btn-pad) var(--btn-pad)}" +
         ".sp-btn-double{grid-row:span 2}" +
         ".sp-btn-double .sp-btn-label{-webkit-line-clamp:var(--btn-lines-dbl)}" +
         ".sp-btn-double .sp-btn-label-row .sp-btn-label{-webkit-line-clamp:var(--btn-lines-dbl)}" +
@@ -132,6 +139,8 @@ export function installStylesModule(): GlobalDescriptors {
         ".sp-btn-extra-large .sp-btn-label{-webkit-line-clamp:var(--btn-lines-dbl)}" +
         ".sp-btn-extra-large .sp-btn-label-row .sp-btn-label{-webkit-line-clamp:var(--btn-lines-dbl)}" +
         ".sp-btn-extra-large .sp-media-now-title{-webkit-line-clamp:var(--btn-lines-dbl)}" +
+        ".sp-btn-big .sp-media-cover-details-title{-webkit-line-clamp:2}" +
+        ".sp-btn-wide .sp-media-cover-details-title,.sp-btn-extra-wide .sp-media-cover-details-title{-webkit-line-clamp:2}" +
         ".sp-btn-max-wide{grid-row:span 2;grid-column:span 3}" +
         ".sp-btn-max-tall{grid-row:span 3;grid-column:span 2}" +
         ".sp-empty-cell{border:2px dashed rgba(255,255,255,.15);background:transparent;" +

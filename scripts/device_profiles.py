@@ -777,7 +777,10 @@ def validate_web(slug: str, device: dict[str, Any], errors: list[str]) -> None:
 
     btn = require_object(slug, errors, web.get("btn"), "web.btn")
     if btn is not None:
-        for key in ("radius", "padding", "iconSize", "labelSize"):
+        for key in (
+            "radius", "padding", "iconSize", "labelSize",
+            "coverArtTitleSize", "coverArtArtistSize",
+        ):
             if not is_number(btn.get(key)):
                 errors.append(device_error(slug, f"web.btn.{key} must be a number"))
         if "borderWidth" in btn and not is_number(btn.get("borderWidth")):
@@ -924,6 +927,8 @@ def slot_device(profile: dict[str, Any]) -> dict[str, Any]:
         "large_sensor_unit_offset_percent": profile["settings"]["largeSensorUnitOffsetPercent"],
         "media_title_font": fonts["mediaTitle"],
         "media_control_title_font": fonts.get("mediaControlTitle"),
+        "media_cover_art_title_font": fonts.get("mediaCoverArtTitle"),
+        "media_cover_art_artist_font": fonts.get("mediaCoverArtArtist"),
         "volume_number_font": fonts["volumeNumber"],
         "volume_label_font": fonts["volumeLabel"],
         "cover_art": copy.deepcopy(display["coverArt"]),

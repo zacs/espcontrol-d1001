@@ -107,6 +107,7 @@ declare global {
   var MAX_CLOCK_BAR_TEMPERATURES: any;
   var MEDIA_CARD_METADATA: any;
   var MEDIA_COVER_ART_ACTION_OPTION: any;
+  var MEDIA_COVER_ART_DETAILS_OPTION: any;
   var MEDIA_COVER_ART_OPTION: any;
   var MEDIA_LABEL_DISPLAY_OPTION: any;
   var MEDIA_NUMBER_DISPLAY_OPTION: any;
@@ -655,6 +656,7 @@ declare global {
   var mdiIcon: any;
   var mediaBehaviorSpec: any;
   var mediaCoverArtAction: any;
+  var mediaCoverArtDetailsEnabled: any;
   var mediaDefaultMode: any;
   var mediaEditorMode: any;
   var mediaEditorValidMode: any;
@@ -1030,6 +1032,7 @@ declare global {
   var setLightControlType: any;
   var setMediaLabelDisplayMode: any;
   var setMediaCoverArtAction: any;
+  var setMediaCoverArtDetailsEnabled: any;
   var setMediaNumberDisplayMode: any;
   var setMediaPlaylistContentId: any;
   var setMediaPlaylistContentType: any;

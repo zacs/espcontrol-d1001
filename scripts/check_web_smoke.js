@@ -1316,7 +1316,8 @@ const mediaNowPlayingPreview = hooks.buttonTypePreviewFor("media", {
   type: "media",
   precision: "progress",
 });
-assert(mediaNowPlayingPreview.iconHtml.includes("Midnight City"), "media now-playing preview keeps title text");
+assert(mediaNowPlayingPreview.iconHtml.includes("Track Title"), "media now-playing preview uses the shared mock title");
+assert(mediaNowPlayingPreview.labelHtml.includes("Artist Name"), "media now-playing preview uses the shared mock artist");
 assert(mediaNowPlayingPreview.labelHtml.includes("sp-media-now-artist"), "media now-playing preview keeps artist styling");
 
 const mediaCoverArtPreview = hooks.buttonTypePreviewFor("media", {
@@ -1330,6 +1331,19 @@ assert(!mediaCoverArtPreview.iconHtml.includes("sp-media-cover-preview"), "media
 assert(mediaCoverArtPreview.labelHtml.includes("sp-image-label"), "media cover art preview uses the shared padded image label");
 assert(mediaCoverArtPreview.labelHtml.includes("Cover Art"), "media cover art preview shows the Cover Art label");
 assert(!mediaCoverArtPreview.labelHtml.includes("Now Playing"), "media cover art preview does not show the now-playing label");
+const mediaCoverArtDetailsPreview = hooks.buttonTypePreviewFor("media", {
+  entity: "media_player.office",
+  sensor: "cover_art",
+  type: "media",
+  options: "cover_art_details",
+});
+assert(mediaCoverArtDetailsPreview.iconHtml.includes("sp-media-cover-artwork"), "media cover art details preview demonstrates artwork");
+assert(mediaCoverArtDetailsPreview.iconHtml.includes("sp-media-cover-tint"), "media cover art details preview demonstrates its tint");
+assert(mediaCoverArtDetailsPreview.iconHtml.includes("sp-media-cover-details-title"), "media cover art details preview insets its title like other cards");
+assert(mediaCoverArtDetailsPreview.iconHtml.includes("Track Title"), "media cover art details preview shows a track title");
+assert(mediaCoverArtDetailsPreview.buttonClass.includes("sp-media-cover-details-card"), "media cover art details preview can stack large-card metadata");
+assert(mediaCoverArtDetailsPreview.labelHtml.includes("sp-media-cover-details-row"), "media cover art details preview insets its artist row like other cards");
+assert(mediaCoverArtDetailsPreview.labelHtml.includes("Artist Name"), "media cover art details preview shows an artist");
 
 const issue243Backup = {
   version: 1,
