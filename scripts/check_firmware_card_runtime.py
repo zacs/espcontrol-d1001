@@ -56,6 +56,7 @@ CLEANING_HEADER = "button_grid_cleaning_driver.h"
 ACCESS_COVER_HEADER = "button_grid_access_cover_driver.h"
 COVER_MODAL_DRIVER_HEADER = "button_grid_cover_modal_driver.h"
 MEDIA_DRIVER_HEADER = "button_grid_media_driver.h"
+LEGACY_COMPATIBILITY_DRIVER_HEADER = "button_grid_legacy_compatibility_driver.h"
 NAVIGATION_DRIVER_HEADER = "button_grid_navigation_driver.h"
 IMAGE_DRIVER_HEADER = "button_grid_image_driver.h"
 LIGHT_CONTROL_DRIVER_HEADER = "button_grid_light_control_driver.h"
@@ -112,6 +113,25 @@ def check_root(root: Path) -> list[str]:
                 and not service_mapping_line_allowed(line)
             ):
                 failures.append(f"{rel}:{line_no}: keep shared card service mappings in the card runtime/contract boundary")
+    runtime_header = root / "components" / "espcontrol" / "button_grid_card_runtime.h"
+    if runtime_header.exists():
+        text = runtime_header.read_text(encoding="utf-8")
+        if "struct Context" in text and "driver_uses_legacy_dispatch" in text:
+            failures.append(
+                "components/espcontrol/button_grid_card_runtime.h: retire the broad driver fallback classifier"
+            )
+        if (
+            "struct Context" in text
+            and (text.count("context.legacy_dispatch = true;") != 1 or 'type == "todo"' not in text)
+        ):
+            failures.append(
+                "components/espcontrol/button_grid_card_runtime.h: keep exactly one explicit Todo compatibility path"
+            )
+        for raw_alias in ('type == "local"', 'type == "text_sensor"'):
+            if raw_alias in text:
+                failures.append(
+                    "components/espcontrol/button_grid_card_runtime.h: resolve saved-config aliases before runtime dispatch"
+                )
     mower_header = root / "components" / "espcontrol" / LAWN_MOWER_HEADER
     if mower_header.exists():
         text = mower_header.read_text(encoding="utf-8")
@@ -143,7 +163,6 @@ def check_root(root: Path) -> list[str]:
             "card_runtime_context(p)" not in text
             or "card_runtime_information_only(context)" not in text
             or "espcontrol::cards::Surface::SUBPAGE" not in text
-            or "Legacy setup fallback" not in text
         ):
             failures.append(
                 f"components/espcontrol/{GRID_HEADER}: route main and subpage setup through the shared card context"
@@ -175,6 +194,9 @@ def check_root(root: Path) -> list[str]:
             or "media_driver_setup_visual( s, p, context, palette, display, row_span, col_span)" not in compact_grid
             or "media_driver_bind_main( s, p, context, media_environment)" not in compact_grid
             or "media_driver_bind_subpage( sub_slot, sb_cfg, context, media_environment)" not in compact_grid
+            or "legacy_compatibility_driver_setup_visual( s, p, context, palette, display, row_span, col_span)" not in compact_grid
+            or "legacy_compatibility_driver_bind( s, p, context, palette, display, row_span, col_span)" not in compact_grid
+            or "legacy_compatibility_driver_bind( sub_slot, sb_cfg, context, palette, display, rs, cs)" not in compact_grid
             or "navigation_driver_setup_visual( s, p, context, cfg, display)" not in compact_grid
             or "navigation_driver_bind_main( s, p, context, navigation_state)" not in compact_grid
             or "navigation_driver_own_subpage( slots[si], p, parent_context, si + 1, display_order, sub_scr)" not in compact_grid
@@ -249,6 +271,17 @@ def check_root(root: Path) -> list[str]:
                 failures.append(
                     f"components/espcontrol/{GRID_HEADER}: keep migrated type overrides inside shared drivers"
                 )
+        for retired_fallback in (
+            "Legacy setup fallback",
+            "family == espcontrol::cards::Family::TODO",
+            "create_todo_card_context(",
+            "subscribe_toggle_state(s.btn, s.icon_lbl, s.sensor_container,",
+            "bool switch_has_sensor = !sb_cfg.sensor.empty();",
+        ):
+            if retired_fallback in text:
+                failures.append(
+                    f"components/espcontrol/{GRID_HEADER}: broad legacy card fallback must remain retired ({retired_fallback})"
+                )
         if (
             "cleaning_environment.add_mower_parent_indicator" not in text
             or "lawn_mower_state_active_ref" not in text
@@ -283,7 +316,6 @@ def check_root(root: Path) -> list[str]:
         if click_body is not None and (
             "card_runtime_context(p)" not in click_body
             or "card_runtime_passive(context)" not in click_body
-            or "Legacy action fallback" not in click_body
             or "basic_action_driver_handle_main_click(" not in click_body
             or "numeric_selectable_driver_handle_main_click(" not in click_body
             or "cleaning_driver_handle_main_click(" not in click_body
@@ -296,6 +328,7 @@ def check_root(root: Path) -> list[str]:
             or "climate_control_driver_handle_main_click(" not in click_body
             or "alarm_driver_handle_main_click(" not in click_body
             or "media_driver_handle_main_click(" not in click_body
+            or "legacy_compatibility_driver_handle_main_click(" not in click_body
         ):
             failures.append(
                 f"components/espcontrol/{ACTION_HEADER}: route passive checks through the shared card context"
@@ -320,6 +353,15 @@ def check_root(root: Path) -> list[str]:
                 if direct_branch in click_body:
                     failures.append(
                         f"components/espcontrol/{ACTION_HEADER}: keep migrated clicks inside shared drivers"
+                    )
+            for retired_fallback in (
+                "Legacy action fallback",
+                'p.type == "todo"',
+                "send_toggle_action(p.entity)",
+            ):
+                if retired_fallback in click_body:
+                    failures.append(
+                        f"components/espcontrol/{ACTION_HEADER}: broad legacy action fallback must remain retired ({retired_fallback})"
                     )
     image_header = root / "components" / "espcontrol" / IMAGE_HEADER
     if image_header.exists():
@@ -618,6 +660,34 @@ def check_root(root: Path) -> list[str]:
     elif grid_header.exists():
         failures.append(
             f"components/espcontrol/{MEDIA_DRIVER_HEADER}: missing shared media driver"
+        )
+    compatibility_driver_header = (
+        root / "components" / "espcontrol" / LEGACY_COMPATIBILITY_DRIVER_HEADER
+    )
+    if compatibility_driver_header.exists():
+        text = compatibility_driver_header.read_text(encoding="utf-8")
+        required = (
+            "legacy_compatibility_driver_matches",
+            "legacy_compatibility_driver_setup_visual",
+            "legacy_compatibility_driver_bind",
+            "legacy_compatibility_driver_handle_main_click",
+            "context.family == Family::TODO",
+            "create_todo_card_context",
+            "subscribe_todo_state",
+            "subscribe_todo_friendly_name",
+        )
+        for needle in required:
+            if needle not in text:
+                failures.append(
+                    f"components/espcontrol/{LEGACY_COMPATIBILITY_DRIVER_HEADER}: missing narrow compatibility guard {needle}"
+                )
+        if 'config.type' in text or 'type == "todo"' in text:
+            failures.append(
+                f"components/espcontrol/{LEGACY_COMPATIBILITY_DRIVER_HEADER}: match compatibility through the shared runtime context"
+            )
+    elif grid_header.exists():
+        failures.append(
+            f"components/espcontrol/{LEGACY_COMPATIBILITY_DRIVER_HEADER}: missing narrow legacy compatibility driver"
         )
     navigation_driver_header = root / "components" / "espcontrol" / NAVIGATION_DRIVER_HEADER
     if navigation_driver_header.exists():
