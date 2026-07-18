@@ -8,6 +8,8 @@ description:
 
 Media Cover Art can turn the panel into a now-playing display while a selected Home Assistant media player is playing.
 
+Migrating from the dedicated ESPHome Media Player project? See [Migrate from ESPHome Media Player](/getting-started/migrate-esphome-media-player) for two complete setup recipes.
+
 You will find these controls in **Settings > Sleep & Schedule > Media Cover Art** on the panel web page.
 
 ## Settings

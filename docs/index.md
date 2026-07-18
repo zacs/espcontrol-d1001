@@ -75,6 +75,7 @@ If you find this project useful, consider buying me a coffee to support ongoing 
 ## Next Steps
 
 - [Install](/getting-started/install) — what you need, how to flash, and first-time setup
+- [Migrate from ESPHome Media Player](/getting-started/migrate-esphome-media-player) — recreate its cover-art, media-control, and clock screensaver experience
 - [Setup](/features/setup) — how to configure cards, display, and screensaver from your browser
 - [Card Types](/card-types/) — choose the right card for each Home Assistant control, sensor, or panel action
 - [Firmware Updates](/features/firmware-updates) — how update checks and WiFi firmware updates work
