@@ -45,11 +45,28 @@ def run_self_test() -> int:
         f"{slug}: slots must equal layout.cols * layout.rows",
     )
 
+    invalid_image_capacity = copy.deepcopy(data)
+    slug, device = first_device(invalid_image_capacity)
+    device["capabilities"]["imageSlots"] = 7
+    expect_error(
+        validate_manifest_data(invalid_image_capacity, fonts),
+        f"{slug}: capabilities.imageSlots must be an integer from 0 to 6",
+    )
+
+    legacy_image_capacity = copy.deepcopy(data)
+    slug, device = first_device(legacy_image_capacity)
+    device["firmware"]["display"]["imageCardDownloaders"] = 6
+    expect_error(
+        validate_manifest_data(legacy_image_capacity, fonts),
+        f"{slug}: firmware.display.imageCardDownloaders has moved to capabilities.imageSlots",
+    )
+
     catalog = {
         "settings": {},
         "profiles": {
             "platform": {"p4": {"firmware": {"build": {"chip": "ESP32-P4"}}}},
             "display": {"panel": {"layout": {"cols": 4}, "tags": ["display"]}},
+            "modal": {},
             "fonts": {},
             "network": {},
             "artwork": {},
@@ -133,6 +150,14 @@ def run_self_test() -> int:
     expect_error(
         validate_manifest_data(invalid_chip, fonts),
         f"{slug}: firmware.build.chip must be one of",
+    )
+
+    invalid_modal_family = copy.deepcopy(data)
+    slug, device = first_device(invalid_modal_family)
+    device["firmware"]["display"]["modal"]["layoutFamily"] = "device-specific-magic"
+    expect_error(
+        validate_manifest_data(invalid_modal_family, fonts),
+        f"{slug}: firmware.display.modal.layoutFamily must be one of",
     )
 
     invalid_web = copy.deepcopy(data)

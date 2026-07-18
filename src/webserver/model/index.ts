@@ -20,6 +20,16 @@ export {
 } from "./card";
 
 export {
+  CARD_TRANSFER_FORMAT,
+  CARD_TRANSFER_MAX_BYTES,
+  CARD_TRANSFER_MAX_CARDS,
+  CARD_TRANSFER_VERSION,
+  createCardTransferCode,
+  normalizeCardTransferEnvelope,
+  parseCardTransferCode,
+} from "./card_transfer";
+
+export {
   configOptionEnabled,
   configOptionValue,
   decodeConfigField,
@@ -32,9 +42,13 @@ export {
 
 export {
   CARD_SIZE_DEFINITIONS,
+  CARD_SIZE_EXTRA_LARGE,
   CARD_SIZE_EXTRA_TALL,
   CARD_SIZE_EXTRA_WIDE,
   CARD_SIZE_LARGE,
+  CARD_SIZE_MAX_TALL,
+  CARD_SIZE_MAX_WIDE,
+  CARD_SIZE_PORTRAIT_LARGE,
   CARD_SIZE_SINGLE,
   CARD_SIZE_TALL,
   CARD_SIZE_WIDE,
@@ -78,6 +92,7 @@ export {
   normalizeBackupPanelSettings,
   normalizeBackupScreenSettings,
   normalizeClockBrightness,
+  normalizeCoverArtDelay,
   normalizeHexColor,
   normalizeHour,
   normalizeHomeAssistantArtworkPort,
@@ -87,6 +102,7 @@ export {
   normalizeScheduleClockBrightness,
   normalizeScheduleDimmedBrightness,
   normalizeScheduleMode,
+  normalizeScheduleSensorActivation,
   normalizeScheduleTrigger,
   normalizeScheduleWakeBrightness,
   normalizeScheduleWakeTimeout,
@@ -95,6 +111,7 @@ export {
   normalizeTemperatureUnit,
   normalizeTimeOfDay,
   scheduleModeOption,
+  scheduleSensorActivationOption,
   screensaverActionOption,
 } from "./settings";
 
@@ -117,6 +134,27 @@ export type {
 export type {
   DraftCardConfig,
 } from "./card";
+
+export {
+  MEDIA_CARD_CONFIG_VERSION,
+  decodeMediaCardConfigV1,
+} from "./media_card";
+
+export type {
+  MediaCardConfigV1,
+  MediaCardMode,
+  MediaControlLabelDisplay,
+  MediaControlNumberDisplay,
+  MediaCoverArtAction,
+  MediaNowPlayingControl,
+  MediaStateDisplay,
+} from "./media_card";
+
+export type {
+  CardTransferEntry,
+  CardTransferEnvelope,
+  CardTransferSource,
+} from "./card_transfer";
 
 export type {
   ParsedGridOrder,

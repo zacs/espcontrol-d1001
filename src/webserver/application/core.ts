@@ -1,4 +1,5 @@
 import { liveGlobal, staticGlobal, type GlobalDescriptors } from "../runtime/globals";
+import { CARD_RUNTIME_SPECS } from "../generated/card_contract";
 export function installCore(): GlobalDescriptors {
     var DEVICE_ID: any = deviceId;
     var CFG: any = deviceConfig;
@@ -81,6 +82,8 @@ export function installCore(): GlobalDescriptors {
             r.removeProperty("--btn-border");
         r.setProperty("--btn-icon", scaledCqw(btn.iconSize, scale));
         r.setProperty("--btn-label", scaledCqw(btn.labelSize, scale));
+        r.setProperty("--media-cover-title", scaledCqw(btn.coverArtTitleSize, scale));
+        r.setProperty("--media-cover-artist", scaledCqw(btn.coverArtArtistSize, scale));
         r.setProperty("--btn-label-weight", String(btn.labelWeight || 400));
         r.setProperty("--btn-lines", String(btn.labelLines || 1));
         r.setProperty("--btn-lines-dbl", String(btn.labelLinesDouble || btn.labelLines || 1));
@@ -145,9 +148,12 @@ export function installCore(): GlobalDescriptors {
             renderPreview: null,
             contextMenuItems: null,
             cardMetadata: null,
+            runtimeSpec: null,
             defaultConfig: null,
             normalizeConfig: null,
-        }, def);
+        }, def, {
+            runtimeSpec: CARD_RUNTIME_SPECS[key] || null,
+        });
     }
     function subpageStateDisplayMode(this: any, b?: any) {
         if (!b || !b.sensor)

@@ -29,11 +29,14 @@ export function installSettingsPageHelpersModule(): GlobalDescriptors {
     function infoPanel(this: any, id?: any, text?: any) {
         return _settingsUiFeature.infoPanel(id, text);
     }
-    function statusBadge(this: any, label?: any) {
-        return _settingsUiFeature.statusBadge(label);
+    function statusBadge(this: any, label?: any, text?: any) {
+        return _settingsUiFeature.statusBadge(label, text);
     }
-    function inlineDisclosure(this: any, title?: any, bodyElement?: any, defaultOpen?: any) {
-        return _settingsUiFeature.inlineDisclosure(title, bodyElement, defaultOpen);
+    function disclosureBadge(this: any, text?: any, label?: any) {
+        return _settingsUiFeature.disclosureBadge(text, label);
+    }
+    function inlineDisclosure(this: any, title?: any, bodyElement?: any, defaultOpen?: any, badgeElement?: any) {
+        return _settingsUiFeature.inlineDisclosure(title, bodyElement, defaultOpen, badgeElement);
     }
     // ── Settings sync helpers ───────────────────────────────────────────
     function syncClockScreensaverControls(this: any) {
@@ -98,9 +101,9 @@ export function installSettingsPageHelpersModule(): GlobalDescriptors {
             els.setCoverArtBadge.className = "sp-card-badge" + (state.coverArtScreensaverOn ? "" : " sp-hidden");
         }
         if (els.setCoverArtDelay) {
-            var coverArtDelay: any = Math.max(0, parseFloat(state.coverArtDelay) || 0);
+            var coverArtDelay: any = normalizeCoverArtDelay(state.coverArtDelay);
             state.coverArtDelay = coverArtDelay;
-            setSelectValue(els.setCoverArtDelay, coverArtDelay, coverArtDelay > 0 ? formatDuration(coverArtDelay) : "Immediately");
+            setSelectValue(els.setCoverArtDelay, coverArtDelay, formatDuration(coverArtDelay));
         }
         if (els.setCoverArtTrackOverlayDuration) {
             var value: any = state.coverArtTrackOverlayDuration;
@@ -254,6 +257,7 @@ export function installSettingsPageHelpersModule(): GlobalDescriptors {
         "coverArtTrackOverlayDurationSupported": staticGlobal(coverArtTrackOverlayDurationSupported),
         "infoPanel": staticGlobal(infoPanel),
         "statusBadge": staticGlobal(statusBadge),
+        "disclosureBadge": staticGlobal(disclosureBadge),
         "inlineDisclosure": staticGlobal(inlineDisclosure),
         "syncClockScreensaverControls": staticGlobal(syncClockScreensaverControls),
         "syncMediaPlayerSleepPreventionUi": staticGlobal(syncMediaPlayerSleepPreventionUi),

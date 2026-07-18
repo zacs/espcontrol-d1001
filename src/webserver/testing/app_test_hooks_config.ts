@@ -1,4 +1,5 @@
 import { liveGlobal, staticGlobal, type GlobalDescriptors } from "../runtime/globals";
+import { infoOnlyCardVisible } from "../features/preview";
 export function installAppTestHooksConfig(): GlobalDescriptors {
     if (typeof globalThis !== "undefined" && globalThis.__ESPCONTROL_TEST_HOOKS__) {
         registerEspControlTestHookGroup("config", {
@@ -29,6 +30,9 @@ export function installAppTestHooksConfig(): GlobalDescriptors {
             setCardOnPattern: setCardOnPattern,
             sensorActiveColorEnabled: sensorActiveColorEnabled,
             sensorCardIsLocal: sensorCardIsLocal,
+            sensorTimeUnit: sensorTimeUnit,
+            setSensorTimeUnit: setSensorTimeUnit,
+            normalizeSensorOptions: normalizeSensorOptions,
             sensorStateLabelsEnabled: sensorStateLabelsEnabled,
             sensorStateInput: sensorStateInput,
             sensorStateOutput: sensorStateOutput,
@@ -88,7 +92,16 @@ export function installAppTestHooksConfig(): GlobalDescriptors {
             mediaNowPlayingControlValues: mediaNowPlayingControlValues,
             mediaNowPlayingControls: mediaNowPlayingControls,
             mediaStateDisplayModeSupported: mediaStateDisplayModeSupported,
+            cardRequiresSquareSize: cardRequiresSquareSize,
+            cardSupportsMaxSize: cardSupportsMaxSize,
+            cardSupportsPortraitLargeSize: cardSupportsPortraitLargeSize,
+            cardSizeMenuOptions: cardSizeMenuOptions,
+            normalizeCardSizeForConfig: normalizeCardSizeForConfig,
             normalizeMediaOptions: normalizeMediaOptions,
+            mediaCoverArtAction: mediaCoverArtAction,
+            setMediaCoverArtAction: setMediaCoverArtAction,
+            mediaCoverArtDetailsEnabled: mediaCoverArtDetailsEnabled,
+            setMediaCoverArtDetailsEnabled: setMediaCoverArtDetailsEnabled,
             mediaVolumeMax: mediaVolumeMax,
             setMediaVolumeMax: setMediaVolumeMax,
             mediaLabelDisplayMode: mediaLabelDisplayMode,
@@ -106,16 +119,13 @@ export function installAppTestHooksConfig(): GlobalDescriptors {
             setMediaPlaylistContentId: setMediaPlaylistContentId,
             setMediaPlaylistContentType: setMediaPlaylistContentType,
             setMediaPlaylistPlayerSource: setMediaPlaylistPlayerSource,
-            imageRefreshIntervalValues: imageRefreshIntervalValues,
-            imageRefreshModeValues: imageRefreshModeValues,
             imageModalModeValues: imageModalModeValues,
             normalizeImageOptions: normalizeImageOptions,
             imageLabelEnabled: imageLabelEnabled,
             imageIconEnabled: imageIconEnabled,
             imageModalMode: imageModalMode,
-            imageRefreshInterval: imageRefreshInterval,
-            imageRefreshMode: imageRefreshMode,
-            imageCardLimit: imageCardLimit,
+            imageSlotCapacity: imageSlotCapacity,
+            imageSlotCapacityMessage: imageSlotCapacityMessage,
             imageCardCountForTest: function (this: any, snapshot?: any, candidate?: any) {
                 var oldGrid: any = state.grid;
                 var oldButtons: any = state.buttons;
@@ -140,7 +150,7 @@ export function installAppTestHooksConfig(): GlobalDescriptors {
                 state.buttons = (snapshot && snapshot.buttons) || [];
                 state.subpages = (snapshot && snapshot.subpages) || {};
                 try {
-                    return imageCardCountWithCandidate(candidate) <= imageCardLimit();
+                    return imageCardCountWithCandidate(candidate) <= imageSlotCapacity();
                 }
                 finally {
                     state.grid = oldGrid;
@@ -200,6 +210,9 @@ export function installAppTestHooksConfig(): GlobalDescriptors {
                 var visible: any = buttonTypeVisibleInPicker(key, !!isSub);
                 return visible;
             },
+            cardTransferEntriesFromEnvelopeForTest: function (this: any, envelope?: any, targetIsSubpage?: any) {
+                return clipboardEntriesFromCardTransfer(envelope, !!targetIsSubpage);
+            },
             buttonTypePickerKeysForInfoOnly: function (this: any, enabled?: any, selectedTypeKey?: any) {
                 var oldInfoOnly: any = CFG.infoOnly;
                 CFG.infoOnly = !!enabled;
@@ -218,6 +231,23 @@ export function installAppTestHooksConfig(): GlobalDescriptors {
                         missing.push(key);
                 }
                 return missing.sort();
+            },
+            buttonTypesMissingRuntimeSpec: function (this: any) {
+                var missing: any = [];
+                for (var key in BUTTON_TYPES) {
+                    if (!BUTTON_TYPES[key].runtimeSpec)
+                        missing.push(key);
+                }
+                return missing.sort();
+            },
+            buttonTypeInfoOnlySupported: function (this: any, type?: any) {
+                return infoOnlyCardVisible(type || "", true);
+            },
+            buttonTypeGeneratedRuntimeSpec: function (this: any, type?: any) {
+                var typeDef: any = BUTTON_TYPES[type || ""];
+                return typeDef && typeDef.runtimeSpec
+                    ? JSON.parse(JSON.stringify(typeDef.runtimeSpec))
+                    : null;
             },
             buttonTypeDefaultConfig: function (this: any, type?: any) {
                 var typeDef: any = BUTTON_TYPES[type || ""];

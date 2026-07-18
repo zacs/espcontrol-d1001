@@ -36,18 +36,29 @@ export function installConfigMediaOptionsModule(): GlobalDescriptors {
         }
         if (mode === "playlist") {
             var playlistOut: any = "";
-            var contentId: any = configOptionValue(options, MEDIA_PLAYLIST_CONTENT_ID_OPTION);
+            var contentId: any = configOptionValue(options, MEDIA_PLAYLIST_CONTENT_ID_OPTION).trim();
             if (contentId)
                 playlistOut = setConfigOptionValue(playlistOut, MEDIA_PLAYLIST_CONTENT_ID_OPTION, contentId);
             var defaultType: any = cardContractOptionDefaultValue("media", MEDIA_PLAYLIST_CONTENT_TYPE_OPTION, "playlist");
-            var contentType: any = configOptionValue(options, MEDIA_PLAYLIST_CONTENT_TYPE_OPTION) || defaultType;
+            var contentType: any = configOptionValue(options, MEDIA_PLAYLIST_CONTENT_TYPE_OPTION).trim() || defaultType;
             if (contentType !== defaultType) {
                 playlistOut = setConfigOptionValue(playlistOut, MEDIA_PLAYLIST_CONTENT_TYPE_OPTION, contentType);
             }
-            var playerSource: any = configOptionValue(options, MEDIA_PLAYLIST_PLAYER_SOURCE_OPTION);
+            var playerSource: any = configOptionValue(options, MEDIA_PLAYLIST_PLAYER_SOURCE_OPTION).trim();
             if (playerSource)
                 playlistOut = setConfigOptionValue(playlistOut, MEDIA_PLAYLIST_PLAYER_SOURCE_OPTION, playerSource);
             return playlistOut;
+        }
+        if (mode === "cover_art") {
+            var coverArtOut: any = "";
+            var action: any = normalizeMediaCoverArtAction(configOptionValue(options, MEDIA_COVER_ART_ACTION_OPTION));
+            if (action === "control_modal") {
+                coverArtOut = setConfigOptionValue(coverArtOut, MEDIA_COVER_ART_ACTION_OPTION, action);
+            }
+            if (configOptionEnabled(options, MEDIA_COVER_ART_DETAILS_OPTION)) {
+                coverArtOut = setConfigOption(coverArtOut, MEDIA_COVER_ART_DETAILS_OPTION, true);
+            }
+            return coverArtOut;
         }
         if (mode !== "volume" && mode !== "position")
             return "";
@@ -58,6 +69,33 @@ export function installConfigMediaOptionsModule(): GlobalDescriptors {
         }
         out = copyLargeNumbersOption(out, options);
         return out;
+    }
+    function normalizeMediaCoverArtAction(this: any, value?: any) {
+        value = String(value || "").trim();
+        var spec: any = cardContractOptionSpec("media", MEDIA_COVER_ART_ACTION_OPTION);
+        var values: any = spec && spec.values ? spec.values : ["play_pause", "control_modal"];
+        return values.indexOf(value) >= 0 ? value : "play_pause";
+    }
+    function mediaCoverArtAction(this: any, b?: any) {
+        return normalizeMediaCoverArtAction(configOptionValue(b && b.options, MEDIA_COVER_ART_ACTION_OPTION));
+    }
+    function setMediaCoverArtAction(this: any, b?: any, value?: any) {
+        if (!b)
+            return "";
+        var normalized: any = normalizeMediaCoverArtAction(value);
+        b.options = setConfigOptionValue(b.options, MEDIA_COVER_ART_ACTION_OPTION, normalized === "play_pause" ? "" : normalized);
+        b.options = normalizeMediaOptions(b.options, b.sensor);
+        return b.options;
+    }
+    function mediaCoverArtDetailsEnabled(this: any, b?: any) {
+        return !!(b && configOptionEnabled(b.options, MEDIA_COVER_ART_DETAILS_OPTION));
+    }
+    function setMediaCoverArtDetailsEnabled(this: any, b?: any, enabled?: any) {
+        if (!b)
+            return "";
+        b.options = setConfigOption(b.options, MEDIA_COVER_ART_DETAILS_OPTION, !!enabled);
+        b.options = normalizeMediaOptions(b.options, b.sensor);
+        return b.options;
     }
     function normalizeMediaLabelDisplayMode(this: any, value?: any) {
         value = String(value || "").trim();
@@ -141,6 +179,11 @@ export function installConfigMediaOptionsModule(): GlobalDescriptors {
     return {
         "normalizeMediaVolumeMax": staticGlobal(normalizeMediaVolumeMax),
         "normalizeMediaOptions": staticGlobal(normalizeMediaOptions),
+        "normalizeMediaCoverArtAction": staticGlobal(normalizeMediaCoverArtAction),
+        "mediaCoverArtAction": staticGlobal(mediaCoverArtAction),
+        "setMediaCoverArtAction": staticGlobal(setMediaCoverArtAction),
+        "mediaCoverArtDetailsEnabled": staticGlobal(mediaCoverArtDetailsEnabled),
+        "setMediaCoverArtDetailsEnabled": staticGlobal(setMediaCoverArtDetailsEnabled),
         "normalizeMediaLabelDisplayMode": staticGlobal(normalizeMediaLabelDisplayMode),
         "normalizeMediaNumberDisplayMode": staticGlobal(normalizeMediaNumberDisplayMode),
         "mediaVolumeMax": staticGlobal(mediaVolumeMax),

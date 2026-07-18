@@ -83,7 +83,7 @@ function htmlFor(slug) {
     "</head>",
     "<body>",
     "<esp-app></esp-app>",
-    `<script src="/webserver/${slug}/www.js"></script>`,
+    `<script src="/webserver/www.js?device=${slug}"></script>`,
     "</body>",
     "</html>",
   ].join("");
@@ -103,8 +103,33 @@ function routeContentType(url) {
   return "text/plain";
 }
 
+function publicFirmwareManifest(slug) {
+  return {
+    version: "v1.13.0",
+    builds: [{
+      ota: {
+        path: `${slug}.ota.bin`,
+        md5: "0123456789abcdef0123456789abcdef",
+      },
+    }],
+  };
+}
+
+function publicFirmwareVersions(slug) {
+  return {
+    device: slug,
+    versions: ["v1.13.0", "v1.12.0", "v1.11.0"].map((version, index) => ({
+      version,
+      ota: {
+        path: index === 0 ? `${slug}.ota.bin` : `versions/${version}/${slug}.ota.bin`,
+        md5: "0123456789abcdef0123456789abcdef",
+      },
+    })),
+  };
+}
+
 async function installRoutes(context, slug) {
-  const scriptPath = path.join(WEB_OUTPUT_DIR, slug, "www.js");
+  const scriptPath = path.join(WEB_OUTPUT_DIR, "www.js");
   assert(
     fs.existsSync(scriptPath),
     `${slug}: generated web UI does not exist at ${scriptPath}`,
@@ -125,7 +150,7 @@ async function installRoutes(context, slug) {
     }
     if (
       requestUrl.hostname === "espcontrol.test" &&
-      requestUrl.pathname === `/webserver/${slug}/www.js`
+      requestUrl.pathname === "/webserver/www.js"
     ) {
       await route.fulfill({
         status: 200,
@@ -137,6 +162,24 @@ async function installRoutes(context, slug) {
     if (requestUrl.hostname === "espcontrol.test") {
       await route.fulfill({ status: 204, contentType: "text/plain", body: "" });
       return;
+    }
+    if (requestUrl.hostname === "jtenniswood.github.io") {
+      if (requestUrl.pathname.endsWith("/manifest.json")) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(publicFirmwareManifest(slug)),
+        });
+        return;
+      }
+      if (requestUrl.pathname.endsWith("/versions.json")) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(publicFirmwareVersions(slug)),
+        });
+        return;
+      }
     }
     await route.fulfill({
       status: 200,
@@ -231,6 +274,13 @@ function seededEvents() {
       option: ["http", "https"],
     },
     { id: "switch-firmware__auto_update", state: "ON", value: true },
+    { id: "text_sensor-firmware__version", state: "v1.12.0" },
+    {
+      id: "update-firmware__update",
+      state: "UPDATE AVAILABLE",
+      current_version: "v1.12.0",
+      latest_version: "v1.13.0",
+    },
     {
       id: "select-firmware__update_frequency",
       state: "Daily",
@@ -727,6 +777,175 @@ async function assertSettingsPage(page, label, options = {}) {
     ["Display", "Sleep & Schedule", "Preferences", "System"],
     `${label}: settings groups should be ordered by purpose`,
   );
+  const firmwareCard = page
+    .locator("#sp-settings .card")
+    .filter({
+      has: page.locator(".card-header h3", { hasText: /^Firmware$/ }),
+    })
+    .first();
+  assert(
+    await firmwareCard.isVisible(),
+    `${label}: firmware settings card should render`,
+  );
+  if (options.exerciseInteractions) {
+    await firmwareCard.locator(":scope > .card-header").click();
+    await page.waitForSelector("#sp-fw-updates-panel", { state: "visible" });
+    assert.deepStrictEqual(
+      await firmwareCard
+        .locator(".sp-fw-subpanels > .sp-disclosure")
+        .evaluateAll((nodes) => nodes.map((node) => node.id)),
+      ["sp-fw-updates-panel", "sp-fw-auto-panel", "sp-fw-wifi-panel", "sp-fw-previous-panel"],
+      `${label}: firmware sub-panels should use the requested order`,
+    );
+    assert.strictEqual(
+      await page.locator("#sp-fw-updates-panel .sp-disclosure-button > span").first().innerText(),
+      "Firmware updates",
+      `${label}: firmware update details should have a clear panel title`,
+    );
+    assert.strictEqual(
+      await page.locator("#sp-fw-updates-panel .sp-disclosure-button").getAttribute("aria-expanded"),
+      "false",
+      `${label}: firmware updates should start closed`,
+    );
+    assert(
+      await page.locator("#sp-fw-updates-panel .sp-disclosure-badge").isVisible(),
+      `${label}: available firmware should show an update badge while closed`,
+    );
+    await page.locator("#sp-fw-updates-panel .sp-disclosure-button").click();
+    assert(
+      await page.locator("#sp-fw-updates-panel .sp-fw-overview").isVisible(),
+      `${label}: firmware update details should render inside the panel`,
+    );
+    assert.strictEqual(
+      await page.locator("#sp-fw-updates-panel .sp-disclosure-badge").isVisible(),
+      false,
+      `${label}: firmware update badge should hide while open`,
+    );
+    assert.strictEqual(
+      await page.locator("#sp-fw-auto-panel").getAttribute("class"),
+      "sp-disclosure",
+      `${label}: auto updates should start closed`,
+    );
+    assert(
+      await page.locator("#sp-fw-auto-panel .sp-disclosure-badge").isVisible(),
+      `${label}: enabled auto updates should show an On badge while closed`,
+    );
+    await page.locator("#sp-fw-auto-panel .sp-disclosure-button").click();
+    assert.strictEqual(
+      await page.locator("#sp-fw-auto-panel .sp-disclosure-button").getAttribute("aria-expanded"),
+      "true",
+      `${label}: auto updates should expose its expanded state`,
+    );
+    assert.strictEqual(
+      await page.locator("#sp-fw-auto-panel .sp-disclosure-badge").isVisible(),
+      false,
+      `${label}: auto-update badge should hide while open`,
+    );
+    assert(
+      await page.locator("#sp-set-update-freq").isVisible(),
+      `${label}: enabled auto updates should show frequency inside the panel`,
+    );
+    assert.deepStrictEqual(
+      await firmwareCard
+        .locator(
+          ".sp-fw-label, .sp-fw-version, .sp-disclosure-button, .sp-toggle-label, .sp-select, .sp-fw-btn",
+        )
+        .evaluateAll((nodes) => [
+          ...new Set(nodes.map((node) => getComputedStyle(node).fontSize)),
+        ]),
+      ["14px"],
+      `${label}: firmware labels, values, headings, fields, and actions should use one primary font size`,
+    );
+    assert.strictEqual(
+      await page.locator("#sp-fw-previous-panel .sp-disclosure-button").getAttribute("aria-expanded"),
+      "false",
+      `${label}: previous firmware should start closed`,
+    );
+    await page.locator("#sp-fw-previous-panel .sp-disclosure-button").click();
+    assert.deepStrictEqual(
+      await page.locator("#sp-set-firmware-version option").evaluateAll(
+        (options) => options.map((option) => option.value),
+      ),
+      ["v1.11.0"],
+      `${label}: previous firmware should exclude latest and installed versions`,
+    );
+    assert.strictEqual(
+      await page.locator("#sp-fw-previous-panel .sp-fw-btn").isEnabled(),
+      true,
+      `${label}: a previous firmware selection should enable Install`,
+    );
+    const confirmPromise = page.waitForEvent("dialog");
+    const installClick = page.locator("#sp-fw-previous-panel .sp-fw-btn").click();
+    const confirmDialog = await confirmPromise;
+    assert.strictEqual(
+      confirmDialog.message(),
+      "Install older firmware v1.11.0? The display will restart during installation.",
+      `${label}: previous firmware installation should require confirmation`,
+    );
+    await confirmDialog.dismiss();
+    await installClick;
+    assert.strictEqual(
+      await page
+        .locator("#sp-settings .card-header h3")
+        .filter({ hasText: /^WiFi$/ })
+        .count(),
+      0,
+      `${label}: WiFi firmware should not remain a standalone settings card`,
+    );
+    await page.evaluate(() => window.__seedEspState([
+      { id: "text_sensor-esp32_c6__current_firmware", state: "2.12.8" },
+      { id: "text_sensor-esp32_c6__latest_firmware", state: "2.12.9" },
+      { id: "switch-wifi_firmware__auto_update", state: "ON", value: true },
+      { id: "button-firmware_esp32_c6__install_update", state: "" },
+    ]));
+    const wifiPanel = page.locator("#sp-fw-wifi-panel");
+    assert(await wifiPanel.isVisible(), `${label}: supported WiFi firmware panel should render`);
+    assert(
+      await wifiPanel.locator(".sp-disclosure-badge").isVisible(),
+      `${label}: WiFi update badge should show while the closed panel has an update`,
+    );
+    await wifiPanel.locator(".sp-disclosure-button").click();
+    assert.strictEqual(
+      await wifiPanel.locator(".sp-disclosure-badge").isVisible(),
+      false,
+      `${label}: WiFi update badge should hide while open`,
+    );
+    assert.deepStrictEqual(
+      await wifiPanel.locator(".sp-fw-version").evaluateAll(
+        (nodes) => nodes.map((node) => node.textContent),
+      ),
+      ["2.12.8", "2.12.9"],
+      `${label}: WiFi panel should show current and available versions`,
+    );
+    assert.strictEqual(
+      await wifiPanel.locator("#sp-set-c6-auto-update").isChecked(),
+      true,
+      `${label}: WiFi automatic updates should be enabled by default`,
+    );
+    assert.strictEqual(
+      await firmwareCard
+        .locator(".sp-fw-overview .sp-fw-actions")
+        .evaluate((node) => getComputedStyle(node).justifyContent),
+      "flex-end",
+      `${label}: firmware actions should align with the version values`,
+    );
+    await page.evaluate(() => window.__seedEspState([{
+      id: "update-firmware__update",
+      state: "INSTALLING",
+      current_version: "v1.12.0",
+      latest_version: "v1.13.0",
+    }]));
+    assert.strictEqual(
+      await firmwareCard.locator(".sp-fw-overview .sp-fw-btn").innerText(),
+      "Installing…",
+      `${label}: install progress should stay in the action button`,
+    );
+    assert.strictEqual(
+      await firmwareCard.locator(".sp-fw-overview .sp-fw-status").innerText(),
+      "",
+      `${label}: install progress should not be duplicated below the action`,
+    );
+  }
   const clockBarCard = page
     .locator("#sp-settings .card")
     .filter({ hasText: "Clock Bar" })
@@ -772,8 +991,23 @@ async function assertSettingsPage(page, label, options = {}) {
   );
   assert.strictEqual(
     await nightScheduleInfo.innerText(),
-    "Time-based Night Schedule overrides screensaver presence wake and Media Cover Art while it is active. Use Sensor mode when you want presence to control the night schedule.",
+    "Time-based Night Schedule overrides screensaver presence wake and Media Cover Art while it is active.",
     `${label}: night schedule override info panel text should match`,
+  );
+  assert.strictEqual(
+    await nightScheduleCard.locator("#sp-set-schedule-on-hour").isVisible(),
+    false,
+    `${label}: disabled night schedule should hide time fields`,
+  );
+  assert.strictEqual(
+    await nightScheduleCard.locator("#sp-set-schedule-presence").isVisible(),
+    false,
+    `${label}: disabled night schedule should hide the sensor field`,
+  );
+  assert.strictEqual(
+    await nightScheduleCard.locator("#sp-set-schedule-actions").isVisible(),
+    false,
+    `${label}: disabled night schedule should hide night action controls`,
   );
   const coverArtCard = page
     .locator("#sp-settings .card")
@@ -816,11 +1050,12 @@ async function assertSettingsPage(page, label, options = {}) {
   await coverArtCard
     .locator("#sp-set-ss-cover-art-enable + .sp-toggle-track")
     .click();
-  assert(
+  assert.strictEqual(
     await coverArtCard
       .getByText("Keep Screen Awake During Playback", { exact: true })
       .isVisible(),
-    `${label}: keep-screen-awake option should render when cover art is enabled`,
+    false,
+    `${label}: keep-screen-awake option should remain inside collapsed advanced options`,
   );
   assert(
     await coverArtCard.locator("#sp-set-ss-cover-art-player").isVisible(),
@@ -829,6 +1064,13 @@ async function assertSettingsPage(page, label, options = {}) {
   assert(
     await coverArtCard.locator("#sp-set-ss-cover-art-delay").isVisible(),
     `${label}: cover art show-after field should render when cover art is enabled`,
+  );
+  assert.deepStrictEqual(
+    await coverArtCard.locator("#sp-set-ss-cover-art-delay option").evaluateAll(
+      (options) => options.map((option) => option.value),
+    ),
+    ["3", "5", "10", "30", "60", "300"],
+    `${label}: cover art show-after options should start at three seconds`,
   );
   assert.strictEqual(
     await page.locator("#sp-set-ss-track-overlay").count(),
@@ -847,6 +1089,12 @@ async function assertSettingsPage(page, label, options = {}) {
     `${label}: cover art conditions field should be hidden until advanced filtering is enabled`,
   );
   await coverArtCard.getByText("Advanced Options", { exact: true }).click();
+  assert(
+    await coverArtCard
+      .getByText("Keep Screen Awake During Playback", { exact: true })
+      .isVisible(),
+    `${label}: keep-screen-awake option should render inside advanced options`,
+  );
   assert(
     await coverArtCard
       .getByText("Hide for external source inputs", { exact: true })
@@ -1324,41 +1572,32 @@ async function assertEmptyCellSettings(page, posts, label) {
     before,
     `${label}: opening a new card draft should not post immediately`,
   );
-  assert.strictEqual(
-    await page.locator("#sp-card-type-picker").count(),
-    0,
-    `${label}: new card draft uses the compact type dropdown instead of the old grid`,
-  );
   assert(
-    await page.locator("#sp-inp-type").isVisible(),
-    `${label}: new card draft shows the card type dropdown`,
+    await page.locator("#sp-card-type-picker").isVisible(),
+    `${label}: new card draft shows the card type grid`,
   );
-  const initialTypeSelection = await page.locator("#sp-inp-type").evaluate((select) => {
-    return {
-      selectedIndex: select.selectedIndex,
-      value: select.value,
-      firstValue: select.options.length ? select.options[0].value : null,
-      firstLabel: select.options.length ? select.options[0].textContent : null,
-    };
+  const switchTypeOption = page.getByRole("button", {
+    name: "Switch card type",
   });
-  assert.strictEqual(
-    initialTypeSelection.selectedIndex,
-    0,
-    `${label}: new card draft defaults to the first card type option`,
-  );
-  assert.strictEqual(
-    initialTypeSelection.value,
-    initialTypeSelection.firstValue,
-    `${label}: new card draft selected value matches the first card type option`,
-  );
-  assert.strictEqual(
-    initialTypeSelection.firstLabel,
-    "Action",
-    `${label}: new card draft first card type option should be Action`,
+  assert(
+    await switchTypeOption.isVisible(),
+    `${label}: new card draft shows Switch as a card type`,
   );
   assert(
-    await page.locator(".sp-settings-modal .sp-save-btn").isVisible(),
-    `${label}: new card draft shows Save once the first card type is selected by default`,
+    (
+      await switchTypeOption.locator(".sp-card-type-icon").getAttribute("class")
+    ).includes("mdi-toggle-switch"),
+    `${label}: card type picker preserves pre-slugged MDI icon names`,
+  );
+  assert.strictEqual(
+    await page.locator("#sp-inp-type").count(),
+    0,
+    `${label}: new card draft does not show the compact type dropdown before selection`,
+  );
+  assert.strictEqual(
+    await page.locator(".sp-settings-modal .sp-save-btn").count(),
+    0,
+    `${label}: new card draft hides Save until a type is selected`,
   );
   assert.strictEqual(
     await page.locator(".sp-settings-modal .sp-delete-btn").count(),
@@ -1443,7 +1682,7 @@ async function assertEmptyCellSettings(page, posts, label) {
   assert.strictEqual(
     posts.length,
     before,
-    `${label}: closing a new card draft without saving should not post`,
+    `${label}: closing a new card draft before choosing a type should not post`,
   );
   await page
     .locator(`.sp-main [data-pos="${pos}"].sp-empty-cell`)
@@ -1451,6 +1690,8 @@ async function assertEmptyCellSettings(page, posts, label) {
 
   await page.locator(`.sp-main [data-pos="${pos}"]`).click();
   await page.waitForSelector(".sp-settings-overlay.sp-visible");
+  await page.getByRole("button", { name: "Action card type" }).click();
+  await page.locator("#sp-inp-type").waitFor({ state: "visible" });
   await page.locator("#sp-inp-label").fill("Keep this label");
   await page.locator("#sp-inp-entity").fill("switch.keep_this_entity");
   await page.locator("#sp-inp-action").selectOption({ label: "Run Script" });
@@ -1485,6 +1726,64 @@ async function assertEmptyCellSettings(page, posts, label) {
     0,
     `${label}: unsaved new card keeps Delete hidden after type selection`,
   );
+  await page.locator("#sp-inp-type").selectOption({ label: "Sensor" });
+  const sensorTypeOptions = await page.locator("#sp-inp-sensor-type option").allTextContents();
+  assert.deepStrictEqual(
+    sensorTypeOptions,
+    ["Numeric", "Time", "Text", "Icon"],
+    `${label}: Home Assistant Sensor uses the Numeric, Time, Text, and Icon Type dropdown`,
+  );
+  const sensorActiveColor = page.locator("#sp-inp-sensor-active-color");
+  const sensorActiveColorRow = sensorActiveColor.locator("xpath=../..");
+  assert(
+    await sensorActiveColorRow.isVisible(),
+    `${label}: Numeric Sensor exposes Lit When Active`,
+  );
+  await sensorActiveColorRow.getByText("Lit When Active", { exact: true }).click();
+  await page.locator("#sp-inp-sensor-type").selectOption("time");
+  assert.strictEqual(
+    await sensorActiveColorRow.isVisible(),
+    false,
+    `${label}: Time Sensor hides Lit When Active`,
+  );
+  assert(
+    await page.locator("#sp-inp-time-unit").isVisible(),
+    `${label}: Time type shows the input unit dropdown`,
+  );
+  assert.strictEqual(
+    await page.locator("#sp-inp-time-unit").inputValue(),
+    "",
+    `${label}: Time input unit defaults to Auto`,
+  );
+  assert.strictEqual(
+    await page.locator("#sp-inp-unit").isVisible(),
+    false,
+    `${label}: Time type hides the normal unit field`,
+  );
+  await page.locator("#sp-inp-time-unit").selectOption("hours");
+  await page.locator("#sp-inp-sensor-type").selectOption("numeric");
+  assert.strictEqual(
+    await sensorActiveColor.isChecked(),
+    false,
+    `${label}: switching through Time clears Lit When Active`,
+  );
+  await page.locator("#sp-inp-sensor-type").selectOption("time");
+  assert.strictEqual(
+    await page.locator("#sp-inp-time-unit").inputValue(),
+    "",
+    `${label}: switching away from Time clears its manual input unit`,
+  );
+  await page.getByRole("button", { name: "Local Sensor", exact: true }).click();
+  assert.strictEqual(
+    await page.locator("#sp-inp-sensor-type").count(),
+    0,
+    `${label}: Local Sensor keeps its existing configuration controls`,
+  );
+  assert(
+    await page.getByRole("button", { name: "Numeric", exact: true }).isVisible() &&
+      await page.getByRole("button", { name: "Text", exact: true }).isVisible(),
+    `${label}: Local Sensor retains its Numeric and Text mode buttons`,
+  );
   await page.locator(".sp-settings-close").click();
   await page.waitForFunction(() => {
     var overlay = document.querySelector(".sp-settings-overlay");
@@ -1502,7 +1801,7 @@ async function assertEmptyCellSettings(page, posts, label) {
 
   await page.locator(`.sp-main [data-pos="${pos}"]`).click();
   await page.waitForSelector(".sp-settings-overlay.sp-visible");
-  await page.locator("#sp-inp-type").selectOption({ label: "Switch" });
+  await page.getByRole("button", { name: "Switch card type" }).click();
   await page.locator("#sp-inp-label").fill("New Card");
   await page.locator("#sp-inp-entity").fill("switch.new_card");
   await page.getByRole("button", { name: "Save" }).click();
@@ -1842,6 +2141,7 @@ function backupFixture(device, slots) {
       brightness_night: 55,
       automatic_brightness: false,
       schedule_enabled: true,
+      schedule_sensor_activation: "on",
       schedule_on_hour: 7,
       schedule_off_hour: 22,
       schedule_mode: "clock",
@@ -2230,7 +2530,7 @@ async function entitySuggestionValues(
   return suggestions.jsonValue();
 }
 
-async function assertEditAndApplySmoke(page, posts, errors) {
+async function assertEditSmoke(page, posts, errors) {
   const before = posts.length;
   await page.getByRole("tab", { name: "Screen" }).click();
   await page.waitForSelector("#sp-screen.sp-page.active");
@@ -2301,6 +2601,15 @@ async function assertEditAndApplySmoke(page, posts, errors) {
     before,
   );
 
+  assert.deepStrictEqual(
+    errors,
+    [],
+    "browser errors were reported during edit interactions",
+  );
+}
+
+async function assertApplySmoke(page, posts, errors) {
+  const before = posts.length;
   await page.getByRole("button", { name: "Apply Configuration" }).click();
   await waitForPost(
     posts,
@@ -2316,6 +2625,236 @@ async function assertEditAndApplySmoke(page, posts, errors) {
     errors,
     [],
     "browser errors were reported during edit interactions",
+  );
+}
+
+async function openPasteCardCodeDialog(page) {
+  const emptyCell = page.locator(".sp-main .sp-empty-cell").first();
+  assert(await emptyCell.isVisible(), "card transfer test requires an empty destination cell");
+  const pos = await emptyCell.getAttribute("data-pos");
+  await emptyCell.click({ button: "right", force: true });
+  await page.locator(".sp-ctx-menu").waitFor({ state: "visible" });
+  await page
+    .locator(".sp-ctx-menu")
+    .getByText("Paste Code…", { exact: true })
+    .click();
+  await page.locator(".sp-transfer-dialog").waitFor({ state: "visible" });
+  const dialog = page.locator(".sp-transfer-dialog");
+  assert.strictEqual(
+    await dialog.getByRole("heading", { name: "Paste Code", exact: true }).count(),
+    1,
+    "paste dialog uses the concise title",
+  );
+  const cancel = dialog.getByRole("button", { name: "Cancel", exact: true });
+  const paste = dialog.getByRole("button", { name: "Paste", exact: true });
+  assert(
+    await cancel.evaluate((button) =>
+      button.classList.contains("sp-action-btn") && button.classList.contains("sp-cancel-btn"),
+    ),
+    "paste dialog cancel action uses the standard modal button style",
+  );
+  assert(
+    await paste.evaluate((button) =>
+      button.classList.contains("sp-action-btn") && button.classList.contains("sp-save-btn"),
+    ),
+    "paste dialog primary action uses the standard modal button style",
+  );
+  return { dialog, pos };
+}
+
+async function assertCardTransferSmoke(page, posts, label) {
+  await page.getByRole("tab", { name: "Screen" }).click();
+  await page.locator('.sp-main [data-slot="1"]').click({ button: "right", force: true });
+  await page.locator(".sp-ctx-menu").waitFor({ state: "visible" });
+  assert(
+    await page.locator(".sp-ctx-menu").getByText("Copy Code", { exact: true }).isVisible(),
+    `${label}: card context menu exposes transfer-code copying`,
+  );
+  await page.locator(".sp-ctx-menu").getByText("Copy Code", { exact: true }).click();
+  const copyDialog = page.locator(".sp-transfer-dialog");
+  await copyDialog.waitFor({ state: "visible" });
+  assert.strictEqual(
+    await copyDialog.getByRole("heading", { name: "Copy Code", exact: true }).count(),
+    1,
+    `${label}: copy dialog uses the concise title`,
+  );
+  const code = await copyDialog.locator("textarea").inputValue();
+  const envelope = JSON.parse(code);
+  assert.strictEqual(envelope.format, "espcontrol.cards", `${label}: copied card code has the format marker`);
+  assert.strictEqual(envelope.version, 1, `${label}: copied card code uses version 1`);
+  assert.strictEqual(envelope.cards.length, 1, `${label}: single-card code contains one card`);
+  assert(
+    String(envelope.cards[0].entity || "").includes("."),
+    `${label}: copied code preserves the configured entity`,
+  );
+  assert.strictEqual(
+    await copyDialog.getByText("Copy this code to another controller.", { exact: true }).count(),
+    1,
+    `${label}: copy dialog uses concise guidance`,
+  );
+  assert.strictEqual(
+    await copyDialog.getByRole("button", { name: "Copy Code" }).count(),
+    0,
+    `${label}: copy dialog does not show a non-functional copy button`,
+  );
+  assert.strictEqual(
+    await copyDialog.locator(".sp-transfer-actions").count(),
+    0,
+    `${label}: copy dialog does not show footer actions`,
+  );
+  assert.strictEqual(
+    await copyDialog.getByText(/Press (Command|Ctrl)\+C to copy\./).count(),
+    0,
+    `${label}: copy dialog does not show a clipboard shortcut instruction`,
+  );
+  const copySelection = await copyDialog.locator("textarea").evaluate((textarea) => ({
+    start: textarea.selectionStart,
+    end: textarea.selectionEnd,
+    length: textarea.value.length,
+  }));
+  assert.deepStrictEqual(
+    copySelection,
+    { start: 0, end: copySelection.length, length: copySelection.length },
+    `${label}: card code is selected for manual copying`,
+  );
+  const dialogFont = await copyDialog.evaluate((element) => getComputedStyle(element).fontFamily);
+  assert(/Inter|Segoe UI|Roboto|sans-serif/i.test(dialogFont), `${label}: copy dialog uses the web UI font stack`);
+  const codeFont = await copyDialog.locator("textarea").evaluate((element) => getComputedStyle(element).fontFamily);
+  assert(/ui-monospace|SFMono|Menlo|Consolas|monospace/i.test(codeFont), `${label}: transfer code uses a monospace font`);
+  const closeControl = await copyDialog.locator(".sp-transfer-close").evaluate((button) => {
+    const rect = button.getBoundingClientRect();
+    const icon = button.querySelector(".sp-transfer-close-icon path");
+    return {
+      buttonType: button.type,
+      hasInlineIcon: !!icon,
+      width: rect.width,
+      height: rect.height,
+      touchAction: getComputedStyle(button).touchAction,
+    };
+  });
+  assert.strictEqual(closeControl.buttonType, "button", `${label}: close control cannot submit another form`);
+  assert(closeControl.hasInlineIcon, `${label}: close control uses a self-contained icon`);
+  assert(closeControl.width >= 36 && closeControl.height >= 36, `${label}: close control has a usable target size`);
+  assert.strictEqual(closeControl.touchAction, "manipulation", `${label}: close control responds promptly to touch`);
+  await copyDialog.locator(".sp-transfer-close").click();
+  await copyDialog.waitFor({ state: "detached" });
+
+  const beforePaste = posts.length;
+  const destination = await openPasteCardCodeDialog(page);
+  await destination.dialog.locator("textarea").fill(code);
+  await destination.dialog.getByRole("button", { name: "Paste", exact: true }).click();
+  await page.locator(`.sp-main [data-pos="${destination.pos}"][data-slot]`).waitFor({ state: "visible" });
+  const pastedSlot = await page
+    .locator(`.sp-main [data-pos="${destination.pos}"]`)
+    .getAttribute("data-slot");
+  await waitForAnyPost(
+    posts,
+    [
+      { domain: "text", name: `button_${pastedSlot}_config`, action: "set" },
+      { domain: "text", name: `Button ${pastedSlot} Config`, action: "set" },
+    ],
+    `${label}: transferred card is saved`,
+    beforePaste,
+  );
+  assert(
+    (await page.locator(".sp-banner").textContent()).includes("Card pasted"),
+    `${label}: successful transfer is reported`,
+  );
+
+  const noRoom = JSON.parse(code);
+  noRoom.cards = Array.from({ length: 20 }, () => ({ ...noRoom.cards[0] }));
+  await page.waitForTimeout(500);
+  const beforeNoRoom = posts.length;
+  const noRoomDialog = await openPasteCardCodeDialog(page);
+  await noRoomDialog.dialog.locator("textarea").fill(JSON.stringify(noRoom));
+  await noRoomDialog.dialog.getByRole("button", { name: "Paste", exact: true }).click();
+  await page.waitForFunction(() => {
+    const error = document.querySelector(".sp-transfer-error");
+    return error && /not enough room/.test(error.textContent || "");
+  });
+  assert.strictEqual(posts.length, beforeNoRoom, `${label}: an impossible bulk paste writes nothing`);
+
+  const unknown = JSON.parse(code);
+  unknown.cards[0].type = "not_a_real_card";
+  await noRoomDialog.dialog.locator("textarea").fill(JSON.stringify(unknown));
+  await noRoomDialog.dialog.getByRole("button", { name: "Paste", exact: true }).click();
+  await page.waitForFunction(() => {
+    const error = document.querySelector(".sp-transfer-error");
+    return error && /does not support/.test(error.textContent || "");
+  });
+  assert.strictEqual(posts.length, beforeNoRoom, `${label}: an unknown card type writes nothing`);
+
+  const oversized = JSON.parse(code);
+  oversized.cards[0].label = "x".repeat(300);
+  await noRoomDialog.dialog.locator("textarea").fill(JSON.stringify(oversized));
+  await noRoomDialog.dialog.getByRole("button", { name: "Paste", exact: true }).click();
+  await page.waitForFunction(() => {
+    const error = document.querySelector(".sp-transfer-error");
+    return error && /settings are too large/.test(error.textContent || "");
+  });
+  assert.strictEqual(posts.length, beforeNoRoom, `${label}: an oversized card config writes nothing`);
+  await noRoomDialog.dialog.getByRole("button", { name: "Cancel" }).click();
+
+  const local = JSON.parse(code);
+  local.cards[0] = {
+    ...local.cards[0],
+    entity: "local_action_key",
+    type: "action",
+    sensor: "local",
+    options: "",
+  };
+  const localDialog = await openPasteCardCodeDialog(page);
+  await localDialog.dialog.locator("textarea").fill(JSON.stringify(local));
+  await localDialog.dialog.getByRole("button", { name: "Paste", exact: true }).click();
+  await page.waitForSelector(".sp-banner.sp-warning");
+  assert(
+    (await page.locator(".sp-banner").textContent()).includes("Review local device references"),
+    `${label}: local-device transfers show a review warning`,
+  );
+
+  const subpage = JSON.parse(code);
+  subpage.cards[0] = {
+    entity: "",
+    label: "Transferred Page",
+    icon: "Folder",
+    icon_on: "Auto",
+    sensor: "generic",
+    unit: "",
+    type: "subpage",
+    precision: "",
+    options: "",
+    size: 3,
+    subpage: {
+      order: ["B", "1"],
+      back_label: "Return",
+      buttons: [{
+        entity: "switch.transferred",
+        label: "Transferred Switch",
+        icon: "Toggle Switch",
+        icon_on: "Toggle Switch",
+        sensor: "",
+        unit: "",
+        type: "",
+        precision: "",
+        options: "",
+      }],
+    },
+  };
+  const beforeSubpage = posts.length;
+  const subpageDialog = await openPasteCardCodeDialog(page);
+  await subpageDialog.dialog.locator("textarea").fill(JSON.stringify(subpage));
+  await subpageDialog.dialog.getByRole("button", { name: "Paste", exact: true }).click();
+  const transferredSubpage = page
+    .locator(".sp-main [data-slot]")
+    .filter({ hasText: "Transferred Page" })
+    .first();
+  await transferredSubpage.waitFor({ state: "visible" });
+  const subpageSlot = await transferredSubpage.getAttribute("data-slot");
+  await waitForPost(
+    posts,
+    { domain: "text", name: `Subpage ${subpageSlot} Config`, action: "set" },
+    `${label}: transferred subpage configuration is saved`,
+    beforeSubpage,
   );
 }
 
@@ -2782,6 +3321,247 @@ async function assertClockBarEditorSmoke(page, posts, label) {
   await page.getByRole("tab", { name: "Screen" }).click();
 }
 
+async function assertNightScheduleSensorControls(page, posts, label) {
+  await page.getByRole("tab", { name: "Settings" }).click();
+  await page.waitForSelector("#sp-settings.sp-page.active");
+  const card = page
+    .locator("#sp-settings .card")
+    .filter({
+      has: page.locator(".card-header h3", { hasText: /^Night Schedule$/ }),
+    })
+    .first();
+  if (await card.evaluate((element) => element.classList.contains("collapsed"))) {
+    await card.locator(".card-header").click();
+  }
+
+  const timeButton = card.getByRole("button", { name: "Time", exact: true });
+  const sensorButton = card.getByRole("button", { name: "Sensor", exact: true });
+  const disabledButton = card.getByRole("button", { name: "Disabled", exact: true });
+  const timeFields = card.locator("#sp-set-schedule-on-hour");
+  const sensorField = card.locator("#sp-set-schedule-presence");
+  const sensorSection = card.locator(".sp-schedule-sensor");
+  const sensorFieldLabel = card.getByText("Sensor Entity", { exact: true });
+  const sensorActivation = card.locator("#sp-set-schedule-sensor-activation");
+  const actions = card.locator("#sp-set-schedule-actions");
+  const actionSelect = card.locator("#sp-set-schedule-mode");
+  const wakeTimeout = card.locator("#sp-set-schedule-wake-timeout");
+  const dimmedBrightness = card.locator("#sp-set-schedule-dimmed-brightness");
+  const clockBrightness = card.locator("#sp-set-schedule-clock-brightness");
+  const clockTextColor = card.locator("#sp-set-schedule-clock-text-color");
+
+  let before = posts.length;
+  await timeButton.click();
+  await waitForPost(
+    posts,
+    {
+      domain: "text",
+      name: "screen__schedule_trigger",
+      action: "set",
+      value: "time",
+    },
+    `${label}: selecting time schedule posts its trigger`,
+    before,
+  );
+  assert(await timeFields.isVisible(), `${label}: Time mode should show time fields`);
+  assert.strictEqual(
+    await sensorField.isVisible(),
+    false,
+    `${label}: Time mode should hide the sensor field`,
+  );
+  assert.strictEqual(
+    await sensorActivation.isVisible(),
+    false,
+    `${label}: Time mode should hide the sensor activation field`,
+  );
+  assert(await actions.isVisible(), `${label}: Time mode should show night action controls`);
+  assert(await wakeTimeout.isVisible(), `${label}: Screen Off should show wake controls`);
+  assert.strictEqual(
+    await dimmedBrightness.isVisible(),
+    false,
+    `${label}: Screen Off should hide dimmed brightness`,
+  );
+  assert.strictEqual(
+    await clockBrightness.isVisible(),
+    false,
+    `${label}: Screen Off should hide clock controls`,
+  );
+
+  before = posts.length;
+  await actionSelect.selectOption("clock");
+  await waitForPost(
+    posts,
+    {
+      domain: "select",
+      name: "screen__schedule_mode",
+      action: "set",
+      option: "Clock",
+    },
+    `${label}: selecting the night clock posts the shared action`,
+    before,
+  );
+  assert.strictEqual(
+    await wakeTimeout.isVisible(),
+    false,
+    `${label}: Clock should hide Screen Off wake controls`,
+  );
+  assert(await clockBrightness.isVisible(), `${label}: Clock should show brightness`);
+  assert(await clockTextColor.isVisible(), `${label}: Clock should show its text colour`);
+
+  before = posts.length;
+  await sensorButton.click();
+  await waitForPost(
+    posts,
+    {
+      domain: "text",
+      name: "screen__schedule_trigger",
+      action: "set",
+      value: "sensor",
+    },
+    `${label}: selecting sensor schedule posts its trigger`,
+    before,
+  );
+  assert.strictEqual(
+    await timeFields.isVisible(),
+    false,
+    `${label}: Sensor mode should hide time fields`,
+  );
+  assert(await sensorField.isVisible(), `${label}: Sensor mode should show the sensor entity`);
+  assert(await sensorFieldLabel.isVisible(), `${label}: Sensor mode should label the sensor entity clearly`);
+  assert(
+    Number.parseFloat(await sensorSection.evaluate((element) => getComputedStyle(element).marginBottom)) >= 22,
+    `${label}: Sensor mode should leave space below the sensor entity field`,
+  );
+  assert.strictEqual(
+    await sensorField.getAttribute("placeholder"),
+    "Sensor Entity",
+    `${label}: Sensor mode should use the sensor entity field prompt`,
+  );
+  assert(await sensorActivation.isVisible(), `${label}: Sensor mode should show the sensor activation field`);
+  assert.strictEqual(
+    await sensorActivation.inputValue(),
+    "off",
+    `${label}: Sensor mode should default to activating when the sensor is off`,
+  );
+  assert(await actions.isVisible(), `${label}: Sensor mode should show night action controls`);
+  assert.strictEqual(
+    await actionSelect.inputValue(),
+    "clock",
+    `${label}: switching to Sensor mode should preserve the selected night action`,
+  );
+  assert(await clockBrightness.isVisible(), `${label}: Sensor clock should show brightness`);
+  assert(await clockTextColor.isVisible(), `${label}: Sensor clock should show its text colour`);
+
+  before = posts.length;
+  await sensorActivation.selectOption("on");
+  await waitForPost(
+    posts,
+    {
+      domain: "select",
+      name: "screen__schedule_sensor_activation",
+      action: "set",
+      option: "Sensor On",
+    },
+    `${label}: Sensor mode posts the selected activation state`,
+    before,
+  );
+  assert.strictEqual(
+    await sensorActivation.inputValue(),
+    "on",
+    `${label}: Sensor activation choice should remain selected`,
+  );
+
+  before = posts.length;
+  await sensorField.fill("binary_sensor.all_lights_on");
+  await sensorField.blur();
+  await clockBrightness.evaluate((input) => {
+    input.value = "4";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await clockTextColor.fill("330000");
+  await clockTextColor.blur();
+  await waitForPost(
+    posts,
+    {
+      domain: "text",
+      name: "presence_sensor_entity",
+      action: "set",
+      value: "binary_sensor.all_lights_on",
+    },
+    `${label}: Sensor mode posts the sensor entity`,
+    before,
+  );
+  await waitForPost(
+    posts,
+    {
+      domain: "number",
+      name: "screen__schedule_clock_brightness",
+      action: "set",
+      value: "4",
+    },
+    `${label}: Sensor mode posts clock brightness`,
+    before,
+  );
+  await waitForPost(
+    posts,
+    {
+      domain: "text",
+      name: "Screen: Schedule Clock Text Color",
+      action: "set",
+      value: "330000",
+    },
+    `${label}: Sensor mode posts clock text colour`,
+    before,
+  );
+
+  await actionSelect.selectOption("screen_dimmed");
+  assert(await dimmedBrightness.isVisible(), `${label}: Sensor Dimmed should show brightness`);
+  assert.strictEqual(
+    await clockBrightness.isVisible(),
+    false,
+    `${label}: Sensor Dimmed should hide clock controls`,
+  );
+  await actionSelect.selectOption("screen_off");
+  assert(await wakeTimeout.isVisible(), `${label}: Sensor Screen Off should show wake controls`);
+  assert.strictEqual(
+    await dimmedBrightness.isVisible(),
+    false,
+    `${label}: Sensor Screen Off should hide dimmed brightness`,
+  );
+
+  await timeButton.click();
+  assert.strictEqual(
+    await sensorField.isVisible(),
+    false,
+    `${label}: returning to Time mode should hide the sensor field`,
+  );
+  await sensorButton.click();
+  assert.strictEqual(
+    await sensorField.inputValue(),
+    "binary_sensor.all_lights_on",
+    `${label}: trigger changes should preserve the sensor entity`,
+  );
+
+  await disabledButton.click();
+  assert.strictEqual(
+    await timeFields.isVisible(),
+    false,
+    `${label}: Disabled should hide time fields after interaction`,
+  );
+  assert.strictEqual(
+    await sensorField.isVisible(),
+    false,
+    `${label}: Disabled should hide the sensor field after interaction`,
+  );
+  assert.strictEqual(
+    await actions.isVisible(),
+    false,
+    `${label}: Disabled should hide shared night action controls`,
+  );
+
+  await page.getByRole("tab", { name: "Screen" }).click();
+}
+
 async function runCase(browser, testCase) {
   const context = await browser.newContext({ viewport: testCase.viewport });
   await installRoutes(context, testCase.slug);
@@ -2831,6 +3611,9 @@ async function runCase(browser, testCase) {
       testCase,
     );
     await assertSettingsPage(page, testCase.name, testCase);
+    if (testCase.exerciseInteractions) {
+      await assertNightScheduleSensorControls(page, posts, testCase.name);
+    }
     assertNoLayoutBreaks(
       await measureCoreLayout(page),
       `${testCase.name} after settings`,
@@ -2846,16 +3629,23 @@ async function runCase(browser, testCase) {
     if (testCase.exerciseInteractions) {
       await assertClockBarEditorSmoke(page, posts, testCase.name);
       await assertBackupImportSmoke(page, posts, testCase);
-      await assertEditAndApplySmoke(page, posts, errors);
+      await assertEditSmoke(page, posts, errors);
+      await assertCardTransferSmoke(page, posts, testCase.name);
+      await assertApplySmoke(page, posts, errors);
     } else if (testCase.exerciseDeviceMocks) {
       await assertBackupImportSmoke(page, posts, testCase);
     }
   } catch (error) {
     fs.mkdirSync(FAILURE_DIR, { recursive: true });
-    await page.screenshot({
-      path: path.join(FAILURE_DIR, `${testCase.name}-${testCase.slug}.png`),
-      fullPage: true,
-    });
+    try {
+      await page.screenshot({
+        path: path.join(FAILURE_DIR, `${testCase.name}-${testCase.slug}.png`),
+        fullPage: true,
+        timeout: 5000,
+      });
+    } catch (screenshotError) {
+      console.error(`${testCase.name}: could not capture failure screenshot: ${screenshotError.message}`);
+    }
     throw error;
   } finally {
     await context.close();

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -14,13 +15,37 @@ from tempfile import TemporaryDirectory
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG_DIR = ROOT / "common" / "config"
 PARSER_HEADER = ROOT / "components" / "espcontrol" / "button_grid_config_parser.h"
+MEDIA_CONFIG_HEADER = ROOT / "components" / "espcontrol" / "button_grid_media_config.h"
 DISPLAY_COLOR_HEADER = ROOT / "components" / "espcontrol" / "display_color.h"
 SCREEN_LOCK_STATE_HEADER = ROOT / "components" / "espcontrol" / "screen_lock_state.h"
 CONTRACT_HEADER = ROOT / "components" / "espcontrol" / "button_grid_contract_generated.h"
 CARD_RUNTIME_HEADER = ROOT / "components" / "espcontrol" / "button_grid_card_runtime.h"
+CARD_REGISTRY_HEADER = ROOT / "components" / "espcontrol" / "button_grid_card_registry.h"
+SAVED_CONFIG_VACUUM_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_vacuum_generated.h"
+SAVED_CONFIG_SENSOR_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_sensor_generated.h"
+SAVED_CONFIG_ACTION_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_action_generated.h"
+SAVED_CONFIG_MEDIA_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_media_generated.h"
+SAVED_CONFIG_STATIC_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_static_generated.h"
+SAVED_CONFIG_FAN_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_fan_generated.h"
+SAVED_CONFIG_DATE_TIME_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_date_time_generated.h"
+SAVED_CONFIG_MOWER_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_mower_generated.h"
+SAVED_CONFIG_OCCUPANCY_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_occupancy_generated.h"
+SAVED_CONFIG_ACCESS_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_access_generated.h"
+SAVED_CONFIG_SECURITY_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_security_generated.h"
+SAVED_CONFIG_WEATHER_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_weather_generated.h"
+SAVED_CONFIG_IMAGE_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_image_generated.h"
+SAVED_CONFIG_CLIMATE_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_climate_generated.h"
+SAVED_CONFIG_LIGHT_CONTROL_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_light_control_generated.h"
+SAVED_CONFIG_WEBHOOK_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_webhook_generated.h"
+SAVED_CONFIG_SUBPAGE_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_subpage_generated.h"
+SAVED_CONFIG_SWITCH_HEADER = ROOT / "components" / "espcontrol" / "button_grid_saved_config_switch_generated.h"
 BACKLIGHT_HEADER = ROOT / "components" / "espcontrol" / "backlight.h"
+DISPLAY_MODE_CONTROLLER_HEADER = ROOT / "components" / "espcontrol" / "display_mode_controller.h"
 CLOCK_BAR_HEADER = ROOT / "components" / "espcontrol" / "clock_bar.h"
 LAYOUT_HEADER = ROOT / "components" / "espcontrol" / "button_grid_layout.h"
+LIMITS_HEADER = ROOT / "components" / "espcontrol" / "button_grid_limits.h"
+STRING_HEADER = ROOT / "components" / "espcontrol" / "button_grid_string.h"
+BUTTON_GRID_FACADE = ROOT / "components" / "espcontrol" / "button_grid.h"
 CARD_NORMALIZATION_FIXTURES = ROOT / "common" / "config" / "card_normalization_fixtures.json"
 DEVICES_DIR = ROOT / "devices"
 IMAGE_CARD_NORMALIZATION_FIXTURES = ROOT / "common" / "config" / "image_card_normalization_fixtures.json"
@@ -177,6 +202,17 @@ int main() {
   assert(row_span == 3 && col_span == 1);
   grid_token_spans('x', row_span, col_span);
   assert(row_span == 1 && col_span == 3);
+  grid_token_spans('p', row_span, col_span);
+  assert(row_span == 4 && col_span == 3);
+  grid_token_spans('q', row_span, col_span);
+  assert(row_span == 3 && col_span == 3);
+  grid_token_spans('h', row_span, col_span);
+  assert(row_span == 2 && col_span == 3);
+  grid_token_spans('v', row_span, col_span);
+  assert(row_span == 3 && col_span == 2);
+  assert(grid_token_has_span_suffix('q'));
+  assert(grid_token_has_span_suffix('h'));
+  assert(grid_token_has_span_suffix('v'));
 
   assert(clock_bar_equal_fr_track_size(434, 3, 0) == 145);
   assert(clock_bar_equal_fr_track_size(434, 3, 1) == 145);
@@ -201,22 +237,22 @@ int main() {
   lv_obj_t main_page;
   lv_active_screen = &main_page;
   auto awake_clock_bar = clock_bar_resolve_visibility(
-    true, &main_page, false, false, false, false, false, false);
+    true, &main_page, espcontrol::DisplayMode::ACTIVE, false);
   assert(awake_clock_bar.reserve_space);
   assert(awake_clock_bar.visible);
 
   auto clock_screensaver_clock_bar = clock_bar_resolve_visibility(
-    true, &main_page, false, false, true, false, false, false);
+    true, &main_page, espcontrol::DisplayMode::CLOCK, false);
   assert(clock_screensaver_clock_bar.reserve_space);
   assert(!clock_screensaver_clock_bar.visible);
 
   auto dismissing_screensaver_clock_bar = clock_bar_resolve_visibility(
-    true, &main_page, true, false, false, false, false, false);
+    true, &main_page, espcontrol::DisplayMode::DISPLAY_OFF, false);
   assert(dismissing_screensaver_clock_bar.reserve_space);
   assert(!dismissing_screensaver_clock_bar.visible);
 
   auto screen_schedule_clock_bar = clock_bar_resolve_visibility(
-    true, &main_page, true, true, true, false, false, false);
+    true, &main_page, espcontrol::DisplayMode::CLOCK, true);
   assert(!screen_schedule_clock_bar.reserve_space);
   assert(!screen_schedule_clock_bar.visible);
 
@@ -304,8 +340,6 @@ int main() {
   auto image_default = parse_cfg("camera.front_door;;Auto;Auto;;;image;;");
   assert(image_default.type == "image");
   assert(image_default.options == "");
-  assert(image_card_refresh_interval_ms(image_default) == 0);
-  assert(!image_card_timer_only_refresh(image_default));
   assert(!image_card_modal_fit_enabled(image_default));
   auto lawn_mower = parse_cfg("lawn_mower.backyard;Backyard Mower;Auto;Bell;pause_resume;ignored;lawn_mower;2;large_numbers");
   assert(lawn_mower.type == "lawn_mower");
@@ -343,8 +377,6 @@ int main() {
   auto image_label_refresh = parse_cfg("~camera.front_door,Front%20Door,Auto,Auto,,,image,,image_label%2Cimage_refresh=30%2Cimage_refresh_mode=timer");
   assert(image_label_refresh.label == "Front Door");
   assert(image_label_refresh.options == "image_label");
-  assert(image_card_refresh_interval_ms(image_label_refresh) == 0);
-  assert(!image_card_timer_only_refresh(image_label_refresh));
   auto image_fit_refresh = parse_cfg("~camera.front_door,,Auto,Auto,,,image,,image_modal_mode=fit%2Cimage_refresh=30%2Cimage_refresh_mode=timer");
   assert(image_fit_refresh.options == "image_modal_mode=fit");
   assert(image_card_modal_fit_enabled(image_fit_refresh));
@@ -360,15 +392,10 @@ int main() {
   auto image_refresh = parse_cfg("~camera.front_door,,Auto,Auto,,,image,,image_refresh=30%2Cimage_refresh_mode=timer");
   assert(image_refresh.type == "image");
   assert(image_refresh.options == "");
-  assert(image_card_refresh_interval_ms(image_refresh) == 0);
-  assert(!image_card_timer_only_refresh(image_refresh));
   auto image_refresh_default_mode = parse_cfg("camera.front_door;;Auto;Auto;;;image;;image_refresh=60,image_refresh_mode=bad");
   assert(image_refresh_default_mode.options == "");
-  assert(image_card_refresh_interval_ms(image_refresh_default_mode) == 0);
-  assert(!image_card_timer_only_refresh(image_refresh_default_mode));
   auto image_refresh_invalid = parse_cfg("camera.front_door;;Auto;Auto;;;image;;image_refresh=5,image_refresh_mode=timer");
   assert(image_refresh_invalid.options == "");
-  assert(image_card_refresh_interval_ms(image_refresh_invalid) == 0);
 
   auto light_control_default_tabs = parse_cfg("light.kitchen;Kitchen;Lightbulb Outline;Lightbulb;;;light_control;;light_tabs=power%7Cbrightness%7Ctemperature%7Ccolor");
   assert(light_control_default_tabs.type == "light_control");
@@ -426,6 +453,22 @@ int main() {
   auto now_playing_large = parse_cfg("media_player.office;;Auto;Auto;now_playing;;media;;large_numbers");
   assert(now_playing_large.options == "");
   assert(!card_large_numbers_enabled(now_playing_large));
+  auto cover_art = parse_cfg("media_player.office;Cover Art;Music;Auto;cover_art;;media;;large_numbers");
+  assert(cover_art.type == "media");
+  assert(cover_art.sensor == "cover_art");
+  assert(cover_art.precision == "");
+  assert(cover_art.options == "");
+  assert(media_cover_art_enabled(cover_art));
+  auto cover_art_details = parse_cfg("media_player.office;Cover Art;Auto;Auto;cover_art;;media;;cover_art_action=control_modal,cover_art_details");
+  assert(media_cover_art_enabled(cover_art_details));
+  assert(media_cover_art_details_enabled(cover_art_details));
+  assert(media_cover_art_press_action(cover_art_details) == "control_modal");
+  assert(cover_art_details.options == "cover_art_action=control_modal,cover_art_details");
+  auto legacy_cover_art = parse_cfg("media_player.office;Now Playing;Auto;Auto;now_playing;;media;progress;media_cover_art");
+  assert(legacy_cover_art.sensor == "cover_art");
+  assert(legacy_cover_art.precision == "");
+  assert(legacy_cover_art.options == "");
+  assert(media_cover_art_enabled(legacy_cover_art));
   auto media_control_display = parse_cfg("media_player.living;Speaker;Auto;Auto;control_modal;;media;;label_display=status,number_display=volume");
   assert(media_control_display.type == "media");
   assert(media_control_display.sensor == "control_modal");
@@ -459,6 +502,10 @@ int main() {
   assert(!numeric_state_positive_ref("0"));
   assert(!numeric_state_positive_ref("-1"));
   assert(!numeric_state_positive_ref("unknown"));
+  assert(sensor_active_color_state_ref("on", false));
+  assert(sensor_active_color_state_ref("42", true));
+  assert(!sensor_active_color_state_ref("42", false));
+  assert(!sensor_active_color_state_ref("0", true));
   auto action_confirm = parse_cfg("script.goodnight;Goodnight;Script Text Play;Auto;script.turn_on;;action;;confirm_on,confirm_message=Run%20bedtime%3F,confirm_yes=Run,confirm_no=Cancel");
   assert(action_script_confirmation_enabled(action_confirm));
   assert(switch_confirmation_message(action_confirm) == "Run bedtime?");
@@ -577,10 +624,16 @@ int main() {
   assert(brightness_schedule_times(false, true, 7, 15, 20, 45, "06:30", "21:05", rise_h, rise_m, set_h, set_m));
   assert(rise_h == 6 && rise_m == 30 && set_h == 21 && set_m == 5);
   assert(!brightness_schedule_times(false, true, 7, 15, 20, 45, "bad", "25:00", rise_h, rise_m, set_h, set_m));
+  assert(screen_schedule_night_active("sensor", true, false, false, 0, 6, 23));
+  assert(!screen_schedule_night_active("sensor", true, true, false, 0, 6, 23));
+  assert(screen_schedule_night_active("sensor", true, true, false, 0, 6, 23, "Sensor On"));
+  assert(!screen_schedule_night_active("sensor", true, false, false, 0, 6, 23, "Sensor On"));
+  assert(screen_schedule_normal_active("sensor", true, false, false, 0, 6, 23, "Sensor On"));
+  assert(!screen_schedule_normal_active("sensor", true, true, false, 0, 6, 23, "Sensor On"));
   assert(rise_h == 6 && rise_m == 0 && set_h == 18 && set_m == 0);
 
   OrderResult parsed;
-  parse_order_string("1,2d,3w,4b,5t,6x,99", 9, parsed);
+  parse_order_string("1,2d,3w,4b,5t,6x,7h,8v,99", 9, parsed);
   assert(parsed.positions[0] == 1);
   assert(parsed.positions[1] == 2);
   assert(parsed.row_span[1] == 2 && parsed.col_span[1] == 1);
@@ -588,6 +641,8 @@ int main() {
   assert(parsed.row_span[3] == 2 && parsed.col_span[3] == 2);
   assert(parsed.row_span[4] == 3 && parsed.col_span[4] == 1);
   assert(parsed.row_span[5] == 1 && parsed.col_span[5] == 3);
+  assert(parsed.row_span[6] == 2 && parsed.col_span[6] == 3);
+  assert(parsed.row_span[7] == 3 && parsed.col_span[7] == 2);
 
   OrderResult overlap;
   parse_order_string("1b,2,3,4,5,6", 9, overlap);
@@ -666,7 +721,82 @@ def generated_card_normalization_assertions() -> str:
     return "".join(chunks)
 
 
+def runtime_enum_name(value: str, empty_name: str = "SWITCH") -> str:
+    if not value:
+        return empty_name
+    return re.sub(r"[^A-Za-z0-9]+", "_", value).strip("_").upper()
+
+
+def runtime_capability_enum_name(value: str) -> str:
+    words = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", value)
+    return f"CAPABILITY_{runtime_enum_name(words)}"
+
+
+def generated_card_runtime_assertions() -> str:
+    contract = json.loads((ROOT / "common" / "config" / "card_contract.json").read_text(encoding="utf-8"))
+    runtime = contract["runtime"]
+    lines = [
+        "  struct RuntimeConfig {",
+        *(f"    std::string {field};" for field in contract["fields"]),
+        "  };",
+    ]
+    for index, (card_type, spec) in enumerate(runtime["specs"].items()):
+        variable = f"runtime_{index}_{runtime_enum_name(card_type).lower()}"
+        lines.append(f"  RuntimeConfig {variable}_config{{}};")
+        lines.append(f"  {variable}_config.type = {cpp_string(card_type)};")
+        if "modeField" in spec:
+            default_mode = contract["cards"][card_type]["default"][spec["modeField"]]
+            lines.append(f"  {variable}_config.{spec['modeField']} = {cpp_string(default_mode)};")
+            expected_driver = spec["defaultDriver"]
+        else:
+            expected_driver = spec["driver"]
+        lines.append(
+            f"  auto {variable} = espcontrol::card_runtime::resolve_card_runtime({variable}_config);"
+        )
+        lines.append(
+            f"  assert({variable}.type == espcontrol::card_runtime::CardTypeId::{runtime_enum_name(card_type)});"
+        )
+        lines.append(
+            f"  assert({variable}.driver == espcontrol::card_runtime::CardDriverId::{runtime_enum_name(expected_driver)});"
+        )
+        for capability, enabled in spec["capabilities"].items():
+            prefix = "" if enabled else "!"
+            lines.append(
+                f"  assert({prefix}espcontrol::card_runtime::has_capability({variable}, "
+                f"espcontrol::card_runtime::{runtime_capability_enum_name(capability)}));"
+            )
+        for mode_index, (mode, driver) in enumerate(spec.get("modes", {}).items()):
+            mode_var = f"{variable}_mode_{mode_index}"
+            lines.append(f"  {variable}_config.{spec['modeField']} = {cpp_string(mode)};")
+            lines.append(
+                f"  auto {mode_var} = espcontrol::card_runtime::resolve_card_runtime({variable}_config);"
+            )
+            lines.append(
+                f"  assert({mode_var}.driver == espcontrol::card_runtime::CardDriverId::{runtime_enum_name(driver)});"
+            )
+    lines.extend([
+        "  RuntimeConfig unknown_runtime_config{};",
+        '  unknown_runtime_config.type = "not_a_card";',
+        "  auto unknown_runtime = espcontrol::card_runtime::resolve_card_runtime(unknown_runtime_config);",
+        "  assert(unknown_runtime.type == espcontrol::card_runtime::CardTypeId::UNKNOWN);",
+        "  assert(unknown_runtime.driver == espcontrol::card_runtime::CardDriverId::UNKNOWN);",
+    ])
+    return "\n".join(lines) + "\n"
+
+
+def check_button_grid_facade() -> None:
+    """Keep the YAML compatibility entry point free of behaviour code."""
+    for line_number, line in enumerate(BUTTON_GRID_FACADE.read_text(encoding="utf-8").splitlines(), 1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("//") or stripped.startswith("#"):
+            continue
+        raise RuntimeError(
+            f"{BUTTON_GRID_FACADE}:{line_number}: button_grid.h is an include-only compatibility facade"
+        )
+
+
 def main() -> int:
+    check_button_grid_facade()
     check_clock_bar_visual_gaps()
     cxx = compiler()
     if not cxx:
@@ -675,15 +805,38 @@ def main() -> int:
     with TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         shutil.copy2(PARSER_HEADER, tmp_path / "button_grid_config_parser.h")
+        shutil.copy2(MEDIA_CONFIG_HEADER, tmp_path / "button_grid_media_config.h")
         shutil.copy2(ROOT / "components" / "espcontrol" / "temperature_unit.h", tmp_path / "temperature_unit.h")
         shutil.copy2(ROOT / "components" / "espcontrol" / "sun_calc.h", tmp_path / "sun_calc.h")
         shutil.copy2(DISPLAY_COLOR_HEADER, tmp_path / "display_color.h")
         shutil.copy2(SCREEN_LOCK_STATE_HEADER, tmp_path / "screen_lock_state.h")
         shutil.copy2(CONTRACT_HEADER, tmp_path / "button_grid_contract_generated.h")
         shutil.copy2(CARD_RUNTIME_HEADER, tmp_path / "button_grid_card_runtime.h")
+        shutil.copy2(CARD_REGISTRY_HEADER, tmp_path / "button_grid_card_registry.h")
+        shutil.copy2(SAVED_CONFIG_VACUUM_HEADER, tmp_path / "button_grid_saved_config_vacuum_generated.h")
+        shutil.copy2(SAVED_CONFIG_SENSOR_HEADER, tmp_path / "button_grid_saved_config_sensor_generated.h")
+        shutil.copy2(SAVED_CONFIG_ACTION_HEADER, tmp_path / "button_grid_saved_config_action_generated.h")
+        shutil.copy2(SAVED_CONFIG_MEDIA_HEADER, tmp_path / "button_grid_saved_config_media_generated.h")
+        shutil.copy2(SAVED_CONFIG_STATIC_HEADER, tmp_path / "button_grid_saved_config_static_generated.h")
+        shutil.copy2(SAVED_CONFIG_FAN_HEADER, tmp_path / "button_grid_saved_config_fan_generated.h")
+        shutil.copy2(SAVED_CONFIG_DATE_TIME_HEADER, tmp_path / "button_grid_saved_config_date_time_generated.h")
+        shutil.copy2(SAVED_CONFIG_MOWER_HEADER, tmp_path / "button_grid_saved_config_mower_generated.h")
+        shutil.copy2(SAVED_CONFIG_OCCUPANCY_HEADER, tmp_path / "button_grid_saved_config_occupancy_generated.h")
+        shutil.copy2(SAVED_CONFIG_ACCESS_HEADER, tmp_path / "button_grid_saved_config_access_generated.h")
+        shutil.copy2(SAVED_CONFIG_SECURITY_HEADER, tmp_path / "button_grid_saved_config_security_generated.h")
+        shutil.copy2(SAVED_CONFIG_WEATHER_HEADER, tmp_path / "button_grid_saved_config_weather_generated.h")
+        shutil.copy2(SAVED_CONFIG_IMAGE_HEADER, tmp_path / "button_grid_saved_config_image_generated.h")
+        shutil.copy2(SAVED_CONFIG_CLIMATE_HEADER, tmp_path / "button_grid_saved_config_climate_generated.h")
+        shutil.copy2(SAVED_CONFIG_LIGHT_CONTROL_HEADER, tmp_path / "button_grid_saved_config_light_control_generated.h")
+        shutil.copy2(SAVED_CONFIG_WEBHOOK_HEADER, tmp_path / "button_grid_saved_config_webhook_generated.h")
+        shutil.copy2(SAVED_CONFIG_SUBPAGE_HEADER, tmp_path / "button_grid_saved_config_subpage_generated.h")
+        shutil.copy2(SAVED_CONFIG_SWITCH_HEADER, tmp_path / "button_grid_saved_config_switch_generated.h")
         shutil.copy2(CLOCK_BAR_HEADER, tmp_path / "clock_bar.h")
         shutil.copy2(BACKLIGHT_HEADER, tmp_path / "backlight.h")
+        shutil.copy2(DISPLAY_MODE_CONTROLLER_HEADER, tmp_path / "display_mode_controller.h")
         shutil.copy2(LAYOUT_HEADER, tmp_path / "button_grid_layout.h")
+        shutil.copy2(LIMITS_HEADER, tmp_path / "button_grid_limits.h")
+        shutil.copy2(STRING_HEADER, tmp_path / "button_grid_string.h")
         lvgl_stub = tmp_path / "esphome" / "components" / "lvgl" / "lvgl_esphome.h"
         lvgl_stub.parent.mkdir(parents=True, exist_ok=True)
         lvgl_stub.write_text("", encoding="utf-8")
@@ -695,6 +848,8 @@ def main() -> int:
         )
         defines_stub = tmp_path / "esphome" / "core" / "defines.h"
         defines_stub.write_text("", encoding="utf-8")
+        string_ref_stub = tmp_path / "esphome" / "core" / "string_ref.h"
+        string_ref_stub.write_text("", encoding="utf-8")
         log_stub = tmp_path / "esphome" / "core" / "log.h"
         log_stub.write_text("", encoding="utf-8")
         network_stub = tmp_path / "esphome" / "components" / "network" / "util.h"
@@ -706,7 +861,12 @@ def main() -> int:
         source = tmp_path / "check_firmware_parser.cpp"
         binary = tmp_path / "check_firmware_parser"
         source.write_text(
-            CPP_SOURCE.replace("  return 0;\n}", generated_card_normalization_assertions() + "\n  return 0;\n}"),
+            CPP_SOURCE.replace(
+                "  return 0;\n}",
+                generated_card_normalization_assertions()
+                + generated_card_runtime_assertions()
+                + "\n  return 0;\n}",
+            ),
             encoding="utf-8",
         )
         subprocess.run([cxx, "-std=c++17", "-Wall", "-Wextra", str(source), "-o", str(binary)], check=True)

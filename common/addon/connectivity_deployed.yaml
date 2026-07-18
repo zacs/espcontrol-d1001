@@ -12,7 +12,7 @@ wifi:
     - script.execute: network_status_refresh
     - script.execute: ntp_servers_apply_after_network
     - script.stop: wifi_reconnect_flow
-    - script.stop: setup_screen_dim
+    - script.execute: setup_screen_dim_cancel
     - lambda: |-
         ESP_LOGI("connectivity", "WiFi connected (%lu ms)", millis());
         lv_label_set_text(id(loading_status_label), espcontrol_i18n("Connected"));
@@ -31,7 +31,7 @@ wifi:
                 - lvgl.page.show: ha_setup_page
                 - script.execute: setup_screen_dim
               else:
-                - script.execute: ha_reconnect_flow
+                - script.execute: navigate_after_api
   on_disconnect:
     - script.execute: network_status_refresh
     - if:
@@ -42,7 +42,6 @@ wifi:
 
 api:
   on_client_connected:
-    - script.stop: ha_reconnect_flow
     - script.execute: ha_restore_after_api
 
 script:
@@ -61,13 +60,11 @@ script:
                       condition:
                         lambda: 'return id(button_order).state.empty();'
                       then:
-                        - script.stop: setup_screen_dim
+                        - script.execute: setup_screen_dim_cancel
                         - script.execute: clock_bar_hide
                         - lvgl.page.show: ha_actions_page
                       else:
                         - script.execute: navigate_after_api
-                else:
-                  - script.execute: navigate_after_api
 
   - id: wifi_show_reconnecting
     mode: restart
@@ -104,28 +101,10 @@ script:
           then:
             - script.execute: wifi_show_reconnecting
 
-  - id: ha_reconnect_flow
-    mode: restart
-    then:
-      - delay: 5s
-      - if:
-          condition:
-            and:
-              - wifi.connected:
-              - lambda: 'return !ha_api_state_connected();'
-          then:
-            - script.execute: clock_bar_hide
-            - lambda: |-
-                lv_label_set_text(id(ha_setup_title), espcontrol_i18n("Connecting to\nHome Assistant"));
-                lv_label_set_text(id(ha_setup_instructions), "");
-                lv_label_set_text(id(ha_setup_path), "");
-            - lvgl.page.show: ha_setup_page
-            - script.execute: setup_screen_dim
-
   - id: navigate_after_api
     mode: restart
     then:
-      - script.stop: setup_screen_dim
+      - script.execute: setup_screen_dim_cancel
       - if:
           condition:
             lambda: 'return !id(button_order).state.empty();'

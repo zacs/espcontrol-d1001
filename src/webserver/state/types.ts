@@ -18,7 +18,7 @@ export interface DeviceConfig {
   readonly screenSize: string;
   readonly dragMode: "swap" | "displace";
   readonly dragAnimation: boolean;
-  readonly imageCardLimit?: number;
+  readonly imageSlotCapacity: number;
   readonly largeSensorUnitOffsetPercent?: number;
   readonly coverArtSquareOverlay?: boolean;
   readonly disabledCardTypes?: readonly string[];
@@ -138,6 +138,7 @@ export interface AppState {
   scheduleTrigger: string;
   _scheduleTriggerReceived: boolean;
   scheduleEnabled: boolean;
+  scheduleSensorActivation: string;
   scheduleOnHour: number;
   scheduleOffHour: number;
   scheduleMode: string;
@@ -188,6 +189,8 @@ export interface AppState {
   c6FirmwareUpdateAvailable: string;
   c6FirmwareUpdateControlsSupported: boolean;
   c6FirmwareInstallControlsSupported: boolean;
+  c6FirmwareAutoUpdateSupported: boolean;
+  c6FirmwareAutoUpdate: boolean;
   c6FirmwareChecking: boolean;
   c6FirmwareInstalling: boolean;
   autoUpdate: boolean;

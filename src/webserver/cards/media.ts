@@ -5,10 +5,17 @@ export function registerMediaCardTypes(): GlobalDescriptors {
         var card: any = cardContractCard("media");
         return card && card.behavior && card.behavior.media || {};
     }
+    function mediaCoverArtCardsSupported(this: any) {
+        var disabled: any = CFG.disabledCardTypes || [];
+        return disabled.indexOf("media_cover_art") === -1;
+    }
     function mediaModeOptionValues(this: any) {
         var spec: any = cardContractOptionSpec("media", "media_mode");
-        return spec && spec.values ? spec.values.slice() :
-            ["control_modal", "play_pause", "previous", "next", "volume", "position", "now_playing", "playlist"];
+        var values: any = spec && spec.values ? spec.values.slice() :
+            ["control_modal", "play_pause", "previous", "next", "volume", "position", "now_playing", "cover_art", "playlist"];
+        return mediaCoverArtCardsSupported() ? values : values.filter(function (this: any, value?: any) {
+            return value !== "cover_art";
+        });
     }
     function mediaDefaultMode(this: any) {
         return mediaBehaviorSpec().defaultMode || "play_pause";
@@ -53,25 +60,33 @@ export function registerMediaCardTypes(): GlobalDescriptors {
             "Volume",
             "Position",
             "Now Playing",
+            "Cover Art",
             "Media Control",
             "Media Control Modal",
             "All Controls",
         ].indexOf(label) >= 0;
     }
+    function mediaModeOptions(this: any) {
+        var options: any = [
+            ["control_modal", "All Controls"],
+            ["play_pause", "Play/Pause Button"],
+            ["previous", "Previous Button"],
+            ["next", "Next Button"],
+            ["volume", "Volume Button"],
+            ["position", "Track Position"],
+            ["now_playing", "Now Playing"],
+            ["cover_art", "Cover Art"],
+            ["playlist", "Media Content"],
+        ];
+        return mediaCoverArtCardsSupported() ? options : options.filter(function (this: any, option?: any) {
+            return option[0] !== "cover_art";
+        });
+    }
     var MEDIA_CARD_METADATA: any = {
         mode: {
             label: "Type",
             idSuffix: "media-mode",
-            options: [
-                ["control_modal", "All Controls"],
-                ["play_pause", "Play/Pause Button"],
-                ["previous", "Previous Button"],
-                ["next", "Next Button"],
-                ["volume", "Volume Button"],
-                ["position", "Track Position"],
-                ["now_playing", "Now Playing"],
-                ["playlist", "Media Content"],
-            ],
+            options: mediaModeOptions,
             value: function (this: any, b?: any) {
                 return mediaEditorValidMode(b.sensor);
             },
@@ -100,6 +115,14 @@ export function registerMediaCardTypes(): GlobalDescriptors {
                 ["", "None"],
                 ["progress", "Track Position"],
                 ["play_pause", "Play/Pause"],
+            ],
+        },
+        coverArtAction: {
+            label: "Press Action",
+            inputId: "media-cover-art-action",
+            options: [
+                ["play_pause", "Play/Pause"],
+                ["control_modal", "All Controls"],
             ],
         },
         controlLabelDisplay: {
@@ -259,6 +282,8 @@ export function registerMediaCardTypes(): GlobalDescriptors {
                     return "Progress Clock";
                 if (mode === "now_playing")
                     return "Music";
+                if (mode === "cover_art")
+                    return "Music";
                 if (mode === "control_modal")
                     return "Play Pause";
                 if (mode === "playlist")
@@ -284,6 +309,8 @@ export function registerMediaCardTypes(): GlobalDescriptors {
                     return "Play/Pause";
                 if (mode === "control_modal")
                     return "All Controls";
+                if (mode === "cover_art")
+                    return "Cover Art";
                 if (mode === "playlist")
                     return "Playlist";
                 return "";
@@ -341,6 +368,10 @@ export function registerMediaCardTypes(): GlobalDescriptors {
                             b.label = mediaActionLabel(b.sensor);
                             helpers.saveField("label", b.label);
                         }
+                        if (b.sensor === "cover_art" && mediaLabelIsGenerated(b.label)) {
+                            b.label = mediaActionLabel(b.sensor);
+                            helpers.saveField("label", b.label);
+                        }
                         if (oldMode === "control_modal" && b.sensor !== "control_modal" &&
                             mediaLabelIsGenerated(b.label)) {
                             b.label = mediaActionLabel(b.sensor);
@@ -362,6 +393,10 @@ export function registerMediaCardTypes(): GlobalDescriptors {
                 return mediaEditorValidMode(value);
             }
             b.sensor = validMode(b.sensor);
+            if (b.sensor === "now_playing" && configOptionEnabled(b.options, MEDIA_COVER_ART_OPTION)) {
+                b.sensor = "cover_art";
+                helpers.saveField("sensor", b.sensor);
+            }
             b.unit = "";
             b.precision = b.sensor === "now_playing"
                 ? mediaNowPlayingControls(b)
@@ -474,6 +509,29 @@ export function registerMediaCardTypes(): GlobalDescriptors {
                     helpers.saveField("precision", b.precision);
                 }
             }
+            if (b.sensor === "cover_art") {
+                helpers.renderCardSegmentControl(panel, b, helpers, {
+                    segment: Object.assign({}, MEDIA_CARD_METADATA.coverArtAction, {
+                        inputId: helpers.idPrefix + "media-cover-art-action",
+                        value: function (this: any) { return mediaCoverArtAction(b); },
+                        onSelect: function (this: any, button?: any, cardHelpers?: any, value?: any) {
+                            setMediaCoverArtAction(button, value);
+                            cardHelpers.saveField("options", button.options);
+                            renderButtonSettings();
+                        },
+                    }),
+                });
+                var detailsToggle: any = helpers.toggleRow(
+                    "Show Track Details",
+                    helpers.idPrefix + "media-cover-art-details",
+                    mediaCoverArtDetailsEnabled(b));
+                panel.appendChild(detailsToggle.row);
+                detailsToggle.input.addEventListener("change", function (this: any) {
+                    setMediaCoverArtDetailsEnabled(b, this.checked);
+                    helpers.saveField("options", b.options);
+                    renderPreview();
+                });
+            }
             if (b.sensor === "control_modal") {
                 var labelDisplay: any = helpers.renderCardSegmentControl(panel, b, helpers, {
                     segment: Object.assign({}, MEDIA_CARD_METADATA.controlLabelDisplay, {
@@ -518,6 +576,7 @@ export function registerMediaCardTypes(): GlobalDescriptors {
                 }
             }
             if (b.sensor !== "now_playing" &&
+                b.sensor !== "cover_art" &&
                 b.sensor !== "control_modal" &&
                 b.sensor !== "playlist" &&
                 (b.sensor !== "play_pause" || b.precision !== "state") &&
@@ -662,6 +721,7 @@ export function registerMediaCardTypes(): GlobalDescriptors {
                 });
             }
             if (b.sensor !== "play_pause" && b.sensor !== "now_playing" &&
+                b.sensor !== "cover_art" &&
                 b.sensor !== "position" && b.sensor !== "volume" &&
                 b.sensor !== "control_modal") {
                 helpers.renderCardIconPicker(playlistCardSettings || panel, b, helpers, {
@@ -686,6 +746,8 @@ export function registerMediaCardTypes(): GlobalDescriptors {
                     return { mode: "position", label: "Position", icon: "progress-clock" };
                 if (value === "now_playing")
                     return { mode: "now_playing", label: "Now Playing", icon: "music" };
+                if (value === "cover_art")
+                    return { mode: "cover_art", label: "Cover Art", icon: "music" };
                 if (value === "control_modal")
                     return { mode: "control_modal", label: "All Controls", icon: "play-pause" };
                 if (value === "playlist")
@@ -725,6 +787,31 @@ export function registerMediaCardTypes(): GlobalDescriptors {
                     labelHtml: cardBadgeLabelHtml(helpers, positionLabel, MEDIA_CARD_METADATA.preview.badge),
                 };
             }
+            if (mode === "cover_art") {
+                var coverArtColor: any = WEB_UI_COLORS.tertiary;
+                if (mediaCoverArtDetailsEnabled(b)) {
+                    var controlFontClass: any = DEVICE_ID === "guition-esp32-p4-jc4880p443"
+                        ? " sp-media-cover-control-fonts"
+                        : "";
+                    return {
+                        buttonClass: "sp-image-card sp-media-cover-details-card" + controlFontClass,
+                        iconHtml: '<span class="sp-image-preview sp-media-cover-artwork" style="background-color:#' +
+                            helpers.escHtml(coverArtColor) + '"></span>' +
+                            '<span class="sp-media-cover-tint"></span>' +
+                            '<span class="sp-media-now-title sp-media-cover-details-title">Track Title</span>',
+                        labelHtml: '<span class="sp-btn-label-row sp-media-cover-details-row"><span class="sp-btn-label sp-media-now-artist">Artist Name</span>' +
+                            '<span class="sp-type-badge mdi mdi-' + MEDIA_CARD_METADATA.preview.badge + '"></span></span>',
+                    };
+                }
+                return {
+                    buttonClass: "sp-image-card",
+                    iconHtml: '<span class="sp-image-preview" style="background:#' +
+                        helpers.escHtml(coverArtColor) + '"></span>',
+                    labelHtml: '<span class="sp-image-label"><span class="sp-image-label-stack">' +
+                        '<span class="sp-image-label-text sp-image-label-shadow" aria-hidden="true">Cover Art</span>' +
+                        '<span class="sp-image-label-text sp-image-label-main">Cover Art</span></span></span>',
+                };
+            }
             if (mode === "now_playing") {
                 var progressBg: any = "";
                 if (mediaNowPlayingProgressEnabled(b)) {
@@ -741,8 +828,8 @@ export function registerMediaCardTypes(): GlobalDescriptors {
                             '</span>';
                 }
                 return {
-                    iconHtml: progressBg + '<span class="sp-media-now-title">Midnight City</span>',
-                    labelHtml: '<span class="sp-btn-label-row"><span class="sp-btn-label sp-media-now-artist">M83</span>' +
+                    iconHtml: progressBg + '<span class="sp-media-now-title">Track Title</span>',
+                    labelHtml: '<span class="sp-btn-label-row"><span class="sp-btn-label sp-media-now-artist">Artist Name</span>' +
                         '<span class="sp-type-badge mdi mdi-' + MEDIA_CARD_METADATA.preview.badge + '"></span></span>',
                 };
             }
@@ -750,6 +837,20 @@ export function registerMediaCardTypes(): GlobalDescriptors {
                 iconHtml: '<span class="sp-btn-icon mdi mdi-' + (b.icon && b.icon !== "Auto" ? iconSlug(b.icon) : info.icon) + '"></span>',
                 labelHtml: cardBadgeLabelHtml(helpers, mode === "play_pause" && b.precision === "state" ? "Playing" : label, MEDIA_CARD_METADATA.preview.badge),
             };
+        },
+    });
+    registerButtonType("media_cover_art", {
+        label: "Cover Art",
+        allowInSubpage: function (this: any) { return cardContractAllowInSubpage("media"); },
+        pickerKey: "media_cover_art",
+        hidden: true,
+        hideLabel: true,
+        cardMetadata: MEDIA_CARD_METADATA,
+        defaultConfig: function (this: any) {
+            var config: any = cardContractDefaultConfig("media");
+            config.sensor = "cover_art";
+            config.label = "Cover Art";
+            return config;
         },
     });
     return {
