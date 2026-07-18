@@ -477,8 +477,7 @@ inline void control_modal_center_tab_icon(lv_obj_t *label) {
 }
 
 inline uint16_t control_modal_tab_icon_zoom(const ControlModalLayout &layout) {
-  return (control_modal_uses_compact_portrait_tuning(layout) ||
-          control_modal_uses_large_square_tuning(layout)) ? 220 : 180;
+  return espcontrol::modal::tab_icon_zoom(layout.profile);
 }
 
 inline void control_modal_layout_tab_button(lv_obj_t *tab_btn,

@@ -119,6 +119,7 @@ def cpp_assertions(entry: dict, index: int) -> list[str]:
         f"    assert(tabs.safe_left == {tabs['safeLeft']});",
         f"    assert(tabs.row_left == {tabs['rowLeft']});",
         f"    assert(tabs.content_gap == {tabs['contentGap']});",
+        f"    assert(tab_icon_zoom(profile) == {tabs['iconZoom']});",
         "    assert(tabs.tab_size > 0);",
         "    assert(tabs.row_left >= 0);",
         "    assert(tabs.row_left + tabs.frame_width <= layout.panel_width);",
