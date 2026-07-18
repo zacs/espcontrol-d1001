@@ -22,7 +22,9 @@ esphome:
     version: "${firmware_version}"
 
 dashboard_import:
-  package_import_url: github://jtenniswood/espcontrol/devices/seeed-esp32-p4-reterminal-d1001/esphome.yaml@main
+  # D1001 exists only in this fork, not upstream jtenniswood/espcontrol, so the
+  # one-click "Take control" adopt must fetch esphome.yaml from here.
+  package_import_url: github://zacs/espcontrol-d1001/devices/seeed-esp32-p4-reterminal-d1001/esphome.yaml@main
 
 web_server:
   port: 80
