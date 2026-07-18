@@ -17,6 +17,8 @@ These are configured from the **Settings** tab in the [Setup](/features/setup) u
 - **Previous firmware** — open this panel to choose and install one of the available previous stable versions.
 - **Check for Update** — press this button to check for a new version right now, regardless of the automatic schedule.
 
+When either a panel firmware update or WiFi co-processor update is available, the collapsed **Firmware** section shows an **Update available** badge so you do not need to open each update panel to check.
+
 Manual Ethernet builds can be different. If you used the advanced Ethernet setup with `disable_updates: "true"`, these built-in GitHub update controls are removed from the panel firmware. Use ESPHome OTA or USB from your ESPHome setup to update that display instead.
 
 ## What Happens During an Update
