@@ -12,6 +12,10 @@ substitutions:
   espcontrol_component_url: "file:///config"
   mdi_font_file: "/config/common/assets/fonts/materialdesignicons-webfont-7.4.47.ttf"
   espcontrol_component_ref: "HEAD"
+  # Point the in-UI firmware update checker at this fork's releases instead of
+  # upstream (D1001 only exists here). The release workflow publishes manifest.json
+  # + the OTA image under these stable "latest" asset names.
+  firmware_update_manifest_url: "https://github.com/zacs/espcontrol-d1001/releases/latest/download/manifest.json"
 
 esphome:
   name_add_mac_suffix: true

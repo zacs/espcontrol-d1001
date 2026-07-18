@@ -9,6 +9,10 @@
 
 substitutions:
   firmware_version: "dev"
+  # Where the device checks for updates. Default is the upstream GitHub Pages
+  # manifest; a device package can override this substitution to point the
+  # in-UI update checker at a different repo/host (e.g. a fork's releases).
+  firmware_update_manifest_url: "https://jtenniswood.github.io/espcontrol/firmware/${firmware_manifest_slug}/manifest.json"
 
 esphome:
   project:
@@ -170,7 +174,7 @@ update:
     id: firmware_update
     name: "${entity_firmware_update}"
     internal: true
-    source: https://jtenniswood.github.io/espcontrol/firmware/${firmware_manifest_slug}/manifest.json
+    source: ${firmware_update_manifest_url}
     update_interval: never
     on_update_available:
       then:

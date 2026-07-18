@@ -12,6 +12,8 @@
 substitutions:
   name: "your-device-name"
   friendly_name: "Your Device Name"
+  # Check for firmware updates from this fork's releases (D1001 is fork-only).
+  firmware_update_manifest_url: "https://github.com/zacs/espcontrol-d1001/releases/latest/download/manifest.json"
 
 # ---------------------------------------------------------------------------
 # WiFi credentials (stored in secrets.yaml)

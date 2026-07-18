@@ -36,6 +36,18 @@ jobs:
       - name: Load pinned ESPHome version
         run: cat .github/esphome.env >> "$GITHUB_ENV"
 
+      - name: Stamp firmware version
+        run: |
+          TAG="${{ github.event.inputs.version || github.ref_name }}"
+          VERSION="${TAG#v}"   # strip the leading v so device + manifest versions compare cleanly
+          # Bake the real version into the image so the in-UI update checker can
+          # tell whether the published manifest is newer (an unstamped 0.0.0 build
+          # would treat every manifest as an update, forever).
+          python3 scripts/firmware_release.py inject \
+            --slug seeed-esp32-p4-reterminal-d1001 --version "$VERSION"
+          echo "TAG=${TAG}" >> "$GITHUB_ENV"
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+
       - name: Compile factory image
         run: |
           docker run --rm \
@@ -45,29 +57,59 @@ jobs:
             "ghcr.io/esphome/esphome:${ESPHOME_VERSION}" \
             compile builds/seeed-esp32-p4-reterminal-d1001.factory.yaml
 
-      - name: Collect firmware
+      - name: Collect firmware and build update manifest
         run: |
-          TAG="${{ github.event.inputs.version || github.ref_name }}"
-          BIN=$(find . -name firmware.factory.bin -print -quit)
-          if [ -z "$BIN" ]; then echo "::error::firmware.factory.bin not found"; exit 1; fi
+          SLUG=seeed-esp32-p4-reterminal-d1001
+          FBIN=$(find . -name firmware.factory.bin -print -quit)
+          OBIN=$(find . -name firmware.ota.bin -print -quit)
+          if [ -z "$FBIN" ]; then echo "::error::firmware.factory.bin not found"; exit 1; fi
+          if [ -z "$OBIN" ]; then echo "::error::firmware.ota.bin not found (needed for OTA updates)"; find . -name '*.bin' | sed 's/^/  found: /'; exit 1; fi
           mkdir -p out
-          OUT="out/espcontrol-reterminal-d1001-${TAG}.factory.bin"
-          cp "$BIN" "$OUT"
+
+          # Stable "latest" asset names the update manifest points at (resolved
+          # relative to releases/latest/download/manifest.json), plus a
+          # human-friendly version-stamped copy of the factory image.
+          cp "$FBIN" "out/${SLUG}.factory.bin"
+          cp "$OBIN" "out/${SLUG}.ota.bin"
+          cp "$FBIN" "out/espcontrol-reterminal-d1001-${TAG}.factory.bin"
 
           # Integrity guard: a real ESP32-P4 factory image is several MB. A file
           # under 1 MiB means a truncated/failed compile (e.g. disk-full during
           # docker cp) — refuse to publish a corrupt binary that would brick a flash.
-          SIZE=$(wc -c < "$OUT")
+          SIZE=$(wc -c < "out/${SLUG}.factory.bin")
           echo "Factory image size: ${SIZE} bytes"
           if [ "$SIZE" -lt 1048576 ]; then
             echo "::error::factory image is only ${SIZE} bytes (<1 MiB) — likely truncated; refusing to release"
             exit 1
           fi
 
-          # Publish a checksum alongside the binary so downloaders can verify it.
+          # ESPHome http_request update manifest. The device fetches this from
+          # releases/latest/download/manifest.json, compares `version` to its own,
+          # and OTA-flashes ota.path (resolved relative to the manifest URL).
+          OTA_MD5=$(md5sum "out/${SLUG}.ota.bin" | cut -d' ' -f1)
+          python3 - "$VERSION" "$OTA_MD5" "$SLUG" "$TAG" > out/manifest.json <<'PY'
+          import json, sys
+          version, ota_md5, slug, tag = sys.argv[1:5]
+          print(json.dumps({
+              "name": "EspControl reTerminal D1001",
+              "version": version,
+              "home_assistant_domain": "esphome",
+              "builds": [{
+                  "chipFamily": "ESP32-P4",
+                  "parts": [{"path": f"{slug}.factory.bin", "offset": 0}],
+                  "ota": {
+                      "path": f"{slug}.ota.bin",
+                      "md5": ota_md5,
+                      "release_url": f"https://github.com/zacs/espcontrol-d1001/releases/tag/{tag}",
+                  },
+              }],
+          }, indent=2))
+          PY
+
+          # Publish a checksum alongside the human-facing factory binary.
           ( cd out && sha256sum "espcontrol-reterminal-d1001-${TAG}.factory.bin" > "espcontrol-reterminal-d1001-${TAG}.factory.bin.sha256" )
+          echo "--- manifest.json ---"; cat out/manifest.json
           ls -la out
-          echo "TAG=${TAG}" >> "$GITHUB_ENV"
           echo "SHA256=$(cut -d' ' -f1 < "out/espcontrol-reterminal-d1001-${TAG}.factory.bin.sha256")" >> "$GITHUB_ENV"
 
       - name: Publish release
@@ -76,11 +118,22 @@ jobs:
         run: |
           NOTES="reTerminal D1001 factory firmware (ESPHome ${ESPHOME_VERSION}). Flash \`espcontrol-reterminal-d1001-${TAG}.factory.bin\` at offset 0x0 with any ESP Web Tools flasher (e.g. https://web.esphome.io).
 
-          SHA-256: \`${SHA256}\` (also attached as \`.sha256\`; verify with \`sha256sum -c\`)."
+          Over-the-air updates: the device's built-in update checker reads \`manifest.json\` and \`seeed-esp32-p4-reterminal-d1001.ota.bin\` from this release via the \`latest/download\` link, so a flashed panel offers this build automatically.
+
+          SHA-256: \`${SHA256}\` (factory image; also attached as \`.sha256\`; verify with \`sha256sum -c\`)."
+          # Stable-named assets (manifest.json, <slug>.ota.bin, <slug>.factory.bin)
+          # must be attached to every release so releases/latest/download resolves.
+          ASSETS=(
+            out/manifest.json
+            out/seeed-esp32-p4-reterminal-d1001.ota.bin
+            out/seeed-esp32-p4-reterminal-d1001.factory.bin
+            out/espcontrol-reterminal-d1001-${TAG}.factory.bin
+            out/espcontrol-reterminal-d1001-${TAG}.factory.bin.sha256
+          )
           if gh release view "${TAG}" >/dev/null 2>&1; then
-            gh release upload "${TAG}" out/*.factory.bin out/*.factory.bin.sha256 --clobber
+            gh release upload "${TAG}" "${ASSETS[@]}" --clobber
           else
-            gh release create "${TAG}" out/*.factory.bin out/*.factory.bin.sha256 \
+            gh release create "${TAG}" "${ASSETS[@]}" \
               --target "${GITHUB_SHA}" \
               --title "reTerminal D1001 ${TAG}" \
               --notes "${NOTES}"
