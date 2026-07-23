@@ -13,8 +13,10 @@ const COMPAT_FIXTURES = path.join(ROOT, "compatibility", "fixtures", "product_co
 const CONFIG_DIR = path.join(ROOT, "common", "config");
 const CARD_NORMALIZATION_FIXTURES = path.join(ROOT, "common", "config", "card_normalization_fixtures.json");
 const IMAGE_CARD_NORMALIZATION_FIXTURES = path.join(ROOT, "common", "config", "image_card_normalization_fixtures.json");
+const CARD_CONTRACT = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, "card_contract.json"), "utf8"));
 
 function loadHooks(search) {
+  const params = new URLSearchParams(search || "");
   const sandbox = {
     __ESPCONTROL_TEST_HOOKS__: {},
     console: { log() {}, warn() {}, error() {} },
@@ -29,6 +31,8 @@ function loadHooks(search) {
       addEventListener() {},
     },
   };
+  const device = params.get("device");
+  if (device) sandbox.__ESPCONTROL_DEVICE_PROFILE__ = device;
   sandbox.window = sandbox;
   vm.createContext(sandbox);
   vm.runInContext(loadBuiltWebSource(), sandbox, { filename: SOURCE });
@@ -126,6 +130,8 @@ function assertNormalizationFixtures(hooks, groups) {
 }
 
 const hooks = loadHooks();
+const tenInchHooks = loadHooks("?device=guition-esp32-p4-jc8012p4a1");
+const s3Hooks = loadHooks("?device=guition-esp32-s3-4848s040");
 const fixtures = JSON.parse(fs.readFileSync(COMPAT_FIXTURES, "utf8"));
 const cardNormalizationFixtures = JSON.parse(fs.readFileSync(CARD_NORMALIZATION_FIXTURES, "utf8"));
 const imageCardNormalizationFixtures = JSON.parse(fs.readFileSync(IMAGE_CARD_NORMALIZATION_FIXTURES, "utf8"));
@@ -218,6 +224,21 @@ assertButtonTypeSpecBacked("sensor", "sensor card");
 assertButtonTypeSpecBacked("slider", "slider card");
 assertButtonTypeSpecBacked("cover", "cover card");
 assertButtonTypeSpecBacked("light_brightness", "light brightness card");
+for (const [type, expectedRuntimeSpec] of Object.entries(CARD_CONTRACT.runtime.specs)) {
+  if (!hooks.buttonTypeRuntimeSpec(type)) continue;
+  const actualRuntimeSpec = hooks.buttonTypeGeneratedRuntimeSpec(type);
+  assert(actualRuntimeSpec, `${type || "switch"} generated runtime spec is merged into its web registration`);
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(actualRuntimeSpec)),
+    expectedRuntimeSpec,
+    `${type || "switch"} web registration uses the generated runtime spec`
+  );
+}
+assert.deepStrictEqual(
+  Array.from(hooks.buttonTypesMissingRuntimeSpec()),
+  ["media_cover_art"],
+  "only the documented obsolete helper registration lacks a standalone runtime spec"
+);
 assertButtonTypeSpecBacked("light_switch", "light switch card");
 assertButtonTypeSpecBacked("light_temperature", "light temperature card");
 assertButtonTypeSpecBacked("light_control", "full light control card");
@@ -303,11 +324,89 @@ assert.strictEqual(hooks.internalRelayDefaultIcon("push"), "Gesture Tap", "inter
 assert.strictEqual(hooks.internalRelayDefaultOnIcon(), "Lightbulb", "internal relay on icon is spec-backed");
 assert.deepStrictEqual(
   Array.from(hooks.mediaModeOptionValues()),
-  ["control_modal", "play_pause", "previous", "next", "volume", "position", "now_playing", "playlist"],
+  ["control_modal", "play_pause", "previous", "next", "volume", "position", "now_playing", "cover_art", "playlist"],
   "media mode options are spec-backed"
 );
 assert.strictEqual(hooks.mediaEditorMode("controls"), "play_pause", "legacy media controls mode maps through spec");
+assert.strictEqual(hooks.mediaEditorMode("cover_art"), "cover_art", "cover art media mode maps through spec");
 assert.strictEqual(hooks.mediaEditorMode("bad"), "play_pause", "invalid media mode falls back through spec");
+assert.strictEqual(hooks.cardRequiresSquareSize({ type: "media", sensor: "cover_art" }), true, "cover art cards require square sizes");
+assert.strictEqual(hooks.normalizeCardSizeForConfig({ type: "media", sensor: "cover_art" }, 4), 4, "cover art keeps 2x2 size");
+assert.strictEqual(hooks.normalizeCardSizeForConfig({ type: "media", sensor: "cover_art" }, 7), 7, "cover art keeps 3x3 size");
+assert.strictEqual(tenInchHooks.cardSupportsPortraitLargeSize({ type: "media", sensor: "cover_art" }), true, "10-inch cover art supports portrait-large size");
+assert.strictEqual(tenInchHooks.normalizeCardSizeForConfig({ type: "media", sensor: "cover_art" }, 10), 10, "10-inch cover art keeps 3x4 size");
+assert.strictEqual(hooks.normalizeCardSizeForConfig({ type: "media", sensor: "cover_art" }, 6), 1, "cover art rejects non-square sizes");
+assert.strictEqual(hooks.normalizeCardSizeForConfig({ type: "image" }, 8), 8, "camera cards keep max-wide size");
+assert.strictEqual(hooks.normalizeCardSizeForConfig({ type: "image" }, 9), 9, "camera cards keep max-tall size");
+assert.strictEqual(tenInchHooks.normalizeCardSizeForConfig({ type: "image" }, 10), 10, "10-inch image cards keep 3x4 size");
+assert.strictEqual(hooks.normalizeCardSizeForConfig({ type: "sensor" }, 8), 1, "non-camera cards reject max-wide size");
+assert.strictEqual(hooks.normalizeCardSizeForConfig({ type: "sensor" }, 9), 1, "non-camera cards reject max-tall size");
+assert.strictEqual(hooks.normalizeCardSizeForConfig({ type: "sensor" }, 10), 1, "ordinary cards reject portrait-large size");
+assert.strictEqual(
+  Array.from(tenInchHooks.cardSizeMenuOptions({ type: "media", sensor: "cover_art" })).some((option) => option.size === 10 && option.label === "Portrait (3x4)"),
+  true,
+  "10-inch cover art size menu exposes Portrait (3x4)",
+);
+const transferredSensor = tenInchHooks.cardTransferEntriesFromEnvelopeForTest({
+  cards: [{ type: "sensor", entity: "sensor.office", label: "Office", size: 10 }],
+}, false);
+assert.strictEqual(transferredSensor.entries[0].size, 1, "card transfer downgrades unsupported 3x4 sensor size");
+assert.strictEqual(transferredSensor.warnings.cardResized, true, "card transfer reports normalized card sizes");
+const transferredCoverArt = tenInchHooks.cardTransferEntriesFromEnvelopeForTest({
+  cards: [{ type: "media", sensor: "cover_art", entity: "media_player.office", label: "Cover Art", size: 10 }],
+}, false);
+assert.strictEqual(transferredCoverArt.entries[0].size, 10, "card transfer keeps supported 3x4 cover art size");
+const transferredSubpage = tenInchHooks.cardTransferEntriesFromEnvelopeForTest({
+  cards: [{
+    type: "subpage",
+    label: "Sensors",
+    size: 1,
+    subpage: {
+      order: ["1p", "B"],
+      back_label: "Back",
+      buttons: [{ type: "sensor", entity: "sensor.office", label: "Office" }],
+    },
+  }],
+}, false);
+assert.strictEqual(transferredSubpage.warnings.subpageResized, true, "card transfer reports normalized subpage sizes");
+assert.strictEqual(
+  Array.from(tenInchHooks.parseSubpageConfig(transferredSubpage.entries[0].subpageConfig).order).includes("1p"),
+  false,
+  "card transfer downgrades unsupported 3x4 sizes inside subpages",
+);
+assert.throws(
+  () => s3Hooks.cardTransferEntriesFromEnvelopeForTest({
+    cards: [{ type: "image", entity: "camera.front_door", label: "Front Door", size: 1 }],
+  }, false),
+  (error) => String(error.cardTransferMessage || error.message).includes("does not support the image card type"),
+  "S3 card transfer rejects disabled image cards",
+);
+assert.throws(
+  () => s3Hooks.cardTransferEntriesFromEnvelopeForTest({
+    cards: [{
+      type: "subpage",
+      label: "Cameras",
+      size: 1,
+      subpage: {
+        order: ["1", "B"],
+        back_label: "Back",
+        buttons: [{ type: "image", entity: "camera.front_door", label: "Front Door" }],
+      },
+    }],
+  }, false),
+  (error) => String(error.cardTransferMessage || error.message).includes("does not support the image card type"),
+  "S3 card transfer rejects disabled image cards inside subpages",
+);
+const coverArtActionButton = { type: "media", sensor: "cover_art", options: "" };
+assert.strictEqual(hooks.mediaCoverArtAction(coverArtActionButton), "play_pause", "cover art defaults to play/pause action");
+hooks.setMediaCoverArtAction(coverArtActionButton, "control_modal");
+assert.strictEqual(coverArtActionButton.options, "cover_art_action=control_modal", "cover art stores the optional controls action");
+hooks.setMediaCoverArtDetailsEnabled(coverArtActionButton, true);
+assert.strictEqual(coverArtActionButton.options, "cover_art_action=control_modal,cover_art_details", "cover art preserves action with track details");
+hooks.setMediaCoverArtAction(coverArtActionButton, "play_pause");
+assert.strictEqual(coverArtActionButton.options, "cover_art_details", "cover art omits its default action without dropping track details");
+hooks.setMediaCoverArtDetailsEnabled(coverArtActionButton, false);
+assert.strictEqual(coverArtActionButton.options, "", "cover art omits disabled track details");
 assert.deepStrictEqual(
   Array.from(hooks.mediaNowPlayingControlValues()),
   ["", "progress", "play_pause"],
@@ -543,13 +642,13 @@ const sensorOptionSpecs = hooks.cardContractOptions("sensor");
 const sensorOptionByName = Object.fromEntries(sensorOptionSpecs.map((option) => [option.name, option]));
 assert.deepStrictEqual(
   Array.from(sensorOptionSpecs, (option) => option.name),
-  ["large_numbers", "active_color", "state_labels", "state_input", "state_output", "state_input_2", "state_output_2"],
+  ["large_numbers", "time_unit", "active_color", "state_labels", "state_input", "state_output", "state_input_2", "state_output_2"],
   "sensor option specs preserve current option order"
 );
 assert.deepStrictEqual(
   Array.from(sensorOptionByName.large_numbers.supportedWhen.precisionNot),
-  ["icon", "text"],
-  "sensor large-number option spec excludes icon and text sensor modes"
+  ["icon", "text", "time"],
+  "sensor large-number option spec excludes icon, text, and time sensor modes"
 );
 assert.strictEqual(
   hooks.cardContractOptionSupportedFor("sensor", "large_numbers", { precision: "" }),
@@ -566,12 +665,37 @@ assert.strictEqual(
   false,
   "sensor large-number option blocks icon mode"
 );
-assert.strictEqual(sensorOptionByName.active_color.hidden, true, "sensor active-colour option spec remains hidden");
-assert.strictEqual(sensorOptionByName.active_color.migration, "drop", "sensor active-colour option spec documents cleanup");
+assert.strictEqual(
+  hooks.cardContractOptionSupportedFor("sensor", "large_numbers", { precision: "time" }),
+  false,
+  "sensor large-number option blocks time mode"
+);
+assert.deepStrictEqual(Array.from(sensorOptionByName.time_unit.values), ["", "seconds", "minutes", "hours", "days"], "time sensor input unit choices are contract-backed");
+assert.strictEqual(sensorOptionByName.active_color.label, "Lit When Active", "sensor active-colour option has a user-facing label");
+assert.deepStrictEqual(
+  Array.from(sensorOptionByName.active_color.supportedWhen.precisionNot),
+  ["time"],
+  "sensor active-colour option excludes Time mode"
+);
 assert.strictEqual(
   hooks.cardContractOptionSupportedFor("sensor", "active_color", { precision: "text" }),
+  true,
+  "sensor active-colour option supports Text mode"
+);
+assert.strictEqual(
+  hooks.cardContractOptionSupportedFor("sensor", "active_color", { precision: "icon" }),
+  true,
+  "sensor active-colour option supports Icon mode"
+);
+assert.strictEqual(
+  hooks.cardContractOptionSupportedFor("sensor", "active_color", { precision: "" }),
+  true,
+  "sensor active-colour option supports Numeric mode"
+);
+assert.strictEqual(
+  hooks.cardContractOptionSupportedFor("sensor", "active_color", { precision: "time" }),
   false,
-  "sensor active-colour option cleanup is spec-backed"
+  "sensor active-colour option blocks Time mode"
 );
 assert.deepStrictEqual(Object.assign({}, hooks.cardContractMigrationAlias("weather_forecast")), {
   type: "weather",
@@ -618,6 +742,12 @@ assert.deepStrictEqual(Array.from(importedExtraTallOrder.grid.slice(0, 11)), [1,
 const importedExtraWideOrder = hooks.importedButtonOrderFor("1x,2,3", {});
 assert.strictEqual(importedExtraWideOrder.sizes["1"], 6, "imported extra wide sizing is preserved");
 assert.deepStrictEqual(Array.from(importedExtraWideOrder.grid.slice(0, 5)), [1, -1, -1, 2, 3], "extra wide spans three columns");
+const importedMaxWideOrder = hooks.importedButtonOrderFor("1h", {});
+assert.strictEqual(importedMaxWideOrder.sizes["1"], 8, "imported max-wide sizing is preserved");
+assert.deepStrictEqual(Array.from(importedMaxWideOrder.grid.slice(0, 8)), [1, -1, -1, 0, 0, -1, -1, -1], "max-wide spans three columns and two rows");
+const importedMaxTallOrder = hooks.importedButtonOrderFor("1v", {});
+assert.strictEqual(importedMaxTallOrder.sizes["1"], 9, "imported max-tall sizing is preserved");
+assert.deepStrictEqual(Array.from(importedMaxTallOrder.grid.slice(0, 12)), [1, -1, 0, 0, 0, -1, -1, 0, 0, 0, -1, -1], "max-tall spans two columns and three rows");
 assert.strictEqual(hooks.screensaverTimeoutSupportedFor(10, false, 60, 3600), true, "short timeout allowed before limits load");
 assert.strictEqual(hooks.screensaverTimeoutSupportedFor(10, true, 60, 3600), false, "short timeout blocked after old limits load");
 assert.strictEqual(hooks.screensaverTimeoutSupportedFor(10, true, 10, 3600), true, "short timeout allowed after new limits load");
@@ -778,7 +908,21 @@ assert.strictEqual(
 );
 
 const parsedActiveSensor = hooks.parseButtonConfig(";;;;binary_sensor.patio_door;;sensor;text;active_color");
-assert.strictEqual(hooks.sensorActiveColorEnabled(parsedActiveSensor), false, "sensor active colour removed");
+assert.strictEqual(hooks.sensorActiveColorEnabled(parsedActiveSensor), true, "sensor active colour enabled");
+
+const autoTimeSensor = hooks.parseButtonConfig("sensor.ups_runtime;UPS Runtime;Clock;Bell;sensor.ups_runtime;hours;sensor;time;large_numbers,time_unit=weeks,state_labels");
+assert.strictEqual(autoTimeSensor.precision, "time", "time sensor mode round-trips");
+assert.strictEqual(autoTimeSensor.unit, "", "time sensor clears the normal unit field");
+assert.strictEqual(autoTimeSensor.icon, "Auto", "time sensor clears icon settings");
+assert.strictEqual(autoTimeSensor.icon_on, "Auto", "time sensor clears on icon settings");
+assert.strictEqual(autoTimeSensor.options, "", "invalid time units normalize to Auto and incompatible options are removed");
+assert.strictEqual(hooks.sensorTimeUnit(autoTimeSensor), "", "Auto time unit is represented by an omitted option");
+hooks.setSensorTimeUnit(autoTimeSensor, "hours");
+assert.strictEqual(autoTimeSensor.options, "time_unit=hours", "manual time unit persists");
+assert.strictEqual(hooks.sensorTimeUnit(autoTimeSensor), "hours", "manual time unit reads back");
+autoTimeSensor.precision = "";
+autoTimeSensor.options = hooks.normalizeSensorOptions(autoTimeSensor.options, autoTimeSensor.precision);
+assert.strictEqual(autoTimeSensor.options, "", "switching away from Time removes the time unit");
 
 const stateLabelSensor = hooks.parseButtonConfig(";;;;sensor.bin_level;;sensor;text;state_labels,state_input=high,state_output=Please%20empty,state_input_2=low,state_output_2=Full");
 assert.strictEqual(hooks.sensorStateLabelsEnabled(stateLabelSensor), true, "sensor text state labels enabled");
@@ -794,7 +938,7 @@ assert.strictEqual(numericStateLabelSensor.options, "", "sensor state labels are
 
 assertButtonMigration(
   hooks,
-  "text sensor drops hidden active colour option",
+  "text sensor drops large numbers but keeps active colour",
   "sensor.patio_door;Patio Door;Door Closed;Auto;binary_sensor.patio_door;;sensor;text;large_numbers,active_color",
   {
     entity: "sensor.patio_door",
@@ -805,7 +949,7 @@ assertButtonMigration(
     unit: "",
     type: "sensor",
     precision: "text",
-    options: "",
+    options: "active_color",
   }
 );
 
@@ -1664,6 +1808,30 @@ assertButtonRoundTrip(hooks, "media now playing play pause control", {
   precision: "play_pause",
 }, false);
 
+assertButtonRoundTrip(hooks, "media cover art card", {
+  entity: "media_player.office",
+  label: "Cover Art",
+  icon: "Auto",
+  icon_on: "Auto",
+  sensor: "cover_art",
+  unit: "",
+  type: "media",
+  precision: "",
+  options: "cover_art_action=control_modal,cover_art_details",
+}, false);
+
+assertButtonMigration(hooks, "legacy media cover art option becomes cover art subtype", "media_player.office;Now Playing;Auto;Auto;now_playing;;media;progress;media_cover_art", {
+  entity: "media_player.office",
+  label: "Now Playing",
+  icon: "Auto",
+  icon_on: "Auto",
+  sensor: "cover_art",
+  unit: "",
+  type: "media",
+  precision: "",
+  options: "",
+});
+
 assertButtonRoundTrip(hooks, "media control modal card", {
   entity: "media_player.living_room",
   label: "Living Room",
@@ -2066,6 +2234,17 @@ const imageCardForLimit = {
   precision: "",
   options: "",
 };
+const mediaCoverArtCardForLimit = {
+  entity: "media_player.office",
+  label: "Cover Art",
+  icon: "Auto",
+  icon_on: "Auto",
+  sensor: "cover_art",
+  unit: "",
+  type: "media",
+  precision: "",
+  options: "",
+};
 const switchCardForImageLimit = {
   entity: "switch.kitchen",
   label: "Kitchen",
@@ -2087,8 +2266,12 @@ const imageLimitSnapshot = {
     },
   },
 };
-assert.strictEqual(hooks.imageCardLimit(), 6, "image card editor limit matches the built device profile");
+assert.strictEqual(hooks.imageSlotCapacity(), 6, "image card editor capacity matches the built device profile");
 assert.strictEqual(hooks.imageCardCountForTest(imageLimitSnapshot), 6, "image card count spans main page and subpages");
+assert.strictEqual(hooks.imageCardCountForTest({
+  grid: [1, 2],
+  buttons: [imageCardForLimit, mediaCoverArtCardForLimit],
+}), 2, "cover art media cards use image-card firmware slots");
 assert.strictEqual(hooks.imageCardCandidateAllowedForTest(imageLimitSnapshot, {
   isSub: false,
   slot: 5,
@@ -2878,7 +3061,7 @@ assertSubpageRoundTrip(hooks, "alarm action subpage", {
 }, true);
 
 assertSubpageRoundTrip(hooks, "media subpage", {
-  order: ["1", "B", "2", "3", "4", "5", "6", "7"],
+  order: ["1", "B", "2", "3", "4", "5", "6", "7", "8"],
   buttons: [
     buttonShape({ entity: "media_player.living_room", label: "Play/Pause", icon: "Auto", sensor: "play_pause", type: "media" }),
     buttonShape({ entity: "media_player.living_room", label: "Previous", icon: "Auto", sensor: "previous", type: "media" }),
@@ -2886,6 +3069,7 @@ assertSubpageRoundTrip(hooks, "media subpage", {
     buttonShape({ entity: "media_player.kitchen", label: "Kitchen", icon: "Auto", sensor: "volume", type: "media", options: "volume_max=40" }),
     buttonShape({ entity: "media_player.office", label: "Office", icon: "Progress Clock", sensor: "position", type: "media" }),
     buttonShape({ entity: "media_player.office", label: "", icon: "Auto", sensor: "now_playing", type: "media" }),
+    buttonShape({ entity: "media_player.office", label: "Cover Art", icon: "Auto", sensor: "cover_art", type: "media" }),
     buttonShape({ entity: "media_player.office", label: "Morning Mix", icon: "Music", sensor: "playlist", type: "media", options: "playlist_content_id=spotify%3Aplaylist%3A12345" }),
   ],
 }, true);

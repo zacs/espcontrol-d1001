@@ -48,6 +48,18 @@ export const ENTITY_CATALOG = {
       "domain": "text",
       "template": "Subpage {slot} Config Ext 7"
     },
+    "display_restart": {
+      "domain": "button",
+      "name": "Restart"
+    },
+    "screen_wake": {
+      "domain": "button",
+      "name": "Screen: Wake",
+      "objectIds": [
+        "screen__wake",
+        "screen_wake"
+      ]
+    },
     "indoor_temp_enable": {
       "domain": "switch",
       "name": "Indoor Temp Enable"
@@ -362,6 +374,15 @@ export const ENTITY_CATALOG = {
         "schedule_trigger"
       ]
     },
+    "screen_schedule_sensor_activation": {
+      "domain": "select",
+      "name": "Screen: Schedule Sensor Activation",
+      "objectIds": [
+        "screen__schedule_sensor_activation",
+        "screen_schedule_sensor_activation",
+        "schedule_sensor_activation"
+      ]
+    },
     "screen_schedule_mode": {
       "domain": "select",
       "name": "Screen: Schedule Mode",
@@ -505,6 +526,15 @@ export const ENTITY_CATALOG = {
         "update_frequency_select"
       ]
     },
+    "esp32_c6_auto_update": {
+      "domain": "switch",
+      "name": "WiFi Firmware: Auto Update",
+      "objectIds": [
+        "wifi_firmware__auto_update",
+        "wifi_firmware_auto_update",
+        "c6_auto_update_switch"
+      ]
+    },
     "esp32_c6_update_available": {
       "domain": "text_sensor",
       "name": "ESP32-C6: Update Available",
@@ -617,6 +647,7 @@ export const ENTITY_CATALOG = {
       "screen_automatic_brightness",
       "screen_schedule_enabled",
       "screen_schedule_trigger",
+      "screen_schedule_sensor_activation",
       "screen_schedule_mode",
       "screen_schedule_on_hour",
       "screen_schedule_off_hour",
@@ -635,6 +666,7 @@ export const ENTITY_CATALOG = {
       "firmware_install_update",
       "firmware_auto_update",
       "firmware_update_frequency",
+      "esp32_c6_auto_update",
       "esp32_c6_update_available",
       "esp32_c6_current_firmware",
       "esp32_c6_latest_firmware",

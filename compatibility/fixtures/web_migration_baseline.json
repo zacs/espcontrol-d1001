@@ -44,7 +44,7 @@
       "timezone": "Europe/London (GMT+0)", "temperatureUnit": "°F", "language": "en", "clockFormat": "12h",
       "hasNtpServer1": false, "hasNtpServer2": false, "hasNtpServer3": false,
       "ntpServer1": "pool.ntp.org", "ntpServer2": "time.nist.gov", "ntpServer3": "time.google.com",
-      "screensaverMode": "disabled", "presenceSensorEntity": "", "mediaPlayerSleepPrevention": false,
+      "screensaverMode": "disabled", "presenceSensorEntity": "", "mediaPlayerSleepPrevention": true,
       "mediaPlayerSleepPreventionEntity": "", "coverArtScreensaver": false, "coverArtMediaPlayerEntity": "",
       "coverArtAttributeConditions": "", "coverArtDelay": 10, "coverArtTrackOverlayDuration": 5,
       "coverArtHideExternalInput": true, "coverArtHomeAssistantProtocol": "https", "coverArtHomeAssistantPort": 8123,
@@ -56,6 +56,7 @@
       "brightness_day": 80,
       "brightness_night": 20,
       "schedule_trigger": "time",
+      "schedule_sensor_activation": "on",
       "schedule_on_hour": 6,
       "schedule_off_hour": 23,
       "schedule_mode": "clock",
@@ -64,7 +65,7 @@
     "screenNormalized": {
       "brightnessDayVal": 80, "brightnessNightVal": 20, "automaticBrightnessEnabled": true,
       "brightnessDawnTime": "06:00", "brightnessDuskTime": "18:00", "scheduleTrigger": "time",
-      "scheduleEnabled": true, "scheduleOnHour": 6, "scheduleOffHour": 23, "scheduleMode": "clock",
+      "scheduleEnabled": true, "scheduleSensorActivation": "on", "scheduleOnHour": 6, "scheduleOffHour": 23, "scheduleMode": "clock",
       "scheduleWakeTimeout": 30, "scheduleWakeBrightness": 10, "scheduleDimmedBrightness": 10,
       "scheduleClockBrightness": 10, "scheduleClockTextColor": "FFFFFF"
     }
@@ -99,12 +100,5 @@
       "/number/Screen%20Saver%3A%20Cover%20Art%20Delay/set?value=30"
     ]
   },
-  "bundleSizes": {
-    "guition-esp32-p4-jc1060p470": { "minified": 548511, "gzip": 134340 },
-    "guition-esp32-p4-jc4880p443": { "minified": 548546, "gzip": 134357 },
-    "guition-esp32-p4-jc8012p4a1": { "minified": 548527, "gzip": 134347 },
-    "guition-esp32-p4-jc8012p4a1-v2": { "minified": 548530, "gzip": 134350 },
-    "esp32-p4-86": { "minified": 548553, "gzip": 134350 },
-    "guition-esp32-s3-4848s040": { "minified": 548711, "gzip": 134401 }
-  }
+  "bundleSize": { "minified": 624096, "gzip": 148222 }
 }

@@ -317,7 +317,8 @@ export default defineConfig({
     ) {
       const isHowTo =
         pageData.relativePath === 'getting-started/install.md' ||
-        pageData.relativePath === 'getting-started/manual-esphome-setup.md'
+        pageData.relativePath === 'getting-started/manual-esphome-setup.md' ||
+        pageData.relativePath === 'getting-started/migrate-esphome-media-player.md'
       const articleSchema: Record<string, unknown> = {
         '@context': 'https://schema.org',
         '@type': isHowTo ? 'HowTo' : 'TechArticle',
@@ -328,20 +329,30 @@ export default defineConfig({
         author: { '@type': 'Person', name: 'jtenniswood', url: 'https://github.com/jtenniswood' },
       }
       if (isHowTo) {
-        articleSchema.step =
-          pageData.relativePath === 'getting-started/manual-esphome-setup.md'
-            ? [
-                { '@type': 'HowToStep', name: 'Choose the correct ESPHome package file' },
-                { '@type': 'HowToStep', name: 'Create the device in ESPHome Device Builder' },
-                { '@type': 'HowToStep', name: 'Install by USB or OTA' },
-                { '@type': 'HowToStep', name: 'Add the display to Home Assistant' },
-              ]
-            : [
-                { '@type': 'HowToStep', name: 'Flash firmware from your browser' },
-                { '@type': 'HowToStep', name: 'Connect to WiFi' },
-                { '@type': 'HowToStep', name: 'Add to Home Assistant' },
-                { '@type': 'HowToStep', name: 'Configure buttons from the web page' },
-              ]
+        if (pageData.relativePath === 'getting-started/manual-esphome-setup.md') {
+          articleSchema.step = [
+            { '@type': 'HowToStep', name: 'Choose the correct ESPHome package file' },
+            { '@type': 'HowToStep', name: 'Create the device in ESPHome Device Builder' },
+            { '@type': 'HowToStep', name: 'Install by USB or OTA' },
+            { '@type': 'HowToStep', name: 'Add the display to Home Assistant' },
+          ]
+        } else if (
+          pageData.relativePath === 'getting-started/migrate-esphome-media-player.md'
+        ) {
+          articleSchema.step = [
+            { '@type': 'HowToStep', name: 'Install and connect EspControl' },
+            { '@type': 'HowToStep', name: 'Choose an automatic or card-based cover-art layout' },
+            { '@type': 'HowToStep', name: 'Configure media playback controls' },
+            { '@type': 'HowToStep', name: 'Configure the idle clock or display-off behaviour' },
+          ]
+        } else {
+          articleSchema.step = [
+            { '@type': 'HowToStep', name: 'Flash firmware from your browser' },
+            { '@type': 'HowToStep', name: 'Connect to WiFi' },
+            { '@type': 'HowToStep', name: 'Add to Home Assistant' },
+            { '@type': 'HowToStep', name: 'Configure buttons from the web page' },
+          ]
+        }
       }
       if (pageData.relativePath === 'reference/faq.md') {
         articleSchema['@type'] = 'FAQPage'

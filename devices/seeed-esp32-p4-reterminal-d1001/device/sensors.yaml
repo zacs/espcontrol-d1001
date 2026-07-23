@@ -56,12 +56,18 @@ script:
           cfg.subpage_chevron_x = 4;
           cfg.subpage_chevron_y = -2;
           cfg.wrap_tall_labels = true;
+          cfg.modal_profile.layout_family = DisplayModalLayoutFamily::LARGE_LANDSCAPE;
+          cfg.modal_profile.density = DisplayModalDensity::SPACIOUS;
+          cfg.modal_profile.memory_tier = DisplayModalMemoryTier::STANDARD;
+          cfg.modal_profile.base_touch_target = 76;
           cfg.icon_font = id(font_icon_main)->get_lv_font();
           cfg.sp_sensor_font = id(font_number_value)->get_lv_font();
           cfg.sp_large_sensor_font = id(font_number_value_large)->get_lv_font();
           cfg.large_sensor_unit_offset_percent = -10;
           cfg.media_title_font = id(font_text_title)->get_lv_font();
           cfg.media_control_title_font = id(font_cover_art_title)->get_lv_font();
+          cfg.media_cover_art_title_font = id(font_cover_art_title)->get_lv_font();
+          cfg.media_cover_art_artist_font = id(font_cover_art_artist)->get_lv_font();
           cfg.volume_number_font = id(font_number_value_large)->get_lv_font();
           cfg.volume_label_font = id(font_text_large)->get_lv_font();
           cfg.climate_card_icon_font = id(font_icon_card)->get_lv_font();
@@ -70,11 +76,11 @@ script:
           cfg.climate_option_value_font = id(font_text_body)->get_lv_font();
           cfg.temperature_unit = id(temperature_unit_select).current_option();
           cfg.timezone = id(timezone_select).current_option();
-          cfg.suspend_display_takeover = []() {
-            id(display_takeover_suspend).execute();
+          cfg.begin_display_takeover = [](espcontrol::DisplayTakeoverKind kind) {
+            id(display_takeover_begin).execute(static_cast<int>(kind));
           };
-          cfg.resume_display_takeover = []() {
-            id(display_takeover_resume).execute();
+          cfg.end_display_takeover = [](espcontrol::DisplayTakeoverKind kind) {
+            id(display_takeover_end).execute(static_cast<int>(kind));
           };
           static esphome::artwork_image::ArtworkImage *image_card_downloaders[] = {
             id(image_card_download_1),
@@ -84,16 +90,8 @@ script:
             id(image_card_download_5),
             id(image_card_download_6),
           };
-          static esphome::artwork_image::ArtworkImage *image_card_modal_downloaders[] = {
-            id(image_card_modal_download_1),
-            id(image_card_modal_download_2),
-            id(image_card_modal_download_3),
-            id(image_card_modal_download_4),
-            id(image_card_modal_download_5),
-            id(image_card_modal_download_6),
-          };
           cfg.image_card_images = image_card_downloaders;
-          cfg.image_card_modal_images = image_card_modal_downloaders;
+          cfg.image_card_modal_image = id(image_card_modal_download_1);
           cfg.image_card_image_count = 6;
           cfg.image_card_diagnostics = true;
           cfg.home_assistant_base_url = []() {
@@ -166,12 +164,18 @@ esphome:
             cfg.subpage_chevron_x = 4;
             cfg.subpage_chevron_y = -2;
             cfg.wrap_tall_labels = true;
+            cfg.modal_profile.layout_family = DisplayModalLayoutFamily::LARGE_LANDSCAPE;
+            cfg.modal_profile.density = DisplayModalDensity::SPACIOUS;
+            cfg.modal_profile.memory_tier = DisplayModalMemoryTier::STANDARD;
+            cfg.modal_profile.base_touch_target = 76;
             cfg.icon_font = id(font_icon_main)->get_lv_font();
             cfg.sp_sensor_font = id(font_number_value)->get_lv_font();
             cfg.sp_large_sensor_font = id(font_number_value_large)->get_lv_font();
             cfg.large_sensor_unit_offset_percent = -10;
             cfg.media_title_font = id(font_text_title)->get_lv_font();
             cfg.media_control_title_font = id(font_cover_art_title)->get_lv_font();
+            cfg.media_cover_art_title_font = id(font_cover_art_title)->get_lv_font();
+            cfg.media_cover_art_artist_font = id(font_cover_art_artist)->get_lv_font();
             cfg.volume_number_font = id(font_number_value_large)->get_lv_font();
             cfg.volume_label_font = id(font_text_large)->get_lv_font();
             cfg.climate_card_icon_font = id(font_icon_card)->get_lv_font();
@@ -180,11 +184,11 @@ esphome:
             cfg.climate_option_value_font = id(font_text_body)->get_lv_font();
             cfg.temperature_unit = id(temperature_unit_select).current_option();
             cfg.timezone = id(timezone_select).current_option();
-            cfg.suspend_display_takeover = []() {
-              id(display_takeover_suspend).execute();
+            cfg.begin_display_takeover = [](espcontrol::DisplayTakeoverKind kind) {
+              id(display_takeover_begin).execute(static_cast<int>(kind));
             };
-            cfg.resume_display_takeover = []() {
-              id(display_takeover_resume).execute();
+            cfg.end_display_takeover = [](espcontrol::DisplayTakeoverKind kind) {
+              id(display_takeover_end).execute(static_cast<int>(kind));
             };
             static esphome::artwork_image::ArtworkImage *image_card_downloaders[] = {
               id(image_card_download_1),
@@ -194,16 +198,8 @@ esphome:
               id(image_card_download_5),
               id(image_card_download_6),
             };
-            static esphome::artwork_image::ArtworkImage *image_card_modal_downloaders[] = {
-              id(image_card_modal_download_1),
-              id(image_card_modal_download_2),
-              id(image_card_modal_download_3),
-              id(image_card_modal_download_4),
-              id(image_card_modal_download_5),
-              id(image_card_modal_download_6),
-            };
             cfg.image_card_images = image_card_downloaders;
-            cfg.image_card_modal_images = image_card_modal_downloaders;
+            cfg.image_card_modal_image = id(image_card_modal_download_1);
             cfg.image_card_image_count = 6;
             cfg.image_card_diagnostics = true;
             cfg.home_assistant_base_url = []() {
@@ -345,12 +341,18 @@ esphome:
             cfg.subpage_chevron_x = 4;
             cfg.subpage_chevron_y = -2;
             cfg.wrap_tall_labels = true;
+            cfg.modal_profile.layout_family = DisplayModalLayoutFamily::LARGE_LANDSCAPE;
+            cfg.modal_profile.density = DisplayModalDensity::SPACIOUS;
+            cfg.modal_profile.memory_tier = DisplayModalMemoryTier::STANDARD;
+            cfg.modal_profile.base_touch_target = 76;
             cfg.icon_font = id(font_icon_main)->get_lv_font();
             cfg.sp_sensor_font = id(font_number_value)->get_lv_font();
             cfg.sp_large_sensor_font = id(font_number_value_large)->get_lv_font();
             cfg.large_sensor_unit_offset_percent = -10;
             cfg.media_title_font = id(font_text_title)->get_lv_font();
             cfg.media_control_title_font = id(font_cover_art_title)->get_lv_font();
+            cfg.media_cover_art_title_font = id(font_cover_art_title)->get_lv_font();
+            cfg.media_cover_art_artist_font = id(font_cover_art_artist)->get_lv_font();
             cfg.volume_number_font = id(font_number_value_large)->get_lv_font();
             cfg.volume_label_font = id(font_text_large)->get_lv_font();
             cfg.climate_card_icon_font = id(font_icon_card)->get_lv_font();
@@ -359,11 +361,11 @@ esphome:
             cfg.climate_option_value_font = id(font_text_body)->get_lv_font();
             cfg.temperature_unit = id(temperature_unit_select).current_option();
             cfg.timezone = id(timezone_select).current_option();
-            cfg.suspend_display_takeover = []() {
-              id(display_takeover_suspend).execute();
+            cfg.begin_display_takeover = [](espcontrol::DisplayTakeoverKind kind) {
+              id(display_takeover_begin).execute(static_cast<int>(kind));
             };
-            cfg.resume_display_takeover = []() {
-              id(display_takeover_resume).execute();
+            cfg.end_display_takeover = [](espcontrol::DisplayTakeoverKind kind) {
+              id(display_takeover_end).execute(static_cast<int>(kind));
             };
             static esphome::artwork_image::ArtworkImage *image_card_downloaders[] = {
               id(image_card_download_1),
@@ -373,16 +375,8 @@ esphome:
               id(image_card_download_5),
               id(image_card_download_6),
             };
-            static esphome::artwork_image::ArtworkImage *image_card_modal_downloaders[] = {
-              id(image_card_modal_download_1),
-              id(image_card_modal_download_2),
-              id(image_card_modal_download_3),
-              id(image_card_modal_download_4),
-              id(image_card_modal_download_5),
-              id(image_card_modal_download_6),
-            };
             cfg.image_card_images = image_card_downloaders;
-            cfg.image_card_modal_images = image_card_modal_downloaders;
+            cfg.image_card_modal_image = id(image_card_modal_download_1);
             cfg.image_card_image_count = 6;
             cfg.image_card_diagnostics = true;
             cfg.home_assistant_base_url = []() {
@@ -440,12 +434,8 @@ esphome:
                 return clock_bar_should_show(
                     id(clock_bar_enabled).state,
                     id(main_page)->obj,
-                    id(display_asleep),
-                    id(screen_schedule_asleep),
-                    id(is_clock_showing),
-                    id(cover_art_screensaver_active),
-                    id(screensaver_display_off_active),
-                    id(screensaver_dimmed_active));
+                    id(display_mode_controller).current_mode(),
+                    id(display_mode_controller).target_schedule_inactive());
               },
               []() {
                 id(screensaver_presence_wake).execute();

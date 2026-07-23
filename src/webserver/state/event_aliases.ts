@@ -24,6 +24,7 @@ export const SSE_ALIAS_GROUPS = {
   homeAssistantArtworkProtocol: ["select-home_assistant_artwork_protocol", "select-cover_art_home_assistant_artwork_protocol"],
   homeAssistantArtworkPort: ["number-home_assistant_artwork_port"],
   scheduleTrigger: ["text-screen__schedule_trigger", "text-screen_schedule_trigger", "text-schedule_trigger"],
+  scheduleSensorActivation: ["select-screen__schedule_sensor_activation", "select-screen_schedule_sensor_activation", "select-schedule_sensor_activation"],
   scheduleWakeTimeout: ["number-screen__schedule_wake_timeout", "number-screen_schedule_wake_timeout", "number-schedule_wake_timeout"],
   scheduleWakeBrightness: ["number-screen__schedule_wake_brightness", "number-screen_schedule_wake_brightness", "number-schedule_wake_brightness"],
   scheduleDimmedBrightness: ["number-screen__schedule_dimmed_brightness", "number-screen_schedule_dimmed_brightness", "number-schedule_dimmed_brightness"],
@@ -36,6 +37,7 @@ export const SSE_ALIAS_GROUPS = {
   ntpServer3: ["text-screen__ntp_server_3", "text-ntp_server_3"],
   firmwareAutoUpdate: ["switch-firmware__auto_update", "switch-firmware_auto_update", "switch-auto_update_switch"],
   firmwareUpdateFrequency: ["select-firmware__update_frequency", "select-firmware_update_frequency", "select-update_frequency_select"],
+  c6FirmwareAutoUpdate: ["switch-wifi_firmware__auto_update", "switch-wifi_firmware_auto_update", "switch-c6_auto_update_switch"],
 } as const;
 
 function addSseAliases(handlers: SseHandlers, names: readonly string[], canonical: string): void {
@@ -65,6 +67,7 @@ export function applySseHandlerAliases(handlers: SseHandlers): void {
   addSseAliases(handlers, SSE_ALIAS_GROUPS.homeAssistantArtworkProtocol, "select-home_assistant_artwork_protocol");
   addSseAliases(handlers, SSE_ALIAS_GROUPS.homeAssistantArtworkPort, "number-home_assistant_artwork_port");
   addSseAliases(handlers, SSE_ALIAS_GROUPS.scheduleTrigger, "text-screen__schedule_trigger");
+  addSseAliases(handlers, SSE_ALIAS_GROUPS.scheduleSensorActivation, "select-screen__schedule_sensor_activation");
   addSseAliases(handlers, SSE_ALIAS_GROUPS.scheduleWakeTimeout, "number-screen__schedule_wake_timeout");
   addSseAliases(handlers, SSE_ALIAS_GROUPS.scheduleWakeBrightness, "number-screen__schedule_wake_brightness");
   addSseAliases(handlers, SSE_ALIAS_GROUPS.scheduleDimmedBrightness, "number-screen__schedule_dimmed_brightness");
@@ -77,4 +80,5 @@ export function applySseHandlerAliases(handlers: SseHandlers): void {
   addSseAliases(handlers, SSE_ALIAS_GROUPS.ntpServer3, "text-screen__ntp_server_3");
   addSseAliases(handlers, SSE_ALIAS_GROUPS.firmwareAutoUpdate, "switch-firmware__auto_update");
   addSseAliases(handlers, SSE_ALIAS_GROUPS.firmwareUpdateFrequency, "select-firmware__update_frequency");
+  addSseAliases(handlers, SSE_ALIAS_GROUPS.c6FirmwareAutoUpdate, "switch-wifi_firmware__auto_update");
 }

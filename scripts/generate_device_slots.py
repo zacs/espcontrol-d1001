@@ -235,11 +235,11 @@ def package_file_text(device: dict) -> str:
                     include_line(
                         "image_cards",
                         "!include ../../common/device/image_cards.yaml"
-                        if int(device.get("image_card_downloaders", 4)) == 4
-                        else f"!include ../../common/device/image_cards_{int(device.get('image_card_downloaders', 4))}.yaml",
+                        if int(device["image_slot_capacity"]) == 4
+                        else f"!include ../../common/device/image_cards_{int(device['image_slot_capacity'])}.yaml",
                     )
                 ]
-                if int(device.get("image_card_downloaders", 4)) > 0
+                if int(device["image_slot_capacity"]) > 0
                 else []
             ),
             "  # ---------------------------------------------------------------------------",
@@ -308,7 +308,7 @@ def macro_array(name: str, macro: str, slots: int, per_line: int = 4, indent: st
 
 
 def cfg_lines(device: dict) -> list[str]:
-    image_card_count = int(device.get("image_card_downloaders", 4))
+    image_card_count = int(device["image_slot_capacity"])
     lines = [
         "            GridConfig cfg = {};",
         f"            cfg.num_slots = {device['slots']};",
@@ -339,6 +339,43 @@ def cfg_lines(device: dict) -> list[str]:
         lines.append(
             f"            cfg.volume_width_compensation_percent = {device['volume_width_compensation_percent']};"
         )
+    if device.get("media_artwork_width_compensation_percent", 100) != 100:
+        lines.append(
+            f"            cfg.media_artwork_width_compensation_percent = {device['media_artwork_width_compensation_percent']};"
+        )
+    modal = device["modal"]
+    modal_family = {
+        "compact-square": "COMPACT_SQUARE",
+        "large-square": "LARGE_SQUARE",
+        "compact-portrait": "COMPACT_PORTRAIT",
+        "wide-landscape": "WIDE_LANDSCAPE",
+        "large-landscape": "LARGE_LANDSCAPE",
+    }[modal["layoutFamily"]]
+    modal_density = {
+        "compact": "COMPACT",
+        "comfortable": "COMFORTABLE",
+        "spacious": "SPACIOUS",
+    }[modal["density"]]
+    modal_memory_tier = {
+        "standard": "STANDARD",
+        "constrained": "CONSTRAINED",
+    }[modal["memoryTier"]]
+    lines.append(
+        "            cfg.modal_profile.layout_family = "
+        f"DisplayModalLayoutFamily::{modal_family};"
+    )
+    lines.append(
+        "            cfg.modal_profile.density = "
+        f"DisplayModalDensity::{modal_density};"
+    )
+    lines.append(
+        "            cfg.modal_profile.memory_tier = "
+        f"DisplayModalMemoryTier::{modal_memory_tier};"
+    )
+    lines.append(
+        "            cfg.modal_profile.base_touch_target = "
+        f"{modal['baseTouchTarget']};"
+    )
     if device.get("color_correction"):
         correction = device["color_correction"]
         lines.append(f"            cfg.color_correction_red_percent = {correction['red']};")
@@ -352,6 +389,14 @@ def cfg_lines(device: dict) -> list[str]:
     if device.get("media_control_title_font"):
         lines.append(
             f"            cfg.media_control_title_font = id({device['media_control_title_font']})->get_lv_font();"
+        )
+    if device.get("media_cover_art_title_font"):
+        lines.append(
+            f"            cfg.media_cover_art_title_font = id({device['media_cover_art_title_font']})->get_lv_font();"
+        )
+    if device.get("media_cover_art_artist_font"):
+        lines.append(
+            f"            cfg.media_cover_art_artist_font = id({device['media_cover_art_artist_font']})->get_lv_font();"
         )
     lines.append(f"            cfg.volume_number_font = id({device['volume_number_font']})->get_lv_font();")
     lines.append(f"            cfg.volume_label_font = id({device['volume_label_font']})->get_lv_font();")
@@ -373,23 +418,19 @@ def cfg_lines(device: dict) -> list[str]:
         )
     lines.append("            cfg.temperature_unit = id(temperature_unit_select).current_option();")
     lines.append("            cfg.timezone = id(timezone_select).current_option();")
-    lines.append("            cfg.suspend_display_takeover = []() {")
-    lines.append("              id(display_takeover_suspend).execute();")
+    lines.append("            cfg.begin_display_takeover = [](espcontrol::DisplayTakeoverKind kind) {")
+    lines.append("              id(display_takeover_begin).execute(static_cast<int>(kind));")
     lines.append("            };")
-    lines.append("            cfg.resume_display_takeover = []() {")
-    lines.append("              id(display_takeover_resume).execute();")
+    lines.append("            cfg.end_display_takeover = [](espcontrol::DisplayTakeoverKind kind) {")
+    lines.append("              id(display_takeover_end).execute(static_cast<int>(kind));")
     lines.append("            };")
     if image_card_count > 0:
         lines.append("            static esphome::artwork_image::ArtworkImage *image_card_downloaders[] = {")
         for num in range(1, image_card_count + 1):
             lines.append(f"              id(image_card_download_{num}),")
         lines.append("            };")
-        lines.append("            static esphome::artwork_image::ArtworkImage *image_card_modal_downloaders[] = {")
-        for num in range(1, image_card_count + 1):
-            lines.append(f"              id(image_card_modal_download_{num}),")
-        lines.append("            };")
         lines.append("            cfg.image_card_images = image_card_downloaders;")
-        lines.append("            cfg.image_card_modal_images = image_card_modal_downloaders;")
+        lines.append("            cfg.image_card_modal_image = id(image_card_modal_download_1);")
         lines.append(f"            cfg.image_card_image_count = {image_card_count};")
     if device.get("image_card_diagnostics"):
         lines.append("            cfg.image_card_diagnostics = true;")

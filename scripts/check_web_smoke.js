@@ -22,6 +22,8 @@ function createWebSandbox() {
     setTimeout,
     clearTimeout,
     requestAnimationFrame(fn) { return setTimeout(fn, 0); },
+    URL,
+    location: { href: "http://espcontrol.test/" },
     document: {
       readyState: "loading",
       activeElement: null,
@@ -69,17 +71,6 @@ function assertGeneratedConfigValue(slug, generated, key, value) {
   );
 }
 
-function generatedDeviceId(generated) {
-  const readable = generated.match(/\bvar\s+DEVICE_ID\s*=\s*"([^"]+)"/);
-  if (readable) return readable[1];
-  const definedDevice = generated.match(/\bvar\s+[A-Za-z_$][\w$]*="((?:guition-esp32|esp32-p4)[^"]+)"/);
-  if (definedDevice) return definedDevice[1];
-  const bundled = generated.match(/\bvar\s+[A-Za-z_$][\w$]*="([^"]+)",[A-Za-z_$][\w$]*=[A-Za-z_$][\w$]*;\(function/);
-  if (bundled) return bundled[1];
-  const minified = generated.match(/^\(function\(\)\{var\s+[A-Za-z_$][\w$]*="([^"]+)",[A-Za-z_$][\w$]*=\{/);
-  return minified && minified[1];
-}
-
 const hooks = loadHooks();
 assert(hooks, "web test hooks were not exported");
 assert.strictEqual(
@@ -88,6 +79,18 @@ assert.strictEqual(
   "backup export filename includes screen size and date"
 );
 assert.deepStrictEqual(Array.from(hooks.buttonTypesMissingCardMetadata()), [], "all registered card types define card metadata");
+assert.deepStrictEqual(
+  plain(hooks.cardSizeMenuOptions({ type: "image" })).slice(-2),
+  [
+    { size: 8, label: "Max wide (3x2)" },
+    { size: 9, label: "Max tall (2x3)" },
+  ],
+  "camera card size menu exposes the two max shapes"
+);
+assert(
+  !plain(hooks.cardSizeMenuOptions({ type: "sensor" })).some((option) => option.size === 8 || option.size === 9),
+  "non-camera card size menus do not expose max shapes"
+);
 assert(
   Array.from(hooks.entityLookupNames("screen_saver_hide_cover_art_external_input")).includes("screen_saver__hide_cover_art_on_external_input"),
   "cover art external-input post aliases include the full generated object id"
@@ -110,6 +113,13 @@ assert.deepStrictEqual(Array.from(hooks.coverArtDelayPostUrls(30)), [
   "/number/cover_art_delay/set?value=30",
   "/number/Screen%20Saver%3A%20Cover%20Art%20Delay/set?value=30",
 ], "cover art delay posts include all firmware object id aliases");
+assert.deepStrictEqual(Array.from(hooks.coverArtDelayPostUrls(0)), [
+  "/number/screen_saver__cover_art_delay/set?value=3",
+  "/number/screen_saver_cover_art_delay/set?value=3",
+  "/number/cover_art_delay/set?value=3",
+  "/number/Screen%20Saver%3A%20Cover%20Art%20Delay/set?value=3",
+], "legacy immediate cover art delay posts as three seconds");
+assert.strictEqual(hooks.normalizeCoverArtDelay(0), 3, "cover art delay UI normalizes legacy immediate values");
 assert(
   Array.from(hooks.entityLookupNames("screen_saver_track_overlay_duration")).includes("screen_saver__show_track_overlay"),
   "cover art track-overlay post aliases include the legacy show-track-overlay object id"
@@ -142,23 +152,47 @@ assert.deepStrictEqual(plain(hooks.firmwareFailureStatusFor("Could not download 
 
 const manifest = JSON.parse(fs.readFileSync(DEVICE_MANIFEST, "utf8"));
 const freshOutput = freshWebOutputDir();
+const webOutput = path.join(freshOutput, "www.js");
+const generated = fs.readFileSync(webOutput, "utf8");
+
+const hostedSandbox = createWebSandbox();
+hostedSandbox.document.currentScript = {
+  getAttribute() { return "/webserver/www.js?device=guition-esp32-s3-4848s040"; },
+};
+vm.createContext(hostedSandbox);
+vm.runInContext(generated, hostedSandbox, { filename: webOutput });
+assert.strictEqual(
+  hostedSandbox.__ESPCONTROL_TEST_HOOKS__.config.imageSlotCapacity(),
+  1,
+  "shared hosted bundle selects the device profile from its script URL",
+);
+assert.strictEqual(
+  hostedSandbox.__ESPCONTROL_TEST_HOOKS__.config.imageSlotCapacityMessage(),
+  "This display supports up to 1 Media Cover Art card.",
+  "S3 explains its constrained cover-art capacity",
+);
+assert.strictEqual(
+  hostedSandbox.__ESPCONTROL_TEST_HOOKS__.config.buttonTypeVisibleInPickerFor("image", false),
+  false,
+  "S3 keeps general Image cards hidden",
+);
+assert.strictEqual(
+  hostedSandbox.__ESPCONTROL_TEST_HOOKS__.config.buttonTypeVisibleInPickerFor("media_cover_art", false),
+  true,
+  "S3 exposes Media Cover Art cards",
+);
+
 for (const [slug, device] of Object.entries(manifest.devices || {})) {
-  const webOutput = path.join(freshOutput, slug, "www.js");
-  const generated = fs.readFileSync(webOutput, "utf8");
   assertGeneratedConfigValue(slug, generated, "slots", device.slots);
   assertGeneratedConfigValue(slug, generated, "cols", device.layout.cols);
   assertGeneratedConfigValue(slug, generated, "rows", device.layout.rows);
   assertGeneratedConfigValue(slug, generated, "screenSize", device.public.screenSize);
-  assert.strictEqual(
-    generatedDeviceId(generated),
-    slug,
-    `${slug}: generated web UI must be built with the matching device id`
-  );
   assertGeneratedConfigValue(slug, generated, "slots", device.slots);
   assertGeneratedConfigValue(slug, generated, "cols", device.layout.cols);
   assertGeneratedConfigValue(slug, generated, "rows", device.layout.rows);
   assertGeneratedConfigValue(slug, generated, "screenSize", device.public.screenSize);
   const sandbox = createWebSandbox();
+  sandbox.__ESPCONTROL_DEVICE_PROFILE__ = slug;
   vm.createContext(sandbox);
   vm.runInContext(generated, sandbox, { filename: webOutput });
   assert(
@@ -222,6 +256,22 @@ for (const [slug, device] of Object.entries(manifest.devices || {})) {
       `${slug}: generated web UI must not preview disabled weather forecast modes`
     );
   }
+  if (device.capabilities.imageSlots === 0) {
+    assert(
+      !Array.from(generatedHooks.mediaModeOptionValues()).includes("cover_art"),
+      `${slug}: generated web UI must hide Media Cover Art from the Media card type list`
+    );
+    assert.strictEqual(
+      generatedHooks.mediaEditorMode("cover_art"),
+      "play_pause",
+      `${slug}: generated web UI must normalize unsupported Media Cover Art cards`
+    );
+    assert.strictEqual(
+      generatedHooks.buttonTypeVisibleInPickerFor("media_cover_art", false),
+      false,
+      `${slug}: generated web UI must hide Media Cover Art from the main card picker`
+    );
+  }
   assert(
     sandbox.__domEvents.some((event) => event.type === "DOMContentLoaded" && typeof event.listener === "function"),
     `${slug}: generated web UI must register DOMContentLoaded startup wiring`
@@ -230,8 +280,6 @@ for (const [slug, device] of Object.entries(manifest.devices || {})) {
 
 for (const [slug, device] of Object.entries(manifest.devices || {})) {
   if (!device.rotation || !device.rotation.enabled) continue;
-  const webOutput = path.join(freshOutput, slug, "www.js");
-  const generated = fs.readFileSync(webOutput, "utf8");
   const featureConfig = generated.match(/features:\{[^}]*\}/)?.[0] || "";
   assert(
     /features:\{[^}]*screenRotation:!0/.test(generated),
@@ -769,6 +817,16 @@ const sensorIconPreview = hooks.buttonTypePreviewFor("sensor", {
 assert(sensorIconPreview.iconHtml.includes("mdi-door"), "sensor icon preview uses the selected icon");
 assert(sensorIconPreview.labelHtml.includes("mdi-toggle-switch"), "sensor icon preview uses the icon badge");
 
+const sensorTimePreview = hooks.buttonTypePreviewFor("sensor", {
+  sensor: "sensor.ups_runtime",
+  label: "UPS Runtime",
+  type: "sensor",
+  precision: "time",
+  options: "time_unit=hours,large_numbers",
+}, { cardSize: 4 });
+assert.strictEqual(previewSensorValue(sensorTimePreview), "1h 30m", "sensor Time preview shows compact duration formatting");
+assert(!sensorTimePreview.iconHtml.includes("sp-sensor-preview-large"), "sensor Time preview remains on the normal responsive layout");
+
 const legacyForecastPreview = hooks.buttonTypePreviewFor("weather_forecast", {
   entity: "weather.forecast_home",
   type: "weather_forecast",
@@ -1273,8 +1331,34 @@ const mediaNowPlayingPreview = hooks.buttonTypePreviewFor("media", {
   type: "media",
   precision: "progress",
 });
-assert(mediaNowPlayingPreview.iconHtml.includes("Midnight City"), "media now-playing preview keeps title text");
+assert(mediaNowPlayingPreview.iconHtml.includes("Track Title"), "media now-playing preview uses the shared mock title");
+assert(mediaNowPlayingPreview.labelHtml.includes("Artist Name"), "media now-playing preview uses the shared mock artist");
 assert(mediaNowPlayingPreview.labelHtml.includes("sp-media-now-artist"), "media now-playing preview keeps artist styling");
+
+const mediaCoverArtPreview = hooks.buttonTypePreviewFor("media", {
+  entity: "media_player.office",
+  sensor: "cover_art",
+  type: "media",
+});
+assert.strictEqual(mediaCoverArtPreview.buttonClass, "sp-image-card", "media cover art preview uses the image-card wrapper");
+assert(mediaCoverArtPreview.iconHtml.includes("sp-image-preview"), "media cover art preview uses the shared camera-card surface");
+assert(!mediaCoverArtPreview.iconHtml.includes("sp-media-cover-preview"), "media cover art preview omits the old decorative mock");
+assert(mediaCoverArtPreview.labelHtml.includes("sp-image-label"), "media cover art preview uses the shared padded image label");
+assert(mediaCoverArtPreview.labelHtml.includes("Cover Art"), "media cover art preview shows the Cover Art label");
+assert(!mediaCoverArtPreview.labelHtml.includes("Now Playing"), "media cover art preview does not show the now-playing label");
+const mediaCoverArtDetailsPreview = hooks.buttonTypePreviewFor("media", {
+  entity: "media_player.office",
+  sensor: "cover_art",
+  type: "media",
+  options: "cover_art_details",
+});
+assert(mediaCoverArtDetailsPreview.iconHtml.includes("sp-media-cover-artwork"), "media cover art details preview demonstrates artwork");
+assert(mediaCoverArtDetailsPreview.iconHtml.includes("sp-media-cover-tint"), "media cover art details preview demonstrates its tint");
+assert(mediaCoverArtDetailsPreview.iconHtml.includes("sp-media-cover-details-title"), "media cover art details preview insets its title like other cards");
+assert(mediaCoverArtDetailsPreview.iconHtml.includes("Track Title"), "media cover art details preview shows a track title");
+assert(mediaCoverArtDetailsPreview.buttonClass.includes("sp-media-cover-details-card"), "media cover art details preview can stack large-card metadata");
+assert(mediaCoverArtDetailsPreview.labelHtml.includes("sp-media-cover-details-row"), "media cover art details preview insets its artist row like other cards");
+assert(mediaCoverArtDetailsPreview.labelHtml.includes("Artist Name"), "media cover art details preview shows an artist");
 
 const issue243Backup = {
   version: 1,
@@ -1415,10 +1499,11 @@ assert.deepStrictEqual(plain(hooks.firmwareInfosFromPublicVersions(publicVersion
 }]);
 assert.deepStrictEqual(plain(hooks.firmwareStateAfterVersionIndex("v1.12.0", publicVersionIndex)), {
   latest: "v1.12.0",
-  selected: "v1.12.0",
-  installAvailable: false,
+  selected: "v1.11.0",
+  installAvailable: true,
   selectorVisible: true,
-  installedSelected: true,
+  installedSelected: false,
+  previous: ["v1.11.0"],
 });
 assert.deepStrictEqual(plain(hooks.firmwareStateAfterVersionIndex("v1.12.0", publicVersionIndex, "v1.11.0")), {
   latest: "v1.12.0",
@@ -1426,7 +1511,13 @@ assert.deepStrictEqual(plain(hooks.firmwareStateAfterVersionIndex("v1.12.0", pub
   installAvailable: true,
   selectorVisible: true,
   installedSelected: false,
+  previous: ["v1.11.0"],
 });
+assert.strictEqual(
+  hooks.firmwareOtaUrlAfterVersionIndex("v1.12.0", publicVersionIndex, "v1.11.0"),
+  "https://jtenniswood.github.io/espcontrol/firmware/guition-esp32-p4-jc1060p470/guition-esp32-p4-jc1060p470.ota.bin",
+  "latest firmware OTA resolution must not follow the selected previous version"
+);
 assert.strictEqual(hooks.firmwareVersionLabelFor("", true), "Checking version...");
 assert.strictEqual(hooks.firmwareVersionLabelFor("", false), "Version unknown");
 assert.deepStrictEqual(plain(hooks.entityDetailPaths("text_sensor", hooks.entityLookupNames("firmware_version"))), [
@@ -1453,6 +1544,16 @@ assert.strictEqual(
   "v1.11.1"
 );
 assert.strictEqual(
+  hooks.firmwareVersionAfterUpdateInfo("v1.10.0", { state: "NO UPDATE", latest_version: "v1.11.1" }).installAction,
+  "check_then_install",
+  "public firmware discovered before the update entity should check and then install"
+);
+assert.strictEqual(
+  hooks.firmwareVersionAfterUpdateInfo("v1.10.0", { state: "UPDATE AVAILABLE", latest_version: "v1.11.1" }).installAction,
+  "install",
+  "a confirmed firmware update should install immediately"
+);
+assert.strictEqual(
   hooks.firmwareVersionAfterUpdateInfo("Dev", { state: "UPDATE AVAILABLE", latest_version: "v1.11.1" }).version,
   "Dev build"
 );
@@ -1473,4 +1574,33 @@ assert.strictEqual(
   false
 );
 
-console.log("Web UI smoke tests passed.");
+async function verifyLocalFirmwareProfileSelection() {
+  const productionOutput = freshWebOutputDir({ testHooks: false });
+  const productionBundle = fs.readFileSync(path.join(productionOutput, "www.js"), "utf8");
+  const sandbox = createWebSandbox();
+  const requested = [];
+  sandbox.document.currentScript = null;
+  sandbox.document.querySelector = () => ({ getAttribute() { return "/0.js"; } });
+  sandbox.fetch = (url) => {
+    requested.push(url);
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ device_slug: "guition-esp32-s3-4848s040" }),
+    });
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(productionBundle, sandbox, { filename: "shared-local-www.js" });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepStrictEqual(requested, ["/espcontrol/version.json"]);
+  assert(
+    sandbox.__domEvents.some((event) => event.type === "DOMContentLoaded"),
+    "shared local bundle starts after resolving the firmware device profile",
+  );
+}
+
+verifyLocalFirmwareProfileSelection()
+  .then(() => console.log("Web UI smoke tests passed."))
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });

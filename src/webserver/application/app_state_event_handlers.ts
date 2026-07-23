@@ -166,7 +166,7 @@ export function installAppStateEventHandlersModule(): GlobalDescriptors {
                 syncInput(els.setCoverArtConditions, val);
             },
             "number-screen_saver__cover_art_delay": function (this: any, val?: any) {
-                state.coverArtDelay = parseFloat(val) || 0;
+                state.coverArtDelay = normalizeCoverArtDelay(val);
                 syncCoverArtScreensaverUi();
             },
             "number-screen_saver__track_overlay_duration": function (this: any, val?: any) {
@@ -224,6 +224,10 @@ export function installAppStateEventHandlersModule(): GlobalDescriptors {
                 state._scheduleTriggerReceived = true;
                 state.scheduleTrigger = normalizeScheduleTrigger(d.value || val, state.scheduleEnabled);
                 state.scheduleEnabled = state.scheduleTrigger !== "disabled";
+                syncScreenScheduleUi();
+            },
+            "select-screen__schedule_sensor_activation": function (this: any, val?: any, d?: any) {
+                state.scheduleSensorActivation = normalizeScheduleSensorActivation(d.value || val);
                 syncScreenScheduleUi();
             },
             "number-screen__schedule_on_hour": function (this: any, val?: any) {
@@ -382,6 +386,12 @@ export function installAppStateEventHandlersModule(): GlobalDescriptors {
                     state.updateFreqOptions = d.option;
                 }
                 syncFirmwareUpdateUi();
+            },
+            "switch-wifi_firmware__auto_update": function (this: any, val?: any, d?: any) {
+                state.c6FirmwareUpdateControlsSupported = true;
+                state.c6FirmwareAutoUpdateSupported = true;
+                state.c6FirmwareAutoUpdate = d.value === true || val === "ON";
+                syncC6FirmwareUi();
             },
             "text_sensor-esp32_c6__current_firmware": function (this: any, val?: any) {
                 setC6FirmwareCurrentVersion(val);

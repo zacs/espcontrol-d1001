@@ -22,6 +22,9 @@
     "display": {
       "jc8012p4a1-1280x800": {
         "slots": 20,
+        "capabilities": {
+          "imageSlots": 6
+        },
         "public": {
           "screenSize": "10.1 inches",
           "resolution": "1280 x 800",
@@ -77,6 +80,8 @@
             "padding": 1.41,
             "iconSize": 4.1,
             "labelSize": 1.88,
+            "coverArtTitleSize": 6.875,
+            "coverArtArtistSize": 3.125,
             "labelLines": 2,
             "labelLinesDouble": 3
           },
@@ -97,7 +102,6 @@
         "firmware": {
           "display": {
             "wrapTallLabels": true,
-            "imageCardDownloaders": 6,
             "imageCardDiagnostics": true,
             "subpageChevronX": 4,
             "subpageChevronY": -2
@@ -141,6 +145,68 @@
         }
       }
     },
+    "modal": {
+      "wide-landscape": {
+        "firmware": {
+          "display": {
+            "modal": {
+              "layoutFamily": "wide-landscape",
+              "density": "comfortable",
+              "memoryTier": "standard",
+              "baseTouchTarget": 57
+            }
+          }
+        }
+      },
+      "compact-portrait": {
+        "firmware": {
+          "display": {
+            "modal": {
+              "layoutFamily": "compact-portrait",
+              "density": "compact",
+              "memoryTier": "standard",
+              "baseTouchTarget": 46
+            }
+          }
+        }
+      },
+      "large-landscape": {
+        "firmware": {
+          "display": {
+            "modal": {
+              "layoutFamily": "large-landscape",
+              "density": "spacious",
+              "memoryTier": "standard",
+              "baseTouchTarget": 76
+            }
+          }
+        }
+      },
+      "large-square": {
+        "firmware": {
+          "display": {
+            "modal": {
+              "layoutFamily": "large-square",
+              "density": "comfortable",
+              "memoryTier": "standard",
+              "baseTouchTarget": 69
+            }
+          }
+        }
+      },
+      "compact-square-constrained": {
+        "firmware": {
+          "display": {
+            "modal": {
+              "layoutFamily": "compact-square",
+              "density": "compact",
+              "memoryTier": "constrained",
+              "baseTouchTarget": 46
+            }
+          }
+        }
+      }
+    },
     "fonts": {
       "large-panel-p4": {
         "firmware": {
@@ -150,6 +216,8 @@
             "largeSensor": "font_number_value_large",
             "mediaTitle": "font_text_title",
             "mediaControlTitle": "font_cover_art_title",
+            "mediaCoverArtTitle": "font_cover_art_title",
+            "mediaCoverArtArtist": "font_cover_art_artist",
             "volumeNumber": "font_number_value_large",
             "volumeLabel": "font_text_large",
             "climateCardIcon": "font_icon_card",
@@ -170,6 +238,8 @@
             "largeSensor": "font_number_value_large",
             "mediaTitle": "font_text_title",
             "mediaControlTitle": "font_cover_art_title",
+            "mediaCoverArtTitle": "font_cover_art_title",
+            "mediaCoverArtArtist": "font_cover_art_artist",
             "volumeNumber": "font_number_value_large",
             "volumeLabel": "font_text_body",
             "climateCardIcon": "font_icon_card",
@@ -190,6 +260,8 @@
             "largeSensor": "font_number_value_large",
             "mediaTitle": "font_text_title",
             "mediaControlTitle": "font_media_control_title",
+            "mediaCoverArtTitle": "font_cover_art_title",
+            "mediaCoverArtArtist": "font_cover_art_artist",
             "volumeNumber": "font_number_value_large",
             "volumeLabel": "font_text_body",
             "climateCardIcon": "font_icon_card",
@@ -307,6 +379,7 @@
     "guition-esp32-p4-jc1060p470": {
       "profiles": {
         "platform": "esp32-p4",
+        "modal": "wide-landscape",
         "fonts": "large-panel-p4",
         "network": [
           "c6-firmware-update",
@@ -316,6 +389,9 @@
       },
       "config": {
         "slots": 15,
+        "capabilities": {
+          "imageSlots": 6
+        },
         "public": {
           "name": "Guition JC1060P470",
           "docsPath": "/screens/jc1060p470",
@@ -374,6 +450,8 @@
             "padding": 1.37,
             "iconSize": 4.69,
             "labelSize": 1.8,
+            "coverArtTitleSize": 7.421875,
+            "coverArtArtistSize": 3.90625,
             "labelLines": 2,
             "labelLinesDouble": 3
           },
@@ -394,8 +472,8 @@
         "firmware": {
           "display": {
             "wrapTallLabels": true,
-            "imageCardDownloaders": 6,
             "volumeWidthCompensationPercent": 95,
+            "mediaArtworkWidthCompensationPercent": 98,
             "coverArt": {
               "cover_art_size": "600",
               "cover_art_decode_size": "600",
@@ -483,11 +561,15 @@
     "guition-esp32-p4-jc4880p443": {
       "profiles": {
         "platform": "esp32-p4",
+        "modal": "compact-portrait",
         "fonts": "portrait-panel-p4",
         "network": "c6-firmware-update"
       },
       "config": {
         "slots": 6,
+        "capabilities": {
+          "imageSlots": 6
+        },
         "public": {
           "name": "Guition JC4880P443",
           "docsPath": "/screens/jc4880p443",
@@ -545,6 +627,8 @@
             "padding": 2.73,
             "iconSize": 14,
             "labelSize": 5.5,
+            "coverArtTitleSize": 7.375,
+            "coverArtArtistSize": 5,
             "labelLines": 2,
             "labelLinesDouble": 3
           },
@@ -565,7 +649,6 @@
         "firmware": {
           "display": {
             "wrapTallLabels": false,
-            "imageCardDownloaders": 6,
             "refreshRebuildsSubpages": true,
             "subpageChevronX": 3,
             "subpageChevronY": -2,
@@ -648,6 +731,7 @@
       "profiles": {
         "platform": "esp32-p4",
         "display": "jc8012p4a1-1280x800",
+        "modal": "large-landscape",
         "fonts": "large-panel-p4",
         "network": "c6-firmware-update",
         "artwork": "landscape-1280x800"
@@ -663,6 +747,7 @@
       "profiles": {
         "platform": "esp32-p4",
         "display": "jc8012p4a1-1280x800",
+        "modal": "large-landscape",
         "fonts": "large-panel-p4",
         "network": "c6-firmware-update",
         "artwork": "landscape-1280x800"
@@ -678,6 +763,7 @@
       "profiles": {
         "platform": "esp32-p4",
         "display": "jc8012p4a1-1280x800",
+        "modal": "large-landscape",
         "fonts": "large-panel-p4",
         "network": "c6-firmware-update",
         "artwork": "landscape-1280x800"
@@ -707,6 +793,7 @@
     "esp32-p4-86": {
       "profiles": {
         "platform": "esp32-p4",
+        "modal": "large-square",
         "fonts": "compact-panel",
         "network": [
           "c6-firmware-update",
@@ -721,6 +808,9 @@
       },
       "config": {
         "slots": 9,
+        "capabilities": {
+          "imageSlots": 6
+        },
         "public": {
           "name": "ESP32-P4 86 Panel",
           "docsPath": "/screens/p4-86",
@@ -779,6 +869,8 @@
             "padding": 2.92,
             "iconSize": 9.58,
             "labelSize": 3.96,
+            "coverArtTitleSize": 14.583333,
+            "coverArtArtistSize": 8.333333,
             "labelLines": 2,
             "labelLinesDouble": 3
           },
@@ -798,7 +890,6 @@
         },
         "firmware": {
           "display": {
-            "imageCardDownloaders": 6,
             "wrapTallLabels": false,
             "coverArt": {
               "cover_art_size": "720",
@@ -890,10 +981,14 @@
     "guition-esp32-s3-4848s040": {
       "profiles": {
         "platform": "esp32-s3",
+        "modal": "compact-square-constrained",
         "fonts": "compact-panel"
       },
       "config": {
         "slots": 9,
+        "capabilities": {
+          "imageSlots": 1
+        },
         "public": {
           "name": "Guition 4848S040",
           "docsPath": "/screens/4848s040",
@@ -936,7 +1031,8 @@
           "dragMode": "displace",
           "dragAnimation": true,
           "disabledCardTypes": [
-            "weather_forecast"
+            "weather_forecast",
+            "image"
           ],
           "screen": {
             "width": "55%",
@@ -961,6 +1057,8 @@
             "padding": 2.92,
             "iconSize": 9.58,
             "labelSize": 3.96,
+            "coverArtTitleSize": 14.583333,
+            "coverArtArtistSize": 8.333333,
             "labelLines": 2,
             "labelLinesDouble": 3
           },
@@ -981,7 +1079,6 @@
         "firmware": {
           "display": {
             "wrapTallLabels": false,
-            "imageCardDownloaders": 0,
             "subpageChevronX": 3,
             "subpageChevronY": -2,
             "subpageChevronTextWidthPercent": 96,

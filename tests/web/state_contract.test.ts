@@ -30,6 +30,7 @@ function deviceConfig(overrides: Partial<DeviceConfig> = {}): DeviceConfig {
     screenSize: "test",
     dragMode: "swap",
     dragAnimation: true,
+    imageSlotCapacity: 4,
     screen: { width: "100%", aspect: "1/1" },
     ...overrides,
   };
@@ -106,6 +107,7 @@ export function runStateContractTests(): void {
     homeAssistantArtworkProtocol: "select-home_assistant_artwork_protocol",
     homeAssistantArtworkPort: "number-home_assistant_artwork_port",
     scheduleTrigger: "text-screen__schedule_trigger",
+    scheduleSensorActivation: "select-screen__schedule_sensor_activation",
     scheduleWakeTimeout: "number-screen__schedule_wake_timeout",
     scheduleWakeBrightness: "number-screen__schedule_wake_brightness",
     scheduleDimmedBrightness: "number-screen__schedule_dimmed_brightness",
@@ -118,6 +120,7 @@ export function runStateContractTests(): void {
     ntpServer3: "text-screen__ntp_server_3",
     firmwareAutoUpdate: "switch-firmware__auto_update",
     firmwareUpdateFrequency: "select-firmware__update_frequency",
+    c6FirmwareAutoUpdate: "switch-wifi_firmware__auto_update",
   };
   for (const [group, canonical] of Object.entries(canonicals)) {
     handlers[canonical] = () => calls.push(group);
