@@ -1,0 +1,73 @@
+# =============================================================================
+# Hardware-in-the-loop (HIL) Tier-1 smoke test for the reTerminal D1001.
+# =============================================================================
+# Flashes a factory image to a physically-attached D1001 on a self-hosted
+# runner and asserts it boots and stays up (catches runtime crash-loops the
+# compile-only build can't see).
+#
+# Manual-only for now: it targets a `d1001-hil` self-hosted runner, so leaving
+# it on push/PR would queue forever until that runner exists. Once the runner is
+# online you can add a `workflow_run` trigger (after a successful build), but
+# NEVER add a fork `pull_request` trigger - untrusted code must not run on a
+# self-hosted runner attached to your hardware.
+# =============================================================================
+name: HIL smoke test (reTerminal D1001)
+
+on:
+  workflow_dispatch:
+    inputs:
+      firmware_url:
+        description: Factory .bin URL to flash (default = latest release)
+        required: false
+        default: "https://github.com/zacs/espcontrol-d1001/releases/latest/download/seeed-esp32-p4-reterminal-d1001.factory.bin"
+      soak_seconds:
+        description: Seconds to watch for reboots/crashes after boot
+        required: false
+        default: "90"
+
+# Only one job may drive the single physical device at a time.
+concurrency:
+  group: hil-d1001-device
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  device-smoke:
+    runs-on: [self-hosted, d1001-hil]
+    # Belt-and-braces: never run against untrusted fork PR code on the
+    # self-hosted runner. (workflow_dispatch is already trusted-only, but keep
+    # this guard in place if triggers are widened later.)
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install flashing/test deps
+        run: python3 -m pip install --user --upgrade esptool pyserial
+
+      - name: Fetch firmware
+        run: |
+          mkdir -p out
+          curl -fsSL "${{ github.event.inputs.firmware_url }}" -o out/firmware.factory.bin
+          ls -l out
+
+      - name: Flash + smoke test
+        env:
+          # Device port comes from a repo variable so it isn't hard-coded.
+          HIL_SERIAL_PORT: ${{ vars.HIL_SERIAL_PORT }}
+        run: |
+          python3 scripts/hil_smoke.py \
+            --firmware out/firmware.factory.bin \
+            --port "${HIL_SERIAL_PORT:-/dev/ttyUSB0}" \
+            --chip esp32p4 \
+            --soak "${{ github.event.inputs.soak_seconds }}" \
+            --log out/serial.log
+
+      - name: Upload serial log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hil-serial-log
+          path: out/serial.log
+          if-no-files-found: warn

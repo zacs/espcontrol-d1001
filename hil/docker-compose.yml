@@ -1,0 +1,51 @@
+# =============================================================================
+# Self-hosted GitHub Actions runner for reTerminal D1001 hardware-in-the-loop
+# (HIL) testing.
+# =============================================================================
+# Runs on a Docker host that has a D1001 unit permanently attached over USB.
+# The runner makes an OUTBOUND connection to GitHub and pulls jobs - the device
+# is never exposed to the internet. Jobs labelled `d1001-hil` (see
+# .github/workflows/hil-smoke.yml) flash the attached unit and assert it boots.
+#
+# Setup:
+#   1. cp .env.example .env  and fill in ACCESS_TOKEN + HIL_SERIAL_PORT.
+#   2. docker compose up -d
+#   3. Confirm the runner appears under the repo's
+#      Settings -> Actions -> Runners  with the `d1001-hil` label.
+#   4. Add a repo variable HIL_SERIAL_PORT (Settings -> Secrets and variables ->
+#      Actions -> Variables) matching your device's port.
+# See README.md in this directory for the full walkthrough and the native-USB
+# re-enumeration caveat.
+# =============================================================================
+
+services:
+  runner:
+    image: myoung34/github-runner:latest
+    restart: unless-stopped
+    environment:
+      RUNNER_SCOPE: repo
+      REPO_URL: ${REPO_URL}
+      # A GitHub PAT (classic: `repo` scope, or fine-grained: Administration +
+      # Actions read/write on this repo) so the container self-registers.
+      ACCESS_TOKEN: ${ACCESS_TOKEN}
+      RUNNER_NAME: ${RUNNER_NAME:-d1001-hil}
+      LABELS: ${LABELS:-self-hosted,d1001-hil,esp32p4}
+      # Keep the runner version pinned to what you tested; update deliberately.
+      DISABLE_AUTO_UPDATE: "true"
+    # --- Serial passthrough ------------------------------------------------
+    # For a device with a USB-UART bridge (CP210x/CH34x) the node is stable and
+    # this is all you need. Set HIL_SERIAL_PORT in .env to match the host.
+    devices:
+      - ${HIL_SERIAL_PORT:-/dev/ttyUSB0}:${HIL_SERIAL_PORT:-/dev/ttyUSB0}
+    group_add:
+      # Grant the runner access to the serial device. Use the numeric GID of
+      # the host's `dialout` (Debian/Ubuntu) or `uucp` group: `getent group dialout`.
+      - "${SERIAL_GID:-20}"
+    # --- Native-USB (USB-serial-JTAG) devices --------------------------------
+    # If the D1001 enumerates as native USB, it RE-ENUMERATES on every reset and
+    # the fixed device node above disappears mid-run. In that case comment out
+    # the `devices:` block and instead give the container the whole USB bus:
+    #   privileged: true
+    #   volumes:
+    #     - /dev/bus/usb:/dev/bus/usb
+    # and set HIL_SERIAL_PORT to a stable by-id path (see README).

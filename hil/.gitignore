@@ -1,0 +1,2 @@
+# Never commit the real runner env - it holds a GitHub token.
+.env
