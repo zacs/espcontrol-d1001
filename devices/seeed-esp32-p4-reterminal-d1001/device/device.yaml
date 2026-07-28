@@ -311,8 +311,23 @@ switch:
 # ---------------------------------------------------------------------------
 # Physical button (GPIO3). Active-high with an external pull-down, matching
 # the reTerminal D1001 BSP (active_level=1, disable_pull=true). Exposed to
-# Home Assistant for automations; EspControl takes no local action on it.
+# Home Assistant for automations.
+#
+# Secret unlock: five taps in a row - each within SECRET_TAP_MAX_GAP_MS of the
+# previous - pulse the "Secret Disarm Sequence" binary sensor below. A longer
+# gap resets the run. The firmware takes no local action; subscribe to the
+# sensor from Home Assistant (e.g. a covert way to disarm an alarm).
 # ---------------------------------------------------------------------------
+globals:
+  - id: secret_tap_count
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: secret_tap_last_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+
 binary_sensor:
   - platform: gpio
     name: Button
@@ -323,6 +338,34 @@ binary_sensor:
       mode:
         input: true
         pulldown: true
+    # Debounce so one physical tap is one press event (reliable tap counting).
+    filters:
+      - delayed_on_off: 25ms
+    on_press:
+      then:
+        - lambda: |-
+            // Count taps that arrive close together; fire on the 5th.
+            constexpr int SECRET_TAP_TARGET = 5;
+            constexpr uint32_t SECRET_TAP_MAX_GAP_MS = 2000;
+            const uint32_t now = millis();
+            if (id(secret_tap_count) == 0 ||
+                now - id(secret_tap_last_ms) <= SECRET_TAP_MAX_GAP_MS) {
+              id(secret_tap_count) += 1;
+            } else {
+              id(secret_tap_count) = 1;  // too slow - restart the run at this tap
+            }
+            id(secret_tap_last_ms) = now;
+            if (id(secret_tap_count) >= SECRET_TAP_TARGET) {
+              id(secret_tap_count) = 0;
+              id(secret_disarm_pulse).execute();
+            }
+
+  # Pulses briefly when the secret 5-tap sequence completes. Not wired to any
+  # local action - watch it from Home Assistant to disarm/act.
+  - platform: template
+    name: "Secret Disarm Sequence"
+    id: secret_disarm_sequence
+    icon: "mdi:shield-key-outline"
 
 # ---------------------------------------------------------------------------
 # Touchscreen (GSL3670 capacitive, wakes screensaver on touch).
@@ -417,6 +460,20 @@ script:
                       else:
                         - lvgl.display.set_rotation: 90
       - script.execute: cover_art_apply_responsive_layout
+
+  # Momentary pulse for the secret 5-tap unlock. restart mode re-pulses cleanly
+  # if the sequence is entered again while a pulse is still active.
+  - id: secret_disarm_pulse
+    mode: restart
+    then:
+      - lambda: 'ESP_LOGI("secret_disarm", "Secret 5-tap button sequence entered");'
+      - binary_sensor.template.publish:
+          id: secret_disarm_sequence
+          state: true
+      - delay: 750ms
+      - binary_sensor.template.publish:
+          id: secret_disarm_sequence
+          state: false
 
 select:
   - platform: template
