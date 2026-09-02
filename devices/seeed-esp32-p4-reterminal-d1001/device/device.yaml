@@ -117,6 +117,17 @@ esphome:
               - delay: 500ms
               - lambda: |-
                   App.safe_reboot();
+    - priority: 250
+      then:
+        - lambda: |-
+            // The ESP32-P4 camera ISP auto-exposure / white-balance pipeline
+            // (esp_ipa_*) emits ~10 DEBUG lines per frame, which ESPHome
+            // forwards and floods the console (and burns CPU at frame rate).
+            // Pin those tags to WARN so real errors (e.g. ISP_CCM) still show.
+            esp_log_level_set("esp_ipa_ian", ESP_LOG_WARN);
+            esp_log_level_set("esp_ipa_agc", ESP_LOG_WARN);
+            esp_log_level_set("esp_ipa_adn", ESP_LOG_WARN);
+            esp_log_level_set("esp_ipa_acc", ESP_LOG_WARN);
     - priority: -100
       then:
         - lambda: 'id(screen_rotation_ready) = true;'
