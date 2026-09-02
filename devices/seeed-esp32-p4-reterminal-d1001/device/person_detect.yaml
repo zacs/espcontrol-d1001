@@ -28,6 +28,23 @@ external_components:
     components: [person_detect, esp_video_camera]
 
 # ---------------------------------------------------------------------------
+# The camera ISP auto-exposure / white-balance pipeline (esp_ipa_*) emits ~10
+# ESP-IDF DEBUG lines per frame. With ESPHome's logger at DEBUG these are
+# forwarded and flood the console (and burn CPU at frame rate). Pin those tags
+# to WARN once at boot; real errors (e.g. ISP_CCM white-balance failures) still
+# surface. Lives here so it only applies when the camera is enabled.
+# ---------------------------------------------------------------------------
+esphome:
+  on_boot:
+    - priority: 250
+      then:
+        - lambda: |-
+            esp_log_level_set("esp_ipa_ian", ESP_LOG_WARN);
+            esp_log_level_set("esp_ipa_agc", ESP_LOG_WARN);
+            esp_log_level_set("esp_ipa_adn", ESP_LOG_WARN);
+            esp_log_level_set("esp_ipa_acc", ESP_LOG_WARN);
+
+# ---------------------------------------------------------------------------
 # MIPI-CSI capture backend (CSI + ISP + PPA -> upright RGB888).
 # Power/reset lines are on the XL9535 expander (BSP_CAM_EN/PWDN/RST).
 # ---------------------------------------------------------------------------

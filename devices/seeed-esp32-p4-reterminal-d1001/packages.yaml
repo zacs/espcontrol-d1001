@@ -134,7 +134,12 @@ packages:
   power:           !include device/power.yaml
   audio:           !include device/audio.yaml
   microphone:      !include device/microphone.yaml
-  person_detect:   !include device/person_detect.yaml
+  # Person detection is OFF by default. It pulls the zacs/esphome-person_detector
+  # external component and runs the MIPI-CSI camera + ESP-DL inference
+  # continuously, which costs significant CPU; it also provided the
+  # (uncalibrated, non-lux) "Ambient Light" sensor. To enable it on your own
+  # build, uncomment the include below.
+  # person_detect:   !include device/person_detect.yaml
 
   # ---------------------------------------------------------------------------
   # Screens (loading must be first page for LVGL startup)
