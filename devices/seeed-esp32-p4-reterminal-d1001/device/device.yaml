@@ -212,6 +212,27 @@ output:
     pin: GPIO14
     id: gpio_backlight_pwm
 
+  # Bezel status RGB LED (common-anode / active-low). Per Seeed's BSP the pins
+  # are R=GPIO22, G=GPIO36, B=GPIO23, driven with inverted PWM
+  # (duty = 100 - percent). So each channel is inverted here: output 0.0 = pin
+  # high = colour off, output 1.0 = pin low = full on. LEDC channels are left to
+  # ESPHome to auto-assign alongside the backlight.
+  - platform: ledc
+    pin: GPIO22
+    id: status_led_r
+    inverted: true
+    frequency: 1000Hz
+  - platform: ledc
+    pin: GPIO36
+    id: status_led_g
+    inverted: true
+    frequency: 1000Hz
+  - platform: ledc
+    pin: GPIO23
+    id: status_led_b
+    inverted: true
+    frequency: 1000Hz
+
 light:
   - platform: monochromatic
     output: gpio_backlight_pwm
@@ -266,6 +287,22 @@ light:
                           espcontrol::DisplayMode::ACTIVE);
                   then:
                     - script.execute: screen_schedule_manual_sleep
+
+  # Bezel status RGB LED - exposed to Home Assistant with colour + brightness
+  # and blink/pulse effects, for use as an "on" or blinking status indicator.
+  - platform: rgb
+    name: Status LED
+    id: status_led
+    icon: mdi:led-on
+    red: status_led_r
+    green: status_led_g
+    blue: status_led_b
+    restore_mode: RESTORE_DEFAULT_OFF
+    default_transition_length: 0s
+    effects:
+      - pulse:
+      - strobe:
+      - flicker:
 
 # ---------------------------------------------------------------------------
 # I2C buses (per the reTerminal D1001 I2C tree in the schematic)
